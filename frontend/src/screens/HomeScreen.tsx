@@ -1,4 +1,4 @@
-import { createElement, useState } from 'react';
+import { createElement, useEffect, useState } from 'react';
 import { Pressable, Platform, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppButton } from '../components/AppButton';
@@ -6,6 +6,9 @@ import { Screen } from '../components/Screen';
 import { Card, Input } from '../components/ui';
 import { darkColors, lightColors, radius, spacing, typography } from '../theme';
 import type { RootStackParamList } from '../types';
+import { createFleetSocket } from '../services/socket';
+import { startDriverTracking, type TrackerStatus } from '../services/driverTracker';
+import { useFleet } from '../hooks/useFleet';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -21,17 +24,7 @@ export function HomeScreen({ route }: Props) {
   }
 
   if (driver) {
-    return (
-      <Screen tone="dark" scroll>
-        <Text style={styles.kicker}>DRIVER MODE</Text>
-        <Text style={styles.title}>Ready for the road?</Text>
-        <Card tone="dark" variant="outlined">
-          <Text style={styles.cardTitle}>Your driver workspace</Text>
-          <Text style={styles.body}>Go online to receive nearby booking requests and share your live location securely.</Text>
-          <AppButton label="Go online" style={styles.button} />
-        </Card>
-      </Screen>
-    );
+    return <DriverHome />;
   }
 
   return (
@@ -84,17 +77,27 @@ export function HomeScreen({ route }: Props) {
   );
 }
 
+function DriverHome() {
+  const [status, setStatus] = useState<TrackerStatus>('offline');
+  const [stop, setStop] = useState<(() => void) | undefined>();
+  const [error, setError] = useState('');
+  useEffect(() => () => { stop?.(); }, [stop]);
+  const toggle = async () => {
+    if (stop) { stop(); setStop(undefined); setStatus('offline'); return; }
+    try { const socket = await createFleetSocket(); const cleanup = await startDriverTracking(socket, setStatus); setStop(() => () => { cleanup(); socket.close(); }); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to start location tracking'); setStatus('error'); }
+  };
+  const online = status === 'online' || status === 'requesting';
+  return <Screen tone="dark" scroll><Text style={styles.kicker}>DRIVER MODE</Text><Text style={styles.title}>Ready for the road?</Text><Card tone="dark" variant="outlined"><Text style={styles.cardTitle}>Live location sharing</Text><Text style={styles.body}>Your transport owner can see your location only while you are online. Tracking continues during an active trip.</Text><View style={styles.trackerStatus}><View style={[styles.statusDot, { backgroundColor: online ? '#4ADE80' : '#94A3B8' }]} /><Text style={styles.trackerStatusText}>{status === 'requesting' ? 'Requesting permission…' : status === 'online' ? 'Online and sharing location' : status === 'denied' ? 'Location permission denied' : status === 'error' ? 'Unable to connect' : 'Offline'}</Text></View>{error && <Text style={styles.trackerError}>{error}</Text>}<AppButton label={online ? 'Go offline' : 'Go online'} variant={online ? 'secondary' : 'primary'} style={styles.button} onPress={toggle} /></Card></Screen>;
+}
+
 function OwnerHome({ mapsKey }: { mapsKey?: string }) {
-  const fleet = [
-    { name: 'Driver 01', vehicle: 'TN 09 AB 1234', state: 'On trip', color: '#2563EB' },
-    { name: 'Driver 02', vehicle: 'TN 10 CD 5678', state: 'Available', color: '#16A34A' },
-    { name: 'Driver 03', vehicle: 'TN 11 EF 9012', state: 'Offline', color: '#94A3B8' },
-  ];
+  const { fleet: liveFleet, connection } = useFleet();
+  const fleet = liveFleet.map((driver) => ({ name: driver.driverId, vehicle: `Last update ${new Date(driver.receivedAt).toLocaleTimeString()}`, state: driver.connection === 'online' ? 'Online' : 'Stale', color: driver.connection === 'online' ? '#16A34A' : '#D97706', latitude: driver.latitude, longitude: driver.longitude }));
   return (
     <Screen tone="light" scroll>
       <View style={styles.ownerHeader}><View><Text style={styles.ownerKicker}>OWNER CONSOLE</Text><Text style={styles.ownerTitle}>Good morning, Jagath</Text></View><View style={styles.ownerBadge}><Text style={styles.ownerBadgeText}>JK</Text></View></View>
-      <View style={styles.ownerStats}><View><Text style={styles.statValue}>12</Text><Text style={styles.statLabel}>Drivers</Text></View><View><Text style={styles.statValue}>8</Text><Text style={styles.statLabel}>Online</Text></View><View><Text style={styles.statValue}>5</Text><Text style={styles.statLabel}>Active trips</Text></View></View>
-      <Card tone="light" variant="outlined" style={styles.fleetMap}><Text style={styles.sectionTitle}>Live fleet</Text><View style={styles.ownerMap}><View style={styles.ownerMapGrid} />{fleet.slice(0, 2).map((driver, index) => <View key={driver.name} style={[styles.fleetMarker, { left: 70 + index * 105, top: 72 + index * 30, backgroundColor: driver.color }]}><Text style={styles.fleetMarkerText}>{index + 1}</Text></View>)}{!mapsKey && <Text style={styles.mapHint}>Connect Google Maps to see live driver positions</Text>}</View></Card>
+      <View style={styles.ownerStats}><View><Text style={styles.statValue}>{fleet.length}</Text><Text style={styles.statLabel}>Drivers seen</Text></View><View><Text style={styles.statValue}>{fleet.filter((driver) => driver.state === 'Online').length}</Text><Text style={styles.statLabel}>Online</Text></View><View><Text style={styles.statValue}>{connection === 'connected' ? 'Live' : 'Offline'}</Text><Text style={styles.statLabel}>Socket</Text></View></View>
+      <Card tone="light" variant="outlined" style={styles.fleetMap}><Text style={styles.sectionTitle}>Live fleet</Text><View style={styles.ownerMap}><View style={styles.ownerMapGrid} />{fleet.slice(0, 8).map((driver, index) => <View key={driver.name} style={[styles.fleetMarker, { left: 25 + (index % 4) * 72, top: 45 + Math.floor(index / 4) * 65, backgroundColor: driver.color }]}><Text style={styles.fleetMarkerText}>{index + 1}</Text></View>)}{fleet.length === 0 && <Text style={styles.mapHint}>{connection === 'error' ? 'Sign in as an owner to connect to live tracking' : 'Waiting for driver locations…'}</Text>}{!mapsKey && fleet.length > 0 && <Text style={styles.mapHint}>Add Google Maps key for geographic map tiles</Text>}</View></Card>
       <Text style={styles.sectionTitle}>Driver status</Text>
       <View style={styles.driverList}>{fleet.map((driver) => <Card key={driver.name} tone="light" compact variant="outlined"><View style={styles.driverRow}><View style={[styles.statusDot, { backgroundColor: driver.color }]} /><View style={styles.driverInfo}><Text style={styles.driverName}>{driver.name}</Text><Text style={styles.driverVehicle}>{driver.vehicle}</Text></View><Text style={[styles.driverState, { color: driver.color }]}>{driver.state}</Text></View></Card>)}</View>
     </Screen>
@@ -138,6 +141,9 @@ const styles = StyleSheet.create<any>({
   button: { marginTop: spacing.lg },
   cardTitle: { ...typography.cardTitle, color: darkColors.text, marginBottom: spacing.sm },
   body: { ...typography.body, color: darkColors.textSecondary, lineHeight: 23 },
+  trackerStatus: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
+  trackerStatusText: { color: darkColors.text, fontSize: 13, fontWeight: '700' },
+  trackerError: { color: darkColors.danger, fontSize: 12, lineHeight: 18, marginTop: spacing.sm },
   ownerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.xl },
   ownerKicker: { color: lightColors.primary, fontSize: 11, letterSpacing: 2, fontWeight: '800' },
   ownerTitle: { color: lightColors.text, fontSize: 27, lineHeight: 34, fontWeight: '800', marginTop: spacing.xs },
