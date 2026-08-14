@@ -17,6 +17,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('*'),
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required').default('mongodb://127.0.0.1:27017/blacksquad_db'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  GOOGLE_CLIENT_ID: z.string().min(10).optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

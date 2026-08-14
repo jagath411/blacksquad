@@ -13,3 +13,8 @@ export async function register(name: string, email: string, password: string, ro
   await saveAccessToken(response.accessToken);
   return response.user;
 }
+export async function googleLogin(idToken: string, role: UserRole): Promise<LoginResponse['user']> {
+  const response = await apiRequest<LoginResponse>('/auth/google', { method: 'POST', body: JSON.stringify({ idToken, role }) });
+  await saveAccessToken(response.accessToken);
+  return response.user;
+}
