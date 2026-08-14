@@ -1,6 +1,7 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
 import { env } from './config/env';
 import apiRouter from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -29,6 +30,12 @@ export const createApp = (): Application => {
 
   // Mount API routes
   app.use(env.API_PREFIX, apiRouter);
+
+  // Serve the browser build through the same public port as the API.
+  // Keeping /api separate lets mobile clients use the API while browser users
+  // can test the app without requiring a second inbound security-group port.
+  const frontendDist = path.resolve(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendDist, { index: 'index.html' }));
 
   // 404 handler
   app.use(notFoundHandler);
