@@ -8,3 +8,8 @@ export async function login(email: string, password: string): Promise<LoginRespo
   await saveAccessToken(response.accessToken);
   return response.user;
 }
+export async function register(name: string, email: string, password: string, role: UserRole): Promise<LoginResponse['user']> {
+  const response = await apiRequest<LoginResponse>('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, role }) });
+  await saveAccessToken(response.accessToken);
+  return response.user;
+}
