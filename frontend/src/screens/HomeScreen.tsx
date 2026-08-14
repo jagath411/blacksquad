@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { createElement, useState } from 'react';
+import { Pressable, Platform, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppButton } from '../components/AppButton';
 import { Screen } from '../components/Screen';
@@ -14,6 +14,7 @@ export function HomeScreen({ route }: Props) {
   const [pickup, setPickup] = useState('Current location');
   const [destination, setDestination] = useState('');
   const [showDetails, setShowDetails] = useState(false);
+  const mapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (driver) {
     return (
@@ -33,7 +34,14 @@ export function HomeScreen({ route }: Props) {
     <Screen tone="dark" scroll={false} padded={false} decorative={false}>
       <View style={styles.customerRoot}>
         <View style={styles.mapSurface} accessibilityLabel="Map preview">
-          <View style={styles.mapGrid} />
+          {Platform.OS === 'web' && mapsKey && createElement('iframe', {
+            title: 'NashZero map',
+            src: `https://www.google.com/maps/embed/v1/view?key=${mapsKey}&center=12.9716,77.5946&zoom=13`,
+            style: styles.mapFrame,
+            loading: 'lazy',
+            allowFullScreen: true,
+          })}
+          {!mapsKey && <View style={styles.mapGrid} />}
           <View style={styles.mapTopRow}>
             <View>
               <Text style={styles.kicker}>CUSTOMER MODE</Text>
@@ -76,6 +84,7 @@ const styles = StyleSheet.create<any>({
   customerRoot: { flex: 1, minHeight: '100%', backgroundColor: darkColors.background },
   mapSurface: { flex: 1, minHeight: 390, backgroundColor: '#DCEBDF', overflow: 'hidden', position: 'relative' },
   mapGrid: { ...StyleSheet.absoluteFill, opacity: 0.36, backgroundColor: '#C3D6C7', borderWidth: 18, borderColor: '#EAF2EA' },
+  mapFrame: { position: 'absolute', width: '100%', height: '100%', borderWidth: 0 },
   mapTopRow: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   kicker: { color: darkColors.primary, fontSize: 11, letterSpacing: 2, fontWeight: '800' },
   title: { ...typography.pageTitle, color: darkColors.text, marginTop: spacing.sm, marginBottom: spacing.xl },
