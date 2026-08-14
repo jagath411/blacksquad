@@ -16,6 +16,7 @@ const envSchema = z.object({
   API_PREFIX: z.string().default('/api'),
   CORS_ORIGIN: z.string().default('*'),
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required').default('mongodb://127.0.0.1:27017/blacksquad_db'),
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters').default('development-only-change-this-secret-please'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
