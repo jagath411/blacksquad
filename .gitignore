@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Build and framework output
+dist/
+build/
+.expo/
+.metro-health-check*
+
+# Logs and caches
+*.log
+npm-debug.log*
+.eslintcache
+.DS_Store
+
+# Native local files
+*.keystore
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+
+# Editors
+.idea/
+.vscode/

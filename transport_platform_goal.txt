@@ -1,0 +1,383 @@
+# MASTER DEVELOPMENT PROMPT
+## Production-Grade Driver & Customer Live Tracking Platform
+
+You are acting as a **senior international mobile application architect and full-stack engineer**.
+
+Build this application from scratch as a **production-quality commercial product**, not as a prototype or simple demo.
+
+The product is a vehicle/driver booking and live-tracking platform with:
+- Driver mobile application
+- Customer mobile application
+- Owner/admin dashboard
+- Real-time GPS tracking
+- Booking management
+- Driver assignment
+- Vehicle management
+- Push notifications
+- Google Maps
+- Background location tracking
+- Secure authentication
+- Scalable backend
+
+Deployable to: Google Play Store, Apple App Store, AWS production infrastructure.
+
+Prioritize: Reliability, Security, Scalability, Performance, Clean architecture, Excellent UX, Maintainability, Production deployment readiness.
+
+---
+
+# 1. TECHNOLOGY STACK
+
+## Mobile
+React Native, TypeScript, React Navigation, Zustand or Redux Toolkit, Axios, Socket.IO Client, Google Maps, Firebase Cloud Messaging, Background GPS, Secure storage.
+
+Support Android + iOS. One codebase. Role-based experiences:
+```
+LOGIN → DRIVER → Driver app
+      → CUSTOMER → Customer app
+```
+
+## Backend
+Node.js, TypeScript, Express.js, Socket.IO, MongoDB, Mongoose, Redis-ready, JWT + Refresh tokens, bcrypt, Zod, Helmet, CORS, Rate limiting, Pino/Winston logging.
+
+Architecture: Routes → Controllers → Services → Repositories/Models
+
+---
+
+# 2. DATABASE
+
+Use MongoDB. Use GeoJSON for locations:
+```json
+{ "type": "Point", "coordinates": [longitude, latitude] }
+```
+Coordinates are ALWAYS [longitude, latitude]. Create 2dsphere indexes.
+
+---
+
+# 3. LIVE LOCATION ARCHITECTURE
+
+```
+Driver Phone → GPS → React Native → Socket.IO → Node.js Server
+                                              ├── Redis (live state)
+                                              ├── MongoDB (persistent)
+                                              └── Rooms → Customer / Owner Dashboard
+```
+
+Use WebSockets. Do NOT poll.
+
+---
+
+# 4. REDIS ARCHITECTURE
+
+Keys:
+```
+driver:{driverId}:location
+driver:{driverId}:status
+driver:{driverId}:connection
+booking:{bookingId}:active
+```
+
+Create a LocationStateService abstraction — can start with memory/MongoDB, upgrade to Redis later.
+
+---
+
+# 5. PROJECT STRUCTURE
+
+```
+transport-platform/
+├── mobile/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── screens/
+│   │   │   ├── auth/
+│   │   │   ├── driver/
+│   │   │   └── customer/
+│   │   ├── navigation/
+│   │   ├── services/
+│   │   │   ├── api/
+│   │   │   ├── socket/
+│   │   │   ├── location/
+│   │   │   └── notifications/
+│   │   ├── store/
+│   │   ├── hooks/
+│   │   ├── utils/
+│   │   ├── constants/
+│   │   └── types/
+│   ├── android/
+│   ├── ios/
+│   └── package.json
+├── backend/
+│   ├── src/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── repositories/
+│   │   ├── sockets/
+│   │   ├── validators/
+│   │   ├── utils/
+│   │   ├── types/
+│   │   ├── app.ts
+│   │   └── server.ts
+│   └── package.json
+├── admin/
+│   ├── src/
+│   └── package.json
+├── shared/
+│   └── types/
+├── docs/
+├── .gitignore
+├── README.md
+└── docker-compose.yml
+```
+
+---
+
+# 6. DEVELOPMENT PHASES
+
+```
+PHASE 1  → Project architecture
+PHASE 2  → Backend + MongoDB
+PHASE 3  → Authentication
+PHASE 4  → React Native foundation
+PHASE 5  → GPS/location service
+PHASE 6  → Socket.IO live tracking
+PHASE 7  → Customer booking
+PHASE 8  → Driver workflow
+PHASE 9  → Owner dashboard
+PHASE 10 → Notifications
+PHASE 11 → Security/performance
+PHASE 12 → Production deployment
+```
+
+Do not skip phases.
+
+---
+
+# 7. PHASE 1 — PROJECT FOUNDATION
+
+Create complete repository structure. Configure: TypeScript, ESLint, Prettier, Git, environment config, shared types, dev/prod scripts.
+
+Files to create: .env.example, README.md, docker-compose.yml
+
+Scripts: npm run dev, npm run build, npm run start, npm run lint, npm run test
+
+---
+
+# 8. PHASE 2 — BACKEND FOUNDATION
+
+```
+GET /api/health → { "success": true, "message": "API is running" }
+```
+
+Implement: Express, MongoDB connection, centralized error handling, logging, CORS, Helmet, rate limiting, request validation. Never access process.env randomly.
+
+---
+
+# 9. AUTHENTICATION
+
+Roles: OWNER, DRIVER, CUSTOMER
+
+Endpoints:
+```
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/logout
+GET  /api/auth/me
+```
+
+Use: bcrypt, JWT access token, refresh token, role-based authorization. Never use AsyncStorage for tokens.
+
+---
+
+# 10. DATABASE MODELS
+
+User: name, email, phone, passwordHash, role, isActive, createdAt, updatedAt
+Driver: userId, licenseNumber, vehicleId, availabilityStatus, currentLocation, lastLocationUpdate, createdAt, updatedAt
+Vehicle: registrationNumber, vehicleType, model, capacity, driverId, status, createdAt, updatedAt
+Customer: userId, savedAddresses, createdAt, updatedAt
+Booking: customerId, driverId, vehicleId, pickupLocation, dropLocation, status, scheduledAt, startedAt, completedAt, fare, createdAt, updatedAt
+DriverLocation: driverId, location, speed, heading, accuracy, timestamp
+
+---
+
+# 11. DRIVER LOCATION APIs
+
+```
+POST /api/drivers/location
+GET  /api/drivers/:id/location
+GET  /api/drivers/nearby
+PUT  /api/drivers/status
+```
+
+Payload: { latitude, longitude, speed, heading, accuracy }
+Validate all fields. Reject invalid GPS data.
+
+---
+
+# 12. SOCKET.IO
+
+Driver: driver:connect, driver:location:update, driver:status:update
+Customer: booking:join, booking:leave
+Server: location:broadcast, booking:status, driver:assigned, driver:online, driver:offline
+
+Rooms: driver:{driverId}, booking:{bookingId}, owner:live-tracking
+
+Authenticate via JWT. Never trust client-provided driverId.
+
+---
+
+# 13. GPS UPDATE POLICY
+
+Moving: every 3-5 seconds
+Stationary: every 15-30 seconds
+Distance filter: ~10 meters
+
+Config: LOCATION_UPDATE_INTERVAL, LOCATION_DISTANCE_FILTER
+
+Handle: GPS unavailable, permission denied, poor accuracy, network failure, socket disconnect/reconnect, app background/foreground, device lock.
+
+---
+
+# 14. BACKGROUND LOCATION
+
+Critical production feature. Driver app must track when app minimized, phone locked, or another app open.
+
+Android: location permissions, background location, foreground service, battery optimization
+iOS: location permissions, background capability, Info.plist, native config
+
+---
+
+# 15. BOOKING FLOW
+
+```
+Select pickup → Select destination → Request booking → Backend assigns driver
+→ Driver accepts → Customer gets driver info → Live tracking → Trip starts → Trip completes
+```
+
+Statuses: REQUESTED → ASSIGNED → DRIVER_ACCEPTED → DRIVER_ARRIVING → TRIP_STARTED → TRIP_COMPLETED
+Also: DRIVER_REJECTED, CANCELLED
+
+Use a state machine. No arbitrary status changes.
+
+---
+
+# 16. DRIVER APP SCREENS
+
+Splash, Login, Register, Driver Home, Availability, Booking Requests, Booking Details,
+Active Trip, Navigation, Trip Completed, Trip History, Profile, Vehicle, Settings
+
+Actions: Go Online/Offline, Accept/Reject Booking, Start/Complete Trip
+
+---
+
+# 17. CUSTOMER APP SCREENS
+
+Splash, Login, Register, Home, Pickup Selection, Destination Selection, Booking Confirmation,
+Searching Driver, Driver Assigned, Live Tracking, Trip Details, Trip Completed, Booking History, Profile, Settings
+
+Live tracking: Google Map, driver marker, driver name, vehicle, registration, ETA, status.
+
+---
+
+# 18. MAP PERFORMANCE
+
+Do NOT recreate map on every GPS update.
+Flow: Socket event → State update → Marker coordinate update → Marker animation
+Animate smoothly. Avoid unnecessary re-renders.
+
+---
+
+# 19. OWNER DASHBOARD
+
+React + TypeScript + Tailwind CSS + Google Maps + Socket.IO
+
+Pages: Overview, Drivers, Vehicles, Customers, Bookings, Live Tracking, Reports, Settings
+
+Live map: all online drivers. Click driver → name, phone, vehicle, speed, location, last update, status, active booking.
+
+---
+
+# 20. GOOGLE MAPS
+
+Implement: rendering, markers, current location, pickup/destination/driver markers, directions, routes, geocoding, reverse geocoding. Keys in environment variables.
+
+---
+
+# 21. PUSH NOTIFICATIONS (FCM)
+
+Events: New booking, Driver assigned, Accepted, Arriving, Trip started, Completed, Cancelled.
+Store device tokens securely. Handle taps and deep linking.
+
+---
+
+# 22. OFFLINE-FIRST
+
+```
+GPS → Local temp storage → Network returns → Socket reconnect → Send latest location
+```
+
+App must NOT crash or log out on temporary network loss.
+
+---
+
+# 23. SECURITY
+
+JWT + Refresh tokens, Role-based access, Zod validation, Rate limiting, Helmet, CORS,
+Secure storage, bcrypt, MongoDB injection protection, Input sanitization, HTTPS/WSS.
+
+Never trust client-provided: userId, driverId, role, booking ownership.
+
+---
+
+# 24. API RESPONSE FORMAT
+
+Success: { "success": true, "data": {} }
+Error: { "success": false, "message": "...", "code": "ERROR_CODE" }
+
+---
+
+# 25. CODE QUALITY
+
+TypeScript strict mode, ESLint, Prettier, reusable components/services, small modules,
+clear naming, no duplicate logic, no hard-coded secrets, no unnecessary dependencies.
+
+---
+
+# 26. DEVELOPMENT CHECKPOINTS
+
+After each phase: build, lint, test, fix TS errors, verify manually, update docs, commit, report completion, state next steps.
+
+---
+
+# 27. FIRST TASK — START HERE
+
+Step 1: Create repo structure (mobile/, backend/, admin/, shared/, docs/)
+Step 2: Initialize React Native + TypeScript, Node.js + TypeScript, Express, MongoDB, Socket.IO
+Step 3: Implement GET /api/health
+Step 4: Connect backend to MongoDB
+Step 5: Create User model
+Step 6: Implement POST /api/auth/register, POST /api/auth/login, GET /api/auth/me
+Step 7: JWT authentication + role-based authorization
+Step 8: React Native navigation foundation
+Step 9: Login/register screens connected to real backend
+Step 10: Verify full flow: React Native → Login → Node.js → MongoDB → JWT → Authenticated session
+
+Only after this works, proceed to GPS and Socket.IO.
+
+---
+
+# FINAL ACCEPTANCE CRITERIA
+
+```
+Driver opens app → Logs in → Goes ONLINE → Grants location permission
+→ Background GPS starts → Socket.IO connects → Location reaches backend
+→ Location stored → Customer receives live location → Owner sees driver on map
+→ Driver moves → Markers update smoothly
+→ Driver starts trip → Trip completes → Tracking stops
+```
+
+Works on: Android, iOS, Web Owner Dashboard.
+Build as a REAL production foundation. Begin with Phase 1 only.
