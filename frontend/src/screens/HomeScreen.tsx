@@ -16,6 +16,10 @@ export function HomeScreen({ route }: Props) {
   const [showDetails, setShowDetails] = useState(false);
   const mapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
+  if (route.params.role === 'OWNER') {
+    return <OwnerHome mapsKey={mapsKey} />;
+  }
+
   if (driver) {
     return (
       <Screen tone="dark" scroll>
@@ -80,6 +84,23 @@ export function HomeScreen({ route }: Props) {
   );
 }
 
+function OwnerHome({ mapsKey }: { mapsKey?: string }) {
+  const fleet = [
+    { name: 'Driver 01', vehicle: 'TN 09 AB 1234', state: 'On trip', color: '#2563EB' },
+    { name: 'Driver 02', vehicle: 'TN 10 CD 5678', state: 'Available', color: '#16A34A' },
+    { name: 'Driver 03', vehicle: 'TN 11 EF 9012', state: 'Offline', color: '#94A3B8' },
+  ];
+  return (
+    <Screen tone="light" scroll>
+      <View style={styles.ownerHeader}><View><Text style={styles.ownerKicker}>OWNER CONSOLE</Text><Text style={styles.ownerTitle}>Good morning, Jagath</Text></View><View style={styles.ownerBadge}><Text style={styles.ownerBadgeText}>JK</Text></View></View>
+      <View style={styles.ownerStats}><View><Text style={styles.statValue}>12</Text><Text style={styles.statLabel}>Drivers</Text></View><View><Text style={styles.statValue}>8</Text><Text style={styles.statLabel}>Online</Text></View><View><Text style={styles.statValue}>5</Text><Text style={styles.statLabel}>Active trips</Text></View></View>
+      <Card tone="light" variant="outlined" style={styles.fleetMap}><Text style={styles.sectionTitle}>Live fleet</Text><View style={styles.ownerMap}><View style={styles.ownerMapGrid} />{fleet.slice(0, 2).map((driver, index) => <View key={driver.name} style={[styles.fleetMarker, { left: 70 + index * 105, top: 72 + index * 30, backgroundColor: driver.color }]}><Text style={styles.fleetMarkerText}>{index + 1}</Text></View>)}{!mapsKey && <Text style={styles.mapHint}>Connect Google Maps to see live driver positions</Text>}</View></Card>
+      <Text style={styles.sectionTitle}>Driver status</Text>
+      <View style={styles.driverList}>{fleet.map((driver) => <Card key={driver.name} tone="light" compact variant="outlined"><View style={styles.driverRow}><View style={[styles.statusDot, { backgroundColor: driver.color }]} /><View style={styles.driverInfo}><Text style={styles.driverName}>{driver.name}</Text><Text style={styles.driverVehicle}>{driver.vehicle}</Text></View><Text style={[styles.driverState, { color: driver.color }]}>{driver.state}</Text></View></Card>)}</View>
+    </Screen>
+  );
+}
+
 const styles = StyleSheet.create<any>({
   customerRoot: { flex: 1, minHeight: '100%', backgroundColor: darkColors.background },
   mapSurface: { flex: 1, minHeight: 390, backgroundColor: '#DCEBDF', overflow: 'hidden', position: 'relative' },
@@ -117,4 +138,26 @@ const styles = StyleSheet.create<any>({
   button: { marginTop: spacing.lg },
   cardTitle: { ...typography.cardTitle, color: darkColors.text, marginBottom: spacing.sm },
   body: { ...typography.body, color: darkColors.textSecondary, lineHeight: 23 },
+  ownerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.xl },
+  ownerKicker: { color: lightColors.primary, fontSize: 11, letterSpacing: 2, fontWeight: '800' },
+  ownerTitle: { color: lightColors.text, fontSize: 27, lineHeight: 34, fontWeight: '800', marginTop: spacing.xs },
+  ownerBadge: { width: 42, height: 42, borderRadius: 21, backgroundColor: lightColors.primary, alignItems: 'center', justifyContent: 'center' },
+  ownerBadgeText: { color: lightColors.textInverse, fontWeight: '800' },
+  ownerStats: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.lg, borderRadius: radius.lg, backgroundColor: lightColors.surfaceSubtle, borderWidth: 1, borderColor: lightColors.border, marginBottom: spacing.xl },
+  statValue: { color: lightColors.text, fontSize: 24, fontWeight: '800' },
+  statLabel: { color: lightColors.textSecondary, fontSize: 12, marginTop: spacing.xxs },
+  fleetMap: { marginBottom: spacing.xl },
+  sectionTitle: { color: lightColors.text, fontSize: 18, fontWeight: '700', marginBottom: spacing.sm },
+  ownerMap: { height: 220, overflow: 'hidden', borderRadius: radius.md, backgroundColor: '#DCEBDF', position: 'relative' },
+  ownerMapGrid: { ...StyleSheet.absoluteFill, opacity: 0.45, backgroundColor: '#C3D6C7', borderWidth: 18, borderColor: '#EAF2EA' },
+  fleetMarker: { position: 'absolute', width: 30, height: 30, borderRadius: 15, borderWidth: 3, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  fleetMarkerText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  mapHint: { position: 'absolute', bottom: spacing.md, alignSelf: 'center', backgroundColor: '#FFFFFF', color: lightColors.textSecondary, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm, fontSize: 11 },
+  driverList: { gap: spacing.sm },
+  driverRow: { flexDirection: 'row', alignItems: 'center' },
+  statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: spacing.sm },
+  driverInfo: { flex: 1 },
+  driverName: { color: lightColors.text, fontWeight: '700', fontSize: 15 },
+  driverVehicle: { color: lightColors.textSecondary, fontSize: 12, marginTop: 2 },
+  driverState: { fontSize: 12, fontWeight: '700' },
 });
