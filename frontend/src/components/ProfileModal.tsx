@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from './AppButton';
 import { Input } from './ui';
 import { darkColors, lightColors, radius, spacing, typography } from '../theme';
 import type { UserRole } from '../types';
 import { getCurrentUser, updateUserProfile, type UserProfile } from '../services/authService';
 import { getDriverProfile, updateDriverProfile, type BankDetails } from '../services/driverService';
-import { POPULAR_BANKS, getBankInfo, type BankPreset } from '../utils/bankRegistry';
+import { ALL_INDIAN_BANKS, searchIndianBanks, findBankByCodeOrName, type IndianBankData } from '../utils/allIndianBanks';
+import { lookupIfscCode, isValidIfscFormat, type VerifiedIfscResult } from '../services/ifscService';
 
 interface ProfileModalProps {
   visible: boolean;
@@ -34,6 +35,13 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
   const [ifscCode, setIfscCode] = useState('');
   const [branchName, setBranchName] = useState('');
   const [upiId, setUpiId] = useState('');
+  const [bankLogoUrl, setBankLogoUrl] = useState('');
+
+  // Indian Bank Search & IFSC Verification State
+  const [bankSearchQuery, setBankSearchQuery] = useState('');
+  const [showBankDropdown, setShowBankDropdown] = useState(false);
+  const [ifscLoading, setIfscLoading] = useState(false);
+  const [verifiedIfsc, setVerifiedIfsc] = useState<VerifiedIfscResult | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -58,14 +66,20 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
           setIfscCode(driver.bankDetails.ifscCode || '');
           setBranchName(driver.bankDetails.branchName || '');
           setUpiId(driver.bankDetails.upiId || '');
+
+          const matched = findBankByCodeOrName(driver.bankDetails.bankName || '');
+          if (matched?.logoUrl) setBankLogoUrl(matched.logoUrl);
         }
       })
       .finally(() => setLoading(false));
   }, [visible, role]);
 
-  const selectBankPreset = (bank: BankPreset) => {
+  const handleSelectIndianBank = (bank: IndianBankData) => {
     setBankName(bank.name);
-    if (!ifscCode) setIfscCode(bank.ifscPrefix);
+    setBankLogoUrl(bank.logoUrl);
+    setShowBankDropdown(false);
+    setBankSearchQuery('');
+    if (!ifscCode) setIfscCode(bank.sampleIfsc);
     if (!branchName) setBranchName(bank.defaultBranch);
     if (!upiId && email) {
       const handle = email.split('@')[0];
@@ -73,7 +87,30 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
     }
   };
 
-  const currentBankInfo = getBankInfo(bankName);
+  const handleIfscChange = async (val: string) => {
+    const formatted = val.toUpperCase().trim();
+    setIfscCode(formatted);
+
+    if (isValidIfscFormat(formatted)) {
+      setIfscLoading(true);
+      const res = await lookupIfscCode(formatted);
+      setIfscLoading(false);
+      if (res) {
+        setVerifiedIfsc(res);
+        setBankName(res.bankName);
+        setBranchName(res.branchName);
+        if (res.logoUrl) setBankLogoUrl(res.logoUrl);
+      }
+    } else {
+      setVerifiedIfsc(null);
+    }
+  };
+
+  const matchedBankMeta = findBankByCodeOrName(bankName);
+  const activeLogoUrl = bankLogoUrl || matchedBankMeta?.logoUrl;
+  const activeColor = matchedBankMeta?.brandColor || '#2563EB';
+
+  const filteredBanks = searchIndianBanks(bankSearchQuery);
 
   const handleSave = async () => {
     setError('');
@@ -155,7 +192,7 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
             </View>
           </View>
 
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} nestedScrollEnabled>
             {message ? (
               <View style={styles.successBox}>
                 <Text style={styles.successText}>✓ {message}</Text>
@@ -197,49 +234,97 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
               </View>
             ) : tab === 'bank' ? (
               <View style={styles.formGroup}>
-                <Text style={styles.sectionHeading}>Bank Payout & Account Details</Text>
-                <Text style={styles.sectionSub}>Select your bank or search to configure instant UPI & account payouts.</Text>
+                <Text style={styles.sectionHeading}>🇮🇳 All Indian Banks Payout Setup</Text>
+                <Text style={styles.sectionSub}>Search any Indian bank or enter IFSC to auto-verify branch & logo via RBI/Razorpay API.</Text>
 
                 {/* Popular Bank Selector Chips */}
-                <Text style={styles.fieldLabel}>Select Bank</Text>
+                <Text style={styles.fieldLabel}>Select Popular Indian Bank</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bankChipsScroll}>
-                  {POPULAR_BANKS.map((b) => {
+                  {ALL_INDIAN_BANKS.slice(0, 12).map((b) => {
                     const selected = bankName === b.name;
                     return (
                       <Pressable
-                        key={b.id}
-                        style={[styles.bankChip, selected && { borderColor: b.color, backgroundColor: `${b.color}25` }]}
-                        onPress={() => selectBankPreset(b)}
+                        key={b.code}
+                        style={[styles.bankChip, selected && { borderColor: b.brandColor, backgroundColor: `${b.brandColor}25` }]}
+                        onPress={() => handleSelectIndianBank(b)}
                       >
-                        <Text style={styles.bankChipIcon}>{b.logo}</Text>
-                        <Text style={[styles.bankChipName, selected && { color: b.color }]}>{b.shortName}</Text>
+                        {b.logoUrl ? (
+                          <Image source={{ uri: b.logoUrl }} style={styles.bankChipImage} resizeMode="contain" />
+                        ) : (
+                          <Text style={styles.bankChipIcon}>{b.logoEmoji}</Text>
+                        )}
+                        <Text style={[styles.bankChipName, selected && { color: b.brandColor }]}>{b.shortName}</Text>
                       </Pressable>
                     );
                   })}
                 </ScrollView>
 
-                {/* UPI Style Live Preview Card */}
+                {/* Search All Indian Banks Input */}
+                <View style={{ zIndex: 10 }}>
+                  <Input
+                    label="Search Any Indian Bank (100+ Banks)"
+                    value={bankName || bankSearchQuery}
+                    onChangeText={(q) => {
+                      setBankSearchQuery(q);
+                      setBankName(q);
+                      setShowBankDropdown(true);
+                    }}
+                    onFocus={() => setShowBankDropdown(true)}
+                    placeholder="Type bank name (e.g. Canara, SBI, Federal, HDFC...)"
+                    tone="dark"
+                  />
+
+                  {showBankDropdown && (
+                    <View style={styles.bankDropdown}>
+                      <ScrollView nestedScrollEnabled style={{ maxHeight: 180 }}>
+                        {filteredBanks.map((item) => (
+                          <Pressable
+                            key={item.code}
+                            style={styles.dropdownItem}
+                            onPress={() => handleSelectIndianBank(item)}
+                          >
+                            <View style={[styles.dropdownBadge, { backgroundColor: item.brandColor }]}>
+                              <Text style={{ fontSize: 14 }}>{item.logoEmoji}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.dropdownBankName}>{item.name}</Text>
+                              <Text style={styles.dropdownBankCode}>IFSC Code Prefix: {item.code}</Text>
+                            </View>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                {/* Real Logo UPI Style Live Card */}
                 {bankName ? (
-                  <View style={[styles.upiCard, { borderColor: currentBankInfo.color }]}>
+                  <View style={[styles.upiCard, { borderColor: activeColor }]}>
                     <View style={styles.upiCardHeader}>
-                      <View style={[styles.bankBadge, { backgroundColor: currentBankInfo.color }]}>
-                        <Text style={styles.bankBadgeText}>{currentBankInfo.logo}</Text>
+                      <View style={[styles.bankBadge, { backgroundColor: activeColor }]}>
+                        {activeLogoUrl ? (
+                          <Image source={{ uri: activeLogoUrl }} style={styles.bankBadgeImage} resizeMode="contain" />
+                        ) : (
+                          <Text style={styles.bankBadgeText}>{matchedBankMeta?.logoEmoji || '🏦'}</Text>
+                        )}
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.upiBankTitle}>{bankName}</Text>
-                        <Text style={styles.upiBranchText}>{branchName || currentBankInfo.defaultBranch}</Text>
+                        <Text style={styles.upiBranchText}>{branchName || matchedBankMeta?.defaultBranch || 'Branch Setup'}</Text>
                       </View>
-                      <Text style={styles.verifiedBadge}>✓ Verified</Text>
+                      <Text style={styles.verifiedBadge}>✓ Real Bank Logo</Text>
                     </View>
                     <View style={styles.upiCardDivider} />
                     <View style={styles.upiCardRow}>
                       <Text style={styles.upiLabel}>IFSC Code:</Text>
-                      <Text style={styles.upiValue}>{ifscCode || currentBankInfo.ifscPrefix}</Text>
+                      <Text style={styles.upiValue}>{ifscCode || matchedBankMeta?.sampleIfsc || 'N/A'}</Text>
                     </View>
-                    {upiId ? (
+                    {verifiedIfsc?.address ? (
                       <View style={styles.upiCardRow}>
-                        <Text style={styles.upiLabel}>UPI Pay Handle:</Text>
-                        <Text style={[styles.upiValue, { color: '#38BDF8' }]}>{upiId}</Text>
+                        <Text style={styles.upiLabel}>Branch Address:</Text>
+                        <Text style={[styles.upiValue, { fontSize: 11, flex: 1, textAlign: 'right' }]} numberOfLines={2}>
+                          {verifiedIfsc.address}
+                        </Text>
                       </View>
                     ) : null}
                   </View>
@@ -252,20 +337,33 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
                   placeholder="Name as in bank account"
                   tone="dark"
                 />
+
+                <View>
+                  <Input
+                    label="IFSC Code (Auto-Verifies via Razorpay API)"
+                    value={ifscCode}
+                    onChangeText={handleIfscChange}
+                    placeholder="e.g. CNRB0001002 or SBIN0000840"
+                    autoCapitalize="characters"
+                    maxLength={11}
+                    tone="dark"
+                  />
+                  {ifscLoading && <Text style={styles.ifscHintLoading}>⚡ Validating IFSC with Razorpay/RBI Database...</Text>}
+                  {verifiedIfsc && (
+                    <Text style={styles.ifscHintSuccess}>
+                      ✓ Verified Branch: {verifiedIfsc.branchName} ({verifiedIfsc.city}, {verifiedIfsc.state})
+                    </Text>
+                  )}
+                </View>
+
                 <Input
-                  label="Bank Name"
-                  value={bankName}
-                  onChangeText={setBankName}
-                  placeholder="e.g. HDFC Bank, ICICI, State Bank of India"
-                  tone="dark"
-                />
-                <Input
-                  label="Branch Name"
+                  label="Branch Name & Address"
                   value={branchName}
                   onChangeText={setBranchName}
-                  placeholder="e.g. Indiranagar 100ft Rd Branch"
+                  placeholder="e.g. Bodinayakanur Branch, Tamil Nadu"
                   tone="dark"
                 />
+
                 <Input
                   label="Account Number"
                   value={accountNumber}
@@ -274,19 +372,12 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
                   keyboardType="number-pad"
                   tone="dark"
                 />
-                <Input
-                  label="IFSC / SWIFT Code"
-                  value={ifscCode}
-                  onChangeText={setIfscCode}
-                  placeholder="e.g. HDFC0000240"
-                  autoCapitalize="characters"
-                  tone="dark"
-                />
+
                 <Input
                   label="UPI ID / Direct Pay Handle"
                   value={upiId}
                   onChangeText={setUpiId}
-                  placeholder="name@okhdfcbank / GPay handle"
+                  placeholder="name@oksbi / name@paytm / GPay handle"
                   tone="dark"
                 />
               </View>
@@ -597,6 +688,61 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontWeight: '700',
     fontSize: 12,
+  },
+  bankChipImage: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  bankDropdown: {
+    backgroundColor: '#0F172A',
+    borderColor: '#334155',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    marginTop: 4,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+    gap: spacing.sm,
+  },
+  dropdownBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropdownBankName: {
+    color: '#F8FAFC',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  dropdownBankCode: {
+    color: '#94A3B8',
+    fontSize: 10,
+  },
+  bankBadgeImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  ifscHintLoading: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  ifscHintSuccess: {
+    color: '#34D399',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
   },
   footer: {
     padding: spacing.xl,

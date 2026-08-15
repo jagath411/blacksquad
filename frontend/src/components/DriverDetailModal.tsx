@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from './AppButton';
 import { radius, spacing } from '../theme';
+import { findBankByCodeOrName } from '../utils/allIndianBanks';
 import { getBankInfo } from '../utils/bankRegistry';
 
 export interface DriverDetailData {
@@ -43,7 +44,10 @@ export function DriverDetailModal({ driver, onClose, onTrackOnMap }: DriverDetai
     }, 1200);
   };
 
+  const matchedIndianBank = findBankByCodeOrName(driver.bankDetails?.bankName || '');
   const bankInfo = getBankInfo(driver.bankDetails?.bankName);
+  const activeLogo = matchedIndianBank?.logoUrl;
+  const activeColor = matchedIndianBank?.brandColor || bankInfo.color;
 
   return (
     <Modal visible={Boolean(driver)} animationType="slide" transparent onRequestClose={onClose}>
@@ -104,18 +108,22 @@ export function DriverDetailModal({ driver, onClose, onTrackOnMap }: DriverDetai
               />
             </View>
 
-            {/* Payout & Bank Account Details with Bank Logo */}
+            {/* Payout & Bank Account Details with Real Bank Logo */}
             <View style={styles.card}>
               <Text style={styles.cardHeader}>Bank Account & Payout Details</Text>
               {driver.bankDetails && (driver.bankDetails.bankName || driver.bankDetails.upiId) ? (
                 <>
-                  <View style={[styles.bankHeaderBadgeRow, { borderColor: bankInfo.color }]}>
-                    <View style={[styles.bankLogoBadge, { backgroundColor: bankInfo.color }]}>
-                      <Text style={styles.bankLogoIcon}>{bankInfo.logo}</Text>
+                  <View style={[styles.bankHeaderBadgeRow, { borderColor: activeColor }]}>
+                    <View style={[styles.bankLogoBadge, { backgroundColor: activeColor }]}>
+                      {activeLogo ? (
+                        <Image source={{ uri: activeLogo }} style={{ width: 22, height: 22, borderRadius: 11 }} resizeMode="contain" />
+                      ) : (
+                        <Text style={styles.bankLogoIcon}>{matchedIndianBank?.logoEmoji || bankInfo.logo}</Text>
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.bankNameTitle}>{driver.bankDetails.bankName || bankInfo.name}</Text>
-                      <Text style={styles.bankBranchText}>{driver.bankDetails.branchName || bankInfo.defaultBranch}</Text>
+                      <Text style={styles.bankNameTitle}>{driver.bankDetails.bankName || matchedIndianBank?.name || bankInfo.name}</Text>
+                      <Text style={styles.bankBranchText}>{driver.bankDetails.branchName || matchedIndianBank?.defaultBranch || bankInfo.defaultBranch}</Text>
                     </View>
                     <Text style={styles.activePayoutTag}>Active Payout</Text>
                   </View>
