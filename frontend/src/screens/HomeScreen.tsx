@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppButton } from '../components/AppButton';
 import { Screen } from '../components/Screen';
@@ -563,6 +563,7 @@ const styles = StyleSheet.create<any>({
   earningValue: { color: '#4ADE80', fontWeight: '800', fontSize: 16 },
   declineBtn: { alignItems: 'center', paddingVertical: spacing.sm },
   declineText: { color: '#EF4444', fontWeight: '700', fontSize: 13 },
+  headerLogo: { width: 36, height: 36, borderRadius: 10, marginRight: 10 },
 });
 
 
