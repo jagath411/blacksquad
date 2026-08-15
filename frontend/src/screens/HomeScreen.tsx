@@ -373,15 +373,21 @@ function OwnerHome({ onLogout, openProfile, profileModal }: { onLogout: () => vo
   const { fleet: liveFleet, connection } = useFleet();
   const [selectedDriver, setSelectedDriver] = useState<DriverDetailData | null>(null);
 
-  const fleet: DriverDetailData[] = liveFleet.map((driver) => ({
-    id: driver.driverId,
-    name: driver.driverId,
-    vehicle: `Last update ${new Date(driver.receivedAt).toLocaleTimeString()}`,
-    state: driver.connection === 'online' ? 'Online' : 'Stale',
-    color: driver.connection === 'online' ? '#16A34A' : '#D97706',
-    latitude: driver.latitude,
-    longitude: driver.longitude,
-  }));
+  const fleet: DriverDetailData[] = liveFleet.map((driver) => {
+    let name = driver.driverName;
+    if (!name || /^[0-9a-fA-F]{24}$/.test(name)) {
+      name = `Driver (${driver.driverId.slice(-4)})`;
+    }
+    return {
+      id: driver.driverId,
+      name,
+      vehicle: `Last update ${new Date(driver.receivedAt).toLocaleTimeString()}`,
+      state: driver.connection === 'online' ? 'Online' : 'Stale',
+      color: driver.connection === 'online' ? '#16A34A' : '#D97706',
+      latitude: driver.latitude,
+      longitude: driver.longitude,
+    };
+  });
 
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number }>({
     latitude: 12.9716,
