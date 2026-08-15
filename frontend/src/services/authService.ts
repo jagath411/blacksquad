@@ -1,5 +1,5 @@
 import { apiRequest } from './api/client';
-import { saveAccessToken } from './tokenStore';
+import { saveAccessToken, saveSessionUser } from './tokenStore';
 import type { UserRole } from '../types';
 
 export interface UserProfile {
@@ -15,16 +15,19 @@ interface LoginResponse { success: boolean; accessToken: string; user: UserProfi
 export async function login(email: string, password: string): Promise<UserProfile> {
   const response = await apiRequest<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
   await saveAccessToken(response.accessToken);
+  await saveSessionUser(response.user);
   return response.user;
 }
 export async function register(name: string, email: string, password: string, role: UserRole): Promise<UserProfile> {
   const response = await apiRequest<LoginResponse>('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, role }) });
   await saveAccessToken(response.accessToken);
+  await saveSessionUser(response.user);
   return response.user;
 }
 export async function googleLogin(idToken: string, role: UserRole): Promise<UserProfile> {
   const response = await apiRequest<LoginResponse>('/auth/google', { method: 'POST', body: JSON.stringify({ idToken, role }) });
   await saveAccessToken(response.accessToken);
+  await saveSessionUser(response.user);
   return response.user;
 }
 

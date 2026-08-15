@@ -13,7 +13,7 @@ import type { RootStackParamList, UserRole } from '../types';
 import { createFleetSocket } from '../services/socket';
 import { startDriverTracking, type TrackerStatus } from '../services/driverTracker';
 import { useFleet } from '../hooks/useFleet';
-import { clearAccessToken } from '../services/tokenStore';
+import { clearAllStorage } from '../services/tokenStore';
 import {
   createBooking,
   getActiveBooking,
@@ -69,7 +69,7 @@ export function HomeScreen({ route, navigation }: Props) {
   }, [activeBooking?.status]);
 
   const handleLogout = async () => {
-    await clearAccessToken();
+    await clearAllStorage();
     navigation.reset({
       index: 0,
       routes: [{ name: 'Role' }],
