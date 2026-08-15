@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from './AppButton';
 import { radius, spacing } from '../theme';
+import { getBankInfo } from '../utils/bankRegistry';
 
 export interface DriverDetailData {
   id: string;
@@ -16,6 +17,7 @@ export interface DriverDetailData {
     bankName?: string;
     accountNumber?: string;
     ifscCode?: string;
+    branchName?: string;
     upiId?: string;
   };
 }
@@ -40,6 +42,8 @@ export function DriverDetailModal({ driver, onClose, onTrackOnMap }: DriverDetai
       setTimeout(() => setSettled(false), 5000);
     }, 1200);
   };
+
+  const bankInfo = getBankInfo(driver.bankDetails?.bankName);
 
   return (
     <Modal visible={Boolean(driver)} animationType="slide" transparent onRequestClose={onClose}>
@@ -100,21 +104,26 @@ export function DriverDetailModal({ driver, onClose, onTrackOnMap }: DriverDetai
               />
             </View>
 
-            {/* Payout & Bank Account Details */}
+            {/* Payout & Bank Account Details with Bank Logo */}
             <View style={styles.card}>
               <Text style={styles.cardHeader}>Bank Account & Payout Details</Text>
               {driver.bankDetails && (driver.bankDetails.bankName || driver.bankDetails.upiId) ? (
                 <>
+                  <View style={[styles.bankHeaderBadgeRow, { borderColor: bankInfo.color }]}>
+                    <View style={[styles.bankLogoBadge, { backgroundColor: bankInfo.color }]}>
+                      <Text style={styles.bankLogoIcon}>{bankInfo.logo}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.bankNameTitle}>{driver.bankDetails.bankName || bankInfo.name}</Text>
+                      <Text style={styles.bankBranchText}>{driver.bankDetails.branchName || bankInfo.defaultBranch}</Text>
+                    </View>
+                    <Text style={styles.activePayoutTag}>Active Payout</Text>
+                  </View>
+
                   {driver.bankDetails.accountHolderName && (
                     <View style={styles.row}>
                       <Text style={styles.label}>Account Holder</Text>
                       <Text style={styles.value}>{driver.bankDetails.accountHolderName}</Text>
-                    </View>
-                  )}
-                  {driver.bankDetails.bankName && (
-                    <View style={styles.row}>
-                      <Text style={styles.label}>Bank Name</Text>
-                      <Text style={styles.value}>{driver.bankDetails.bankName}</Text>
                     </View>
                   )}
                   {driver.bankDetails.accountNumber && (
@@ -125,14 +134,14 @@ export function DriverDetailModal({ driver, onClose, onTrackOnMap }: DriverDetai
                   )}
                   {driver.bankDetails.ifscCode && (
                     <View style={styles.row}>
-                      <Text style={styles.label}>IFSC / SWIFT</Text>
+                      <Text style={styles.label}>IFSC / SWIFT Code</Text>
                       <Text style={styles.value}>{driver.bankDetails.ifscCode}</Text>
                     </View>
                   )}
                   {driver.bankDetails.upiId && (
                     <View style={styles.row}>
-                      <Text style={styles.label}>UPI / Instant Pay</Text>
-                      <Text style={styles.value}>{driver.bankDetails.upiId}</Text>
+                      <Text style={styles.label}>UPI / Instant Pay Handle</Text>
+                      <Text style={[styles.value, { color: '#38BDF8' }]}>{driver.bankDetails.upiId}</Text>
                     </View>
                   )}
                 </>
@@ -312,5 +321,43 @@ const styles = StyleSheet.create({
     color: '#34D399',
     fontWeight: '700',
     fontSize: 13,
+  },
+  bankHeaderBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    padding: spacing.md,
+    gap: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  bankLogoBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bankLogoIcon: {
+    fontSize: 18,
+  },
+  bankNameTitle: {
+    color: '#F8FAFC',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  bankBranchText: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  activePayoutTag: {
+    color: '#34D399',
+    backgroundColor: '#064E3B',
+    fontSize: 10,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
 });

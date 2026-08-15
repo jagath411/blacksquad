@@ -6,6 +6,7 @@ import { darkColors, lightColors, radius, spacing, typography } from '../theme';
 import type { UserRole } from '../types';
 import { getCurrentUser, updateUserProfile, type UserProfile } from '../services/authService';
 import { getDriverProfile, updateDriverProfile, type BankDetails } from '../services/driverService';
+import { POPULAR_BANKS, getBankInfo, type BankPreset } from '../utils/bankRegistry';
 
 interface ProfileModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [ifscCode, setIfscCode] = useState('');
+  const [branchName, setBranchName] = useState('');
   const [upiId, setUpiId] = useState('');
 
   useEffect(() => {
@@ -54,11 +56,24 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
           setBankName(driver.bankDetails.bankName || '');
           setAccountNumber(driver.bankDetails.accountNumber || '');
           setIfscCode(driver.bankDetails.ifscCode || '');
+          setBranchName(driver.bankDetails.branchName || '');
           setUpiId(driver.bankDetails.upiId || '');
         }
       })
       .finally(() => setLoading(false));
   }, [visible, role]);
+
+  const selectBankPreset = (bank: BankPreset) => {
+    setBankName(bank.name);
+    if (!ifscCode) setIfscCode(bank.ifscPrefix);
+    if (!branchName) setBranchName(bank.defaultBranch);
+    if (!upiId && email) {
+      const handle = email.split('@')[0];
+      setUpiId(`${handle}${bank.upiHandles[0] || '@upi'}`);
+    }
+  };
+
+  const currentBankInfo = getBankInfo(bankName);
 
   const handleSave = async () => {
     setError('');
@@ -74,6 +89,7 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
           bankName,
           accountNumber,
           ifscCode,
+          branchName,
           upiId,
         };
         await updateDriverProfile({ bankDetails: bankData });
@@ -182,7 +198,52 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
             ) : tab === 'bank' ? (
               <View style={styles.formGroup}>
                 <Text style={styles.sectionHeading}>Bank Payout & Account Details</Text>
-                <Text style={styles.sectionSub}>Enter account details to receive payouts & settlements directly.</Text>
+                <Text style={styles.sectionSub}>Select your bank or search to configure instant UPI & account payouts.</Text>
+
+                {/* Popular Bank Selector Chips */}
+                <Text style={styles.fieldLabel}>Select Bank</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bankChipsScroll}>
+                  {POPULAR_BANKS.map((b) => {
+                    const selected = bankName === b.name;
+                    return (
+                      <Pressable
+                        key={b.id}
+                        style={[styles.bankChip, selected && { borderColor: b.color, backgroundColor: `${b.color}25` }]}
+                        onPress={() => selectBankPreset(b)}
+                      >
+                        <Text style={styles.bankChipIcon}>{b.logo}</Text>
+                        <Text style={[styles.bankChipName, selected && { color: b.color }]}>{b.shortName}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* UPI Style Live Preview Card */}
+                {bankName ? (
+                  <View style={[styles.upiCard, { borderColor: currentBankInfo.color }]}>
+                    <View style={styles.upiCardHeader}>
+                      <View style={[styles.bankBadge, { backgroundColor: currentBankInfo.color }]}>
+                        <Text style={styles.bankBadgeText}>{currentBankInfo.logo}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.upiBankTitle}>{bankName}</Text>
+                        <Text style={styles.upiBranchText}>{branchName || currentBankInfo.defaultBranch}</Text>
+                      </View>
+                      <Text style={styles.verifiedBadge}>✓ Verified</Text>
+                    </View>
+                    <View style={styles.upiCardDivider} />
+                    <View style={styles.upiCardRow}>
+                      <Text style={styles.upiLabel}>IFSC Code:</Text>
+                      <Text style={styles.upiValue}>{ifscCode || currentBankInfo.ifscPrefix}</Text>
+                    </View>
+                    {upiId ? (
+                      <View style={styles.upiCardRow}>
+                        <Text style={styles.upiLabel}>UPI Pay Handle:</Text>
+                        <Text style={[styles.upiValue, { color: '#38BDF8' }]}>{upiId}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
 
                 <Input
                   label="Account Holder Name"
@@ -195,7 +256,14 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
                   label="Bank Name"
                   value={bankName}
                   onChangeText={setBankName}
-                  placeholder="e.g. HDFC Bank, Chase, Citi"
+                  placeholder="e.g. HDFC Bank, ICICI, State Bank of India"
+                  tone="dark"
+                />
+                <Input
+                  label="Branch Name"
+                  value={branchName}
+                  onChangeText={setBranchName}
+                  placeholder="e.g. Indiranagar 100ft Rd Branch"
                   tone="dark"
                 />
                 <Input
@@ -210,7 +278,7 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
                   label="IFSC / SWIFT Code"
                   value={ifscCode}
                   onChangeText={setIfscCode}
-                  placeholder="e.g. HDFC0001234"
+                  placeholder="e.g. HDFC0000240"
                   autoCapitalize="characters"
                   tone="dark"
                 />
@@ -218,7 +286,7 @@ export function ProfileModal({ visible, role, onClose, onLogout }: ProfileModalP
                   label="UPI ID / Direct Pay Handle"
                   value={upiId}
                   onChangeText={setUpiId}
-                  placeholder="name@upi / GPay handle"
+                  placeholder="name@okhdfcbank / GPay handle"
                   tone="dark"
                 />
               </View>
@@ -440,6 +508,95 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontWeight: '700',
     fontSize: 13,
+  },
+  fieldLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.xs,
+  },
+  bankChipsScroll: {
+    marginVertical: 4,
+  },
+  bankChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    backgroundColor: '#1E293B',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    marginRight: spacing.sm,
+    gap: 6,
+  },
+  bankChipIcon: {
+    fontSize: 16,
+  },
+  bankChipName: {
+    color: '#F8FAFC',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  upiCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    padding: spacing.md,
+    marginVertical: spacing.xs,
+    gap: spacing.xs,
+  },
+  upiCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  bankBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bankBadgeText: {
+    fontSize: 20,
+  },
+  upiBankTitle: {
+    color: '#F8FAFC',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  upiBranchText: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  verifiedBadge: {
+    color: '#10B981',
+    fontWeight: '800',
+    fontSize: 11,
+    backgroundColor: '#064E3B',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  upiCardDivider: {
+    height: 1,
+    backgroundColor: '#1E293B',
+    marginVertical: 4,
+  },
+  upiCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  upiLabel: {
+    color: '#64748B',
+    fontSize: 12,
+  },
+  upiValue: {
+    color: '#F8FAFC',
+    fontWeight: '700',
+    fontSize: 12,
   },
   footer: {
     padding: spacing.xl,

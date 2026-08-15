@@ -7,6 +7,7 @@ export interface BankDetails {
   bankName?: string;
   accountNumber?: string;
   ifscCode?: string;
+  branchName?: string;
   upiId?: string;
 }
 
@@ -32,6 +33,7 @@ const driverSchema = new Schema<DriverDocument>({
     bankName: { type: String, trim: true },
     accountNumber: { type: String, trim: true },
     ifscCode: { type: String, trim: true },
+    branchName: { type: String, trim: true },
     upiId: { type: String, trim: true },
   },
   currentLocation: { type: { type: String, enum: ['Point'] }, coordinates: { type: [Number] } },

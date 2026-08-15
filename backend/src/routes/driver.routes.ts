@@ -12,6 +12,7 @@ const bankDetailsSchema = z.object({
   bankName: z.string().optional(),
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
+  branchName: z.string().optional(),
   upiId: z.string().optional(),
 }).optional();
 
