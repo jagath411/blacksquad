@@ -201,7 +201,7 @@ export function HomeScreen({ route, navigation }: Props) {
                           <Text style={styles.tierName}>{tier.name}</Text>
                           <Text style={styles.tierPrice}>{tier.price}</Text>
                         </View>
-                        <Text style={styles.tierDesc}>{tier.desc} • <Text style={styles.etaText}>{tier.eta}</Text></Text>
+                        <Text style={styles.tierDesc}>{`${tier.desc} • ${tier.eta}`}</Text>
                       </View>
                     </Pressable>
                   );
