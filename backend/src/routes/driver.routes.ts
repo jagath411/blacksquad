@@ -7,8 +7,21 @@ import { VehicleModel } from '../models/Vehicle';
 import { locationState } from '../services/location.service';
 import type { AuthenticatedRequest } from '../types/auth';
 
+const bankDetailsSchema = z.object({
+  accountHolderName: z.string().optional(),
+  bankName: z.string().optional(),
+  accountNumber: z.string().optional(),
+  ifscCode: z.string().optional(),
+  upiId: z.string().optional(),
+}).optional();
+
+const profileSchema = z.object({
+  licenseNumber: z.string().min(3).max(80).optional(),
+  availabilityStatus: z.enum(['OFFLINE', 'AVAILABLE', 'ON_TRIP']).optional(),
+  bankDetails: bankDetailsSchema,
+});
+
 const router = Router();
-const profileSchema = z.object({ licenseNumber: z.string().min(3).max(80).optional(), availabilityStatus: z.enum(['OFFLINE', 'AVAILABLE', 'ON_TRIP']).optional() });
 
 router.get('/me', requireAuth, requireRole('DRIVER'), async (req: AuthenticatedRequest, res, next) => {
   try { const driver = await DriverModel.findOne({ userId: req.user!.id }).populate('vehicleId').lean(); res.json({ success: true, driver }); } catch (error) { next(error); }

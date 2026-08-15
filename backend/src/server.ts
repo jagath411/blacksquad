@@ -28,12 +28,22 @@ const startServer = async (): Promise<http.Server> => {
   io.on('connection', (socket) => {
     const user = socket.data.user as AuthUser;
     if (user.role === 'OWNER') socket.join('owners');
+
+    socket.on('booking:join', (bookingId: string) => {
+      if (typeof bookingId === 'string' && bookingId.length > 0) {
+        socket.join(`booking:${bookingId}`);
+      }
+    });
+
     socket.on('driver:location', async (payload: unknown) => {
       if (user.role !== 'DRIVER' || !payload || typeof payload !== 'object') return;
       const value = payload as Record<string, unknown>;
       if (typeof value.latitude !== 'number' || typeof value.longitude !== 'number' || typeof value.timestamp !== 'number') return;
       const result = await locationState.update({ driverId: user.id, latitude: value.latitude, longitude: value.longitude, timestamp: value.timestamp, speed: typeof value.speed === 'number' ? value.speed : undefined, heading: typeof value.heading === 'number' ? value.heading : undefined, accuracy: typeof value.accuracy === 'number' ? value.accuracy : undefined });
-      if (result.accepted) io.to('owners').emit('fleet:location', result.location);
+      if (result.accepted) {
+        io.to('owners').emit('fleet:location', result.location);
+        io.emit('driver:location:update', result.location);
+      }
     });
     socket.on('owner:fleet:subscribe', () => { if (user.role === 'OWNER') socket.emit('fleet:snapshot', locationState.all()); });
   });

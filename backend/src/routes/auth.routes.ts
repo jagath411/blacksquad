@@ -39,18 +39,112 @@ router.post('/login', async (req, res, next) => {
 
 router.post('/google', async (req, res, next) => {
   try {
-    if (!env.GOOGLE_CLIENT_ID) { res.status(503).json({ success: false, message: 'Google sign-in is not configured yet' }); return; }
-    const data = z.object({ idToken: z.string().min(20), role: z.enum(['OWNER', 'DRIVER', 'CUSTOMER']).default('CUSTOMER') }).parse(req.body);
-    const ticket = await googleClient.verifyIdToken({ idToken: data.idToken, audience: env.GOOGLE_CLIENT_ID });
-    const payload = ticket.getPayload();
-    if (!payload?.sub || !payload.email || payload.email_verified !== true) { res.status(401).json({ success: false, message: 'Google account could not be verified' }); return; }
-    let user = await UserModel.findOne({ email: payload.email.toLowerCase() });
-    if (!user) user = await UserModel.create({ name: payload.name ?? payload.email.split('@')[0], email: payload.email.toLowerCase(), passwordHash: await bcrypt.hash(`google:${payload.sub}:${env.JWT_SECRET}`, 12), role: data.role });
-    if (user.role === 'DRIVER') await DriverModel.findOneAndUpdate({ userId: user._id }, { $setOnInsert: { userId: user._id } }, { upsert: true });
-    const authUser = { id: user.id, email: user.email, role: user.role };
-    res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role }, accessToken: tokenFor(authUser) });
+    const data = z.object({
+      idToken: z.string().min(10),
+      role: z.enum(['OWNER', 'DRIVER', 'CUSTOMER']).default('CUSTOMER'),
+    }).parse(req.body);
+
+    const audiences = [
+      env.GOOGLE_CLIENT_ID,
+      env.GOOGLE_WEB_CLIENT_ID,
+      env.GOOGLE_ANDROID_CLIENT_ID,
+      env.GOOGLE_IOS_CLIENT_ID,
+    ].filter((id): id is string => Boolean(id && id.length > 5));
+
+    let email: string | undefined;
+    let name: string | undefined;
+    let googleSub: string | undefined;
+
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: data.idToken,
+        audience: audiences.length > 0 ? audiences : undefined,
+      });
+      const payload = ticket.getPayload();
+      if (payload?.email && payload.email_verified) {
+        email = payload.email.toLowerCase();
+        name = payload.name || payload.email.split('@')[0];
+        googleSub = payload.sub;
+      }
+    } catch {
+      // Fallback: Query Google userinfo endpoint if idToken is an access token
+      const userinfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${data.idToken}` },
+      });
+      if (userinfoRes.ok) {
+        const info = await userinfoRes.json() as { email?: string; name?: string; sub?: string; email_verified?: boolean };
+        if (info.email) {
+          email = info.email.toLowerCase();
+          name = info.name || info.email.split('@')[0];
+          googleSub = info.sub;
+        }
+      }
+    }
+
+    if (!email || !googleSub) {
+      res.status(401).json({ success: false, message: 'Google account token could not be verified' });
+      return;
+    }
+
+    let user = await UserModel.findOne({ email });
+    if (!user) {
+      user = await UserModel.create({
+        name: name || email.split('@')[0],
+        email,
+        passwordHash: await bcrypt.hash(`google:${googleSub}:${env.JWT_SECRET}`, 12),
+        role: data.role,
+      });
+    }
+
+    if (user.role === 'DRIVER') {
+      await DriverModel.findOneAndUpdate(
+        { userId: user._id },
+        { $setOnInsert: { userId: user._id } },
+        { upsert: true }
+      );
+    }
+
+    const authUser = { id: user.id, email: user.email, name: user.name, role: user.role };
+    res.json({
+      success: true,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      accessToken: tokenFor(authUser),
+    });
   } catch (error) { next(error); }
 });
 
 router.get('/me', requireAuth, (req: AuthenticatedRequest, res) => res.json({ success: true, user: req.user }));
+
+router.patch('/me', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const updateSchema = z.object({
+      name: z.string().min(2).max(120).optional(),
+      phoneNumber: z.string().max(30).optional(),
+    });
+    const data = updateSchema.parse(req.body);
+    const user = await UserModel.findByIdAndUpdate(
+      req.user!.id,
+      { $set: data },
+      { new: true, runValidators: true }
+    ).lean();
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    res.json({
+      success: true,
+      user: { id: user._id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, role: user.role },
+    });
+  } catch (error) { next(error); }
+});
+
+router.post('/push-token', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const tokenSchema = z.object({ pushToken: z.string().min(1) });
+    const { pushToken } = tokenSchema.parse(req.body);
+    await UserModel.findByIdAndUpdate(req.user!.id, { $set: { pushToken } });
+    res.json({ success: true, message: 'Push token registered successfully' });
+  } catch (error) { next(error); }
+});
+
 export default router;
