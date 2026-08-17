@@ -58,34 +58,27 @@ jobs:
       - name: Inspect EAS environment
         working-directory: frontend
         run: |
-          {
-            echo "### EAS Diagnostics"
-            echo "- EXPO_TOKEN length: ${#EXPO_TOKEN}"
-            echo "- EAS CLI version: $(eas --version)"
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "EXPO_TOKEN length: ${#EXPO_TOKEN}"
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::EXPO_TOKEN secret is empty! Please check your GitHub repository secrets."
-            echo "❌ **ERROR**: EXPO_TOKEN secret is empty in GitHub repository settings!" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::EXPO_TOKEN secret is completely empty in GitHub Secrets!"
             exit 1
           fi
-          echo "Logged in as:" >> "$GITHUB_STEP_SUMMARY"
-          eas whoami >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+          whoami_out=$(eas whoami 2>&1 || true)
+          echo "::notice::EAS Authenticated as: $whoami_out"
+          echo "Logged in as: $whoami_out"
 
       - name: Build preview APK with EAS
         working-directory: frontend
         run: |
           echo "Launching EAS Build..."
-          eas build --platform android --profile preview --non-interactive --wait > /tmp/eas-build.log 2>&1 || {
-            status=$?
-            echo "### ❌ EAS Build Failed (Exit Code: $status)" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            cat /tmp/eas-build.log >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            cat /tmp/eas-build.log
-            exit $status
-          }
-          echo "### ✅ EAS Build Succeeded" >> "$GITHUB_STEP_SUMMARY"
-          cat /tmp/eas-build.log
+          if ! eas build --platform android --profile preview --non-interactive --wait > /tmp/eas-build.log 2>&1; then
+            echo "::error::===== EAS BUILD FAILED WITH OUTPUT: ====="
+            while IFS= read -r line; do
+              echo "::error::[EAS] $line"
+            done < /tmp/eas-build.log
+            exit 1
+          fi
+          echo "✅ EAS Build Succeeded"
 
       - name: Publish APK download URL
         working-directory: frontend
@@ -102,8 +95,6 @@ jobs:
               if (url) {
                 fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Android preview APK\n\n🎉 **[Download BlackSquad Preview APK](${url})**\n\n- Build ID: \`${build.id}\`\n- Status: \`${build.status}\`\n- Created: \`${build.createdAt}\`\n`);
                 console.log(`APK URL: ${url}`);
-              } else {
-                console.log('No build URL found in EAS JSON:', JSON.stringify(build, null, 2));
               }
             } catch (e) {
               console.error(e);
