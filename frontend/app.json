@@ -2,7 +2,7 @@
   "expo": {
     "name": "BlackSquad Mobility",
     "slug": "blacksquad-mobile",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "scheme": "blacksquad",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -27,7 +27,7 @@
     ],
     "android": {
       "package": "com.blacksquad.mobile",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#07100D"
