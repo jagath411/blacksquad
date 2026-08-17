@@ -52,3 +52,17 @@ jobs:
       - name: Build preview APK with EAS
         working-directory: frontend
         run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --wait
+
+      - name: Publish APK download URL
+        working-directory: frontend
+        run: |
+          npx --yes eas-cli@latest build:list --platform android --limit 1 --json > /tmp/latest-build.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const raw = JSON.parse(fs.readFileSync('/tmp/latest-build.json', 'utf8'));
+          const build = Array.isArray(raw) ? raw[0] : (raw.builds || [])[0];
+          const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl || build?.applicationArchiveUrl;
+          if (!url) throw new Error('EAS completed but did not return an APK URL');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Android preview APK\n\n[Download APK](${url})\n`);
+          console.log(`APK URL: ${url}`);
+          NODE
