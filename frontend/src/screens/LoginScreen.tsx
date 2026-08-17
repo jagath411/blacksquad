@@ -33,12 +33,14 @@ export function LoginScreen({ route, navigation }: Props) {
   const nativeClientId = Platform.OS === 'android' ? androidClientId : iosClientId;
   const nativeClientKey = nativeClientId.split('.apps.googleusercontent.com')[0];
   const redirectUri = makeRedirectUri({
+    scheme: 'blacksquad',
     native: nativeClientKey ? `com.googleusercontent.apps.${nativeClientKey}:/oauthredirect` : 'blacksquad:/oauthredirect',
   });
   const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({
     webClientId,
     androidClientId,
     iosClientId,
+    scopes: ['openid', 'profile', 'email'],
     redirectUri,
     selectAccount: true,
   });
@@ -53,15 +55,23 @@ export function LoginScreen({ route, navigation }: Props) {
       setError('Google sign-in was not completed. Please try again.');
       return;
     }
-    const idToken = googleResponse.authentication?.idToken || googleResponse.params?.id_token;
-    if (!idToken) {
-      setError('Google did not return an ID token. Please try again.');
+    const token =
+      googleResponse.authentication?.idToken ||
+      googleResponse.params?.id_token ||
+      googleResponse.authentication?.accessToken ||
+      googleResponse.params?.access_token;
+
+    if (!token) {
+      setError('Google did not return an authentication token. Please try again.');
       return;
     }
     setLoading(true);
-    googleLogin(idToken, route.params.role)
+    googleLogin(token, route.params.role)
       .then(() => navigation.navigate('Home', { role: route.params.role }))
-      .catch(() => setError('Google sign-in could not be completed. Please try again.'))
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : 'Google sign-in could not be completed.';
+        setError(msg);
+      })
       .finally(() => setLoading(false));
   }, [googleResponse, navigation, route.params.role]);
 
