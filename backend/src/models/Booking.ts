@@ -21,6 +21,17 @@ export interface BookingDocument extends Document {
   status: BookingStatus;
   fare: number;
   distanceKm?: number;
+  startOtp?: string;
+  driverRating?: number;
+  riderRating?: number;
+  cancellationReason?: string;
+  driverLocation?: {
+    latitude: number;
+    longitude: number;
+    heading?: number;
+    speed?: number;
+    updatedAt: Date;
+  };
   startedAt?: Date;
   completedAt?: Date;
   cancelledAt?: Date;
@@ -60,6 +71,20 @@ const bookingSchema = new Schema<BookingDocument>(
     },
     fare: { type: Number, required: true, min: 0 },
     distanceKm: { type: Number, min: 0 },
+    startOtp: {
+      type: String,
+      default: () => Math.floor(1000 + Math.random() * 9000).toString(),
+    },
+    driverRating: { type: Number, min: 1, max: 5 },
+    riderRating: { type: Number, min: 1, max: 5 },
+    cancellationReason: { type: String },
+    driverLocation: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+      heading: { type: Number },
+      speed: { type: Number },
+      updatedAt: { type: Date },
+    },
     startedAt: { type: Date },
     completedAt: { type: Date },
     cancelledAt: { type: Date },

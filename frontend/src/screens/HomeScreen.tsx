@@ -554,7 +554,7 @@ export function HomeScreen({ route, navigation }: Props) {
               </View>
 
               <View style={s.driverMeta}>
-                <Text style={s.driverNameDark}>
+                <Text style={s.driverName}>
                   {typeof activeBooking.driverId === 'object' &&
                   activeBooking.driverId?.userId?.name
                     ? activeBooking.driverId.userId.name
@@ -1021,12 +1021,12 @@ export function HomeScreen({ route, navigation }: Props) {
                   ]}
                 />
                 <View style={s.driverInfo}>
-                  <Text style={s.driverName}>{driver.driverName || 'Driver'}</Text>
-                  <Text style={s.driverVehicle}>ID: {driver.driverId.slice(-6)}</Text>
+                  <Text style={s.ownerDriverName}>{driver.driverName || 'Driver'}</Text>
+                  <Text style={s.ownerDriverVehicle}>ID: {driver.driverId.slice(-6)}</Text>
                 </View>
                 <Text
                   style={[
-                    s.driverState,
+                    s.ownerDriverState,
                     { color: driver.connection === 'online' ? '#00D084' : '#64748B' },
                   ]}
                 >
@@ -1138,7 +1138,7 @@ const s = StyleSheet.create<any>({
   },
   driverAvatarText: { color: '#FFFFFF', fontWeight: '900', fontSize: 16 },
   driverMeta: { flex: 1 },
-  driverNameDark: { color: '#F8FAFC', fontWeight: '800', fontSize: 16 },
+  driverName: { color: '#F8FAFC', fontWeight: '800', fontSize: 16 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   ratingStar: { color: '#FACC15', fontSize: 12 },
   ratingScore: { color: '#F8FAFC', fontWeight: '700', fontSize: 12 },
@@ -1481,7 +1481,7 @@ const s = StyleSheet.create<any>({
   driverRow: { flexDirection: 'row', alignItems: 'center' },
   statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: spacing.sm },
   driverInfo: { flex: 1 },
-  driverName: { color: lightColors.text, fontWeight: '700', fontSize: 15 },
-  driverVehicle: { color: lightColors.textSecondary, fontSize: 12, marginTop: 2 },
-  driverState: { fontSize: 12, fontWeight: '700' },
+  ownerDriverName: { color: lightColors.text, fontWeight: '700', fontSize: 15 },
+  ownerDriverVehicle: { color: lightColors.textSecondary, fontSize: 12, marginTop: 2 },
+  ownerDriverState: { fontSize: 12, fontWeight: '700' },
 });
