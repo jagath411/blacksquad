@@ -23,21 +23,29 @@ export interface DriverDocument extends Document {
   updatedAt: Date;
 }
 
-const driverSchema = new Schema<DriverDocument>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
-  licenseNumber: { type: String, trim: true, maxlength: 80 },
-  vehicleId: { type: Schema.Types.ObjectId, ref: 'Vehicle', index: true },
-  availabilityStatus: { type: String, enum: ['OFFLINE', 'AVAILABLE', 'ON_TRIP'], default: 'OFFLINE', index: true },
-  bankDetails: {
-    accountHolderName: { type: String, trim: true },
-    bankName: { type: String, trim: true },
-    accountNumber: { type: String, trim: true },
-    ifscCode: { type: String, trim: true },
-    branchName: { type: String, trim: true },
-    upiId: { type: String, trim: true },
+const driverSchema = new Schema<DriverDocument>(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
+    licenseNumber: { type: String, trim: true, maxlength: 80 },
+    vehicleId: { type: Schema.Types.ObjectId, ref: 'Vehicle', index: true },
+    availabilityStatus: {
+      type: String,
+      enum: ['OFFLINE', 'AVAILABLE', 'ON_TRIP'],
+      default: 'OFFLINE',
+      index: true,
+    },
+    bankDetails: {
+      accountHolderName: { type: String, trim: true },
+      bankName: { type: String, trim: true },
+      accountNumber: { type: String, trim: true },
+      ifscCode: { type: String, trim: true },
+      branchName: { type: String, trim: true },
+      upiId: { type: String, trim: true },
+    },
+    currentLocation: { type: { type: String, enum: ['Point'] }, coordinates: { type: [Number] } },
+    lastLocationUpdate: { type: Date, index: true },
   },
-  currentLocation: { type: { type: String, enum: ['Point'] }, coordinates: { type: [Number] } },
-  lastLocationUpdate: { type: Date, index: true },
-}, { timestamps: true });
+  { timestamps: true },
+);
 driverSchema.index({ currentLocation: '2dsphere' });
 export const DriverModel = model<DriverDocument>('Driver', driverSchema);
