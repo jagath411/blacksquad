@@ -54,7 +54,13 @@ jobs:
 
       - name: Build preview APK with EAS
         working-directory: frontend
-        run: eas build --platform android --profile preview --non-interactive --wait
+        run: |
+          echo "=== EAS Auth Check ==="
+          eas whoami
+          echo "=== EAS Project Info ==="
+          eas project:info
+          echo "=== Launching EAS Build ==="
+          eas build --platform android --profile preview --non-interactive --wait
 
       - name: Publish APK download URL
         working-directory: frontend
