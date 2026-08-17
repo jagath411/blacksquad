@@ -29,7 +29,7 @@ export function LoginScreen({ route, navigation }: Props) {
   const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
   const isGoogleConfigured = Boolean(webClientId || androidClientId || iosClientId);
-  const redirectUri = makeRedirectUri({ scheme: 'blacksquad', path: 'oauthredirect' });
+  const redirectUri = makeRedirectUri({ native: 'com.blacksquad.mobile:/oauthredirect' });
   const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({
     webClientId,
     androidClientId,
