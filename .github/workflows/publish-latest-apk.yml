@@ -40,6 +40,6 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add latest-apk-url.txt
+          git add latest-apk-url.txt eas-diagnostic.txt
           git diff --cached --quiet || git commit -m 'ci: update latest APK link [skip ci]'
-          git push
+          git push origin HEAD:apk-link
