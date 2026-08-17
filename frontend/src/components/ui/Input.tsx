@@ -36,7 +36,7 @@ export function Input({ label, helperText, error, tone = 'light', leading, trail
             hitSlop={8}
             onPress={() => setVisible((value) => !value)}
           >
-            <Text style={[styles.visibility, { color: theme.textSecondary }]}>{visible ? 'Hide' : 'Show'}</Text>
+            <Text style={[styles.visibility, { color: theme.textSecondary }]}>👁</Text>
           </Pressable>
         )}
         {trailing}
@@ -52,5 +52,5 @@ const styles = StyleSheet.create<{ group: ViewStyle; label: TextStyle; field: Vi
   field: { minHeight: 48, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md },
   input: { ...typography.body, flex: 1, minHeight: 46, paddingVertical: 0 },
   supporting: typography.caption,
-  visibility: { ...typography.caption, fontWeight: '800' },
+  visibility: { fontSize: 18, lineHeight: 22, fontWeight: '800' },
 });
