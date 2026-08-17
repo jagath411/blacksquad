@@ -35,9 +35,14 @@ export function LoginScreen({ route, navigation }: Props) {
   }, []);
 
   useEffect(() => {
-    if (googleResponse?.type !== 'success' || !googleResponse.authentication?.idToken) return;
+    if (googleResponse?.type !== 'success') return;
+    const idToken = googleResponse.authentication?.idToken || googleResponse.params?.id_token;
+    if (!idToken) {
+      setError('Google did not return an ID token. Please try again.');
+      return;
+    }
     setLoading(true);
-    googleLogin(googleResponse.authentication.idToken, route.params.role)
+    googleLogin(idToken, route.params.role)
       .then(() => navigation.navigate('Home', { role: route.params.role }))
       .catch(() => setError('Google sign-in could not be completed. Please try again.'))
       .finally(() => setLoading(false));

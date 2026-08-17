@@ -18,7 +18,12 @@ const credentials = z.object({
 });
 const tokenFor = (user: { id: string; email: string; role: UserRole }) =>
   jwt.sign(user, env.JWT_SECRET, { expiresIn: '1h' });
-const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(
+  env.GOOGLE_CLIENT_ID
+    || env.GOOGLE_WEB_CLIENT_ID
+    || env.GOOGLE_ANDROID_CLIENT_ID
+    || env.GOOGLE_IOS_CLIENT_ID,
+);
 
 router.post('/register', async (req, res, next) => {
   try {
