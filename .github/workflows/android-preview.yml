@@ -1,0 +1,56 @@
+name: Expo Preview APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent_dev
+
+jobs:
+  build:
+    name: Build APK with EAS Cloud
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_ACCESS_TOKEN || secrets.EAS_TOKEN }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN || secrets.EXPO_ACCESS_TOKEN || secrets.EAS_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Configure mobile production environment
+        working-directory: frontend
+        run: |
+          printf '%s\n' \
+            'EXPO_PUBLIC_API_BASE_URL=https://comply-plywood-crept.ngrok-free.dev/api' \
+            'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=892541607147-lsvgfd2bnc14bedn150a0jflmv30gh1m.apps.googleusercontent.com' \
+            'EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=892541607147-no1cnphat1e4ksb72urft5l2991afn6l.apps.googleusercontent.com' \
+            'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=892541607147-mrse0ua8umjjk9rdc588chb3qtauph41.apps.googleusercontent.com' \
+            > .env
+
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Build APK on Expo EAS Cloud
+        working-directory: frontend
+        run: |
+          npx eas-cli build --platform android --profile preview --non-interactive
