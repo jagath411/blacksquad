@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
-import { Image, Pressable, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
@@ -29,7 +29,12 @@ export function LoginScreen({ route, navigation }: Props) {
   const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
   const isGoogleConfigured = Boolean(webClientId || androidClientId || iosClientId);
-  const redirectUri = makeRedirectUri({ native: 'com.blacksquad.mobile:/oauthredirect' });
+  // Google native OAuth expects the reversed Android/iOS client scheme, not the API URL or app package.
+  const nativeClientId = Platform.OS === 'android' ? androidClientId : iosClientId;
+  const nativeClientKey = nativeClientId.split('.apps.googleusercontent.com')[0];
+  const redirectUri = makeRedirectUri({
+    native: nativeClientKey ? `com.googleusercontent.apps.${nativeClientKey}:/oauthredirect` : 'blacksquad:/oauthredirect',
+  });
   const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({
     webClientId,
     androidClientId,
@@ -199,10 +204,10 @@ const s = StyleSheet.create<{
     marginBottom: 36,
   },
   logoImage: {
-    width: 96,
-    height: 96,
+    width: 132,
+    height: 132,
     borderRadius: 14,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   kicker: {
     color: colors.green,
