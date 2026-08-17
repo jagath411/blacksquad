@@ -13,7 +13,8 @@ export const errorHandler = (
   _next: NextFunction,
 ): void => {
   const statusCode = err instanceof ZodError ? 400 : err.statusCode || 500;
-  const message = err instanceof ZodError ? 'Request validation failed' : err.message || 'Internal Server Error';
+  const message =
+    err instanceof ZodError ? 'Request validation failed' : err.message || 'Internal Server Error';
 
   // eslint-disable-next-line no-console
   console.error(`❌ [Error ${statusCode}]:`, err.message);
@@ -22,7 +23,9 @@ export const errorHandler = (
     success: false,
     message,
     ...(env.NODE_ENV === 'development' && { stack: err.stack }),
-    ...(err instanceof ZodError && { issues: err.issues.map((issue) => ({ path: issue.path, message: issue.message })) }),
+    ...(err instanceof ZodError && {
+      issues: err.issues.map((issue) => ({ path: issue.path, message: issue.message })),
+    }),
   });
 };
 

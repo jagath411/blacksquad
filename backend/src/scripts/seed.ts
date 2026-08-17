@@ -28,7 +28,7 @@ async function seed() {
           isActive: true,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
     if (!primaryOwnerId) primaryOwnerId = owner._id as mongoose.Types.ObjectId;
     console.log(`👤 Owner Account Ready: ${email}`);
@@ -45,7 +45,7 @@ async function seed() {
         isActive: true,
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, new: true },
   );
   console.log(`🚗 Driver User Account Ready: driver@gmail.com`);
 
@@ -63,7 +63,7 @@ async function seed() {
         lastLocationUpdate: new Date(),
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, new: true },
   );
   console.log(`📋 Driver Profile Created/Linked for user ID: ${driverUser._id}`);
 
@@ -80,7 +80,7 @@ async function seed() {
         status: 'ACTIVE',
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, new: true },
   );
 
   // Link vehicle to driver profile

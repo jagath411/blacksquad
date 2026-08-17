@@ -13,14 +13,17 @@ export interface UserDocument extends Document {
   updatedAt: Date;
 }
 
-const userSchema = new Schema<UserDocument>({
-  name: { type: String, required: true, trim: true, minlength: 2, maxlength: 120 },
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-  phoneNumber: { type: String, trim: true, maxlength: 30 },
-  pushToken: { type: String, trim: true },
-  passwordHash: { type: String, required: true, select: false },
-  role: { type: String, enum: ['OWNER', 'DRIVER', 'CUSTOMER'], default: 'CUSTOMER', index: true },
-  isActive: { type: Boolean, default: true, index: true },
-}, { timestamps: true });
+const userSchema = new Schema<UserDocument>(
+  {
+    name: { type: String, required: true, trim: true, minlength: 2, maxlength: 120 },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+    phoneNumber: { type: String, trim: true, maxlength: 30 },
+    pushToken: { type: String, trim: true },
+    passwordHash: { type: String, required: true, select: false },
+    role: { type: String, enum: ['OWNER', 'DRIVER', 'CUSTOMER'], default: 'CUSTOMER', index: true },
+    isActive: { type: Boolean, default: true, index: true },
+  },
+  { timestamps: true },
+);
 
 export const UserModel = model<UserDocument>('User', userSchema);

@@ -13,16 +13,24 @@ const startServer = async (): Promise<http.Server> => {
 
   const app = createApp();
   const server = http.createServer(app);
-  const io = new SocketIOServer(server, { cors: { origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',') } });
+  const io = new SocketIOServer(server, {
+    cors: { origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',') },
+  });
   if (dbService.isConnected()) await locationState.loadFromDatabase();
 
   io.use((socket, next) => {
-    const token = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
-    if (!token) { next(new Error('Authentication required')); return; }
+    const token =
+      typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
+    if (!token) {
+      next(new Error('Authentication required'));
+      return;
+    }
     try {
       socket.data.user = jwt.verify(token, env.JWT_SECRET) as AuthUser;
       next();
-    } catch { next(new Error('Invalid or expired token')); }
+    } catch {
+      next(new Error('Invalid or expired token'));
+    }
   });
 
   io.on('connection', (socket) => {
@@ -38,14 +46,29 @@ const startServer = async (): Promise<http.Server> => {
     socket.on('driver:location', async (payload: unknown) => {
       if (user.role !== 'DRIVER' || !payload || typeof payload !== 'object') return;
       const value = payload as Record<string, unknown>;
-      if (typeof value.latitude !== 'number' || typeof value.longitude !== 'number' || typeof value.timestamp !== 'number') return;
-      const result = await locationState.update({ driverId: user.id, latitude: value.latitude, longitude: value.longitude, timestamp: value.timestamp, speed: typeof value.speed === 'number' ? value.speed : undefined, heading: typeof value.heading === 'number' ? value.heading : undefined, accuracy: typeof value.accuracy === 'number' ? value.accuracy : undefined });
+      if (
+        typeof value.latitude !== 'number' ||
+        typeof value.longitude !== 'number' ||
+        typeof value.timestamp !== 'number'
+      )
+        return;
+      const result = await locationState.update({
+        driverId: user.id,
+        latitude: value.latitude,
+        longitude: value.longitude,
+        timestamp: value.timestamp,
+        speed: typeof value.speed === 'number' ? value.speed : undefined,
+        heading: typeof value.heading === 'number' ? value.heading : undefined,
+        accuracy: typeof value.accuracy === 'number' ? value.accuracy : undefined,
+      });
       if (result.accepted) {
         io.to('owners').emit('fleet:location', result.location);
         io.emit('driver:location:update', result.location);
       }
     });
-    socket.on('owner:fleet:subscribe', () => { if (user.role === 'OWNER') socket.emit('fleet:snapshot', locationState.all()); });
+    socket.on('owner:fleet:subscribe', () => {
+      if (user.role === 'OWNER') socket.emit('fleet:snapshot', locationState.all());
+    });
   });
 
   server.listen(env.PORT, () => {

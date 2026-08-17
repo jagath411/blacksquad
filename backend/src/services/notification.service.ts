@@ -3,7 +3,7 @@ import { UserModel } from '../models/User';
 export interface NotificationPayload {
   title: string;
   body: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export class NotificationService {
@@ -17,7 +17,9 @@ export class NotificationService {
 
       // Log notification payload for server tracing
       // eslint-disable-next-line no-console
-      console.log(`🔔 [NOTIFICATION SENT] User: ${user.name} (${user.email}) | ${payload.title}: ${payload.body}`);
+      console.log(
+        `🔔 [NOTIFICATION SENT] User: ${user.name} (${user.email}) | ${payload.title}: ${payload.body}`,
+      );
 
       if (user.pushToken) {
         // FCM / Expo push service handler stub
@@ -38,7 +40,7 @@ export class NotificationService {
   public async notifyTripMilestone(
     customerId: string,
     driverName: string,
-    status: 'DRIVER_ACCEPTED' | 'DRIVER_ARRIVING' | 'TRIP_STARTED' | 'TRIP_COMPLETED' | 'CANCELLED'
+    status: 'DRIVER_ACCEPTED' | 'DRIVER_ARRIVING' | 'TRIP_STARTED' | 'TRIP_COMPLETED' | 'CANCELLED',
   ): Promise<void> {
     const titles: Record<string, string> = {
       DRIVER_ACCEPTED: 'Driver Confirmed!',
