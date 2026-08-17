@@ -35,6 +35,10 @@ jobs:
         continue-on-error: true
         run: npx expo-doctor
 
+      - name: Verify Expo authentication
+        working-directory: frontend
+        run: npx eas whoami
+
       - name: Build preview APK with EAS
         working-directory: frontend
         run: npx eas build --platform android --profile preview --non-interactive --wait
