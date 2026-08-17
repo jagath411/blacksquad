@@ -37,7 +37,10 @@ class DatabaseService {
     mongoose.connection.on('error', (err) => {
       // Safe error log without exposing credentials
       // eslint-disable-next-line no-console
-      console.error('❌ MongoDB connection error:', err instanceof Error ? err.message : 'Unknown error');
+      console.error(
+        '❌ MongoDB connection error:',
+        err instanceof Error ? err.message : 'Unknown error',
+      );
     });
 
     mongoose.connection.on('disconnected', () => {

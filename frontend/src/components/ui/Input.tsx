@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle, type ViewStyle } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle, type ViewStyle } from 'react-native';
 import { darkColors, lightColors, radius, spacing, typography } from '../../theme';
 
 export interface InputProps extends TextInputProps {
@@ -12,6 +12,7 @@ export interface InputProps extends TextInputProps {
 }
 
 export function Input({ label, helperText, error, tone = 'light', leading, trailing, style, accessibilityLabel, ...props }: InputProps) {
+  const [visible, setVisible] = useState(false);
   const theme = tone === 'light' ? lightColors : darkColors;
   const supportingText = error ?? helperText;
   return (
@@ -24,8 +25,20 @@ export function Input({ label, helperText, error, tone = 'light', leading, trail
           accessibilityLabel={accessibilityLabel ?? label}
           accessibilityState={{ disabled: props.editable === false }}
           placeholderTextColor={theme.textSecondary}
+          secureTextEntry={props.secureTextEntry && !visible}
           style={[styles.input, { color: theme.text }, style]}
         />
+        {props.secureTextEntry && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+            accessibilityHint="Changes whether the password is visible"
+            hitSlop={8}
+            onPress={() => setVisible((value) => !value)}
+          >
+            <Text style={[styles.visibility, { color: theme.textSecondary }]}>👁</Text>
+          </Pressable>
+        )}
         {trailing}
       </View>
       {supportingText && <Text style={[styles.supporting, { color: error ? theme.danger : theme.textSecondary }]}>{supportingText}</Text>}
@@ -33,10 +46,11 @@ export function Input({ label, helperText, error, tone = 'light', leading, trail
   );
 }
 
-const styles = StyleSheet.create<{ group: ViewStyle; label: TextStyle; field: ViewStyle; input: TextStyle; supporting: TextStyle }>({
+const styles = StyleSheet.create<{ group: ViewStyle; label: TextStyle; field: ViewStyle; input: TextStyle; supporting: TextStyle; visibility: TextStyle }>({
   group: { gap: spacing.xs },
   label: typography.label,
   field: { minHeight: 48, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md },
   input: { ...typography.body, flex: 1, minHeight: 46, paddingVertical: 0 },
   supporting: typography.caption,
+  visibility: { fontSize: 18, lineHeight: 22, fontWeight: '800' },
 });

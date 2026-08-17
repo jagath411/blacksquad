@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import * as maplibregl from 'maplibre-gl';
+import { NativeMapView } from './NativeMapView';
 
 export interface MapMarker {
   id: string;
@@ -9,6 +10,13 @@ export interface MapMarker {
   title?: string;
   color?: string;
   badgeText?: string;
+  heading?: number;
+  isVehicle?: boolean;
+}
+
+export interface RoutePolyline {
+  coordinates: Array<[number, number]>; // [longitude, latitude]
+  color?: string;
 }
 
 export interface MapViewProps {
@@ -16,100 +24,68 @@ export interface MapViewProps {
   zoom?: number;
   styleMode?: 'light' | 'dark' | 'voyager';
   markers?: MapMarker[];
+  route?: RoutePolyline;
   interactive?: boolean;
   style?: any;
 }
 
-// 100% Free, keyless, open tile specifications for MapLibre
-const LIGHT_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    'carto-light': {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      ],
-      tileSize: 256,
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
+const STYLES: Record<string, maplibregl.StyleSpecification> = {
+  light: {
+    version: 8,
+    sources: {
+      carto: {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        ],
+        tileSize: 256,
+        attribution: 'OpenStreetMap CARTO',
+      },
     },
+    layers: [{ id: 'carto', type: 'raster', source: 'carto', minzoom: 0, maxzoom: 19 }],
   },
-  layers: [
-    {
-      id: 'carto-light-layer',
-      type: 'raster',
-      source: 'carto-light',
-      minzoom: 0,
-      maxzoom: 19,
+  dark: {
+    version: 8,
+    sources: {
+      carto: {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        ],
+        tileSize: 256,
+        attribution: 'OpenStreetMap CARTO',
+      },
     },
-  ],
-};
-
-const DARK_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    'carto-dark': {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      ],
-      tileSize: 256,
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-    },
+    layers: [{ id: 'carto', type: 'raster', source: 'carto', minzoom: 0, maxzoom: 19 }],
   },
-  layers: [
-    {
-      id: 'carto-dark-layer',
-      type: 'raster',
-      source: 'carto-dark',
-      minzoom: 0,
-      maxzoom: 19,
+  voyager: {
+    version: 8,
+    sources: {
+      carto: {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        ],
+        tileSize: 256,
+        attribution: 'OpenStreetMap CARTO',
+      },
     },
-  ],
-};
-
-const VOYAGER_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    'carto-voyager': {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-      ],
-      tileSize: 256,
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-    },
+    layers: [{ id: 'carto', type: 'raster', source: 'carto', minzoom: 0, maxzoom: 19 }],
   },
-  layers: [
-    {
-      id: 'carto-voyager-layer',
-      type: 'raster',
-      source: 'carto-voyager',
-      minzoom: 0,
-      maxzoom: 19,
-    },
-  ],
-};
-
-const STYLES = {
-  light: LIGHT_STYLE,
-  dark: DARK_STYLE,
-  voyager: VOYAGER_STYLE,
 };
 
 export function MapView({
   center = { latitude: 12.9716, longitude: 77.5946 },
-  zoom = 12,
+  zoom = 13,
   styleMode = 'light',
   markers = [],
+  route,
   interactive = true,
   style,
 }: MapViewProps) {
@@ -117,12 +93,10 @@ export function MapView({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerInstancesRef = useRef<Map<string, maplibregl.Marker>>(new Map());
 
-  // Initialize MapLibre GL JS on Web
   useEffect(() => {
     if (Platform.OS !== 'web' || !containerRef.current) return;
 
-    // Inject MapLibre CSS stylesheet if not present
-    if (typeof document !== 'undefined' && !document.getElementById('maplibre-gl-css')) {
+    if (!document.getElementById('maplibre-gl-css')) {
       const link = document.createElement('link');
       link.id = 'maplibre-gl-css';
       link.rel = 'stylesheet';
@@ -130,11 +104,9 @@ export function MapView({
       document.head.appendChild(link);
     }
 
-    const selectedStyle = STYLES[styleMode] || STYLES.light;
-
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: selectedStyle,
+      style: STYLES[styleMode] || STYLES.light,
       center: [center.longitude, center.latitude],
       zoom,
       interactive,
@@ -155,80 +127,140 @@ export function MapView({
     };
   }, [styleMode]);
 
-  // Update map center when props change
   useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.flyTo({
+    mapRef.current?.flyTo({
       center: [center.longitude, center.latitude],
       zoom,
-      duration: 1000,
+      duration: 600,
     });
   }, [center.latitude, center.longitude, zoom]);
 
-  // Update markers on map
+  // Route Polyline Layer
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || Platform.OS !== 'web') return;
+
+    const sourceId = 'route-source';
+    const layerId = 'route-layer';
+
+    const updateRoute = () => {
+      if (!map.isStyleLoaded()) return;
+
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+
+      if (route && route.coordinates && route.coordinates.length > 1) {
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: route.coordinates,
+            },
+          },
+        });
+
+        map.addLayer({
+          id: layerId,
+          type: 'line',
+          source: sourceId,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': route.color || '#2563EB',
+            'line-width': 5,
+            'line-opacity': 0.85,
+          },
+        });
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      updateRoute();
+    } else {
+      map.once('load', updateRoute);
+    }
+  }, [route]);
+
+  // Markers update
   useEffect(() => {
     if (!mapRef.current) return;
-    const currentMap = mapRef.current;
     const existing = markerInstancesRef.current;
     const nextIds = new Set(markers.map((m) => m.id));
 
-    // Remove old markers
-    existing.forEach((markerInstance, id) => {
+    existing.forEach((marker, id) => {
       if (!nextIds.has(id)) {
-        markerInstance.remove();
+        marker.remove();
         existing.delete(id);
       }
     });
 
-    // Add or update markers
-    markers.forEach((m) => {
-      let instance = existing.get(m.id);
-      if (instance) {
-        instance.setLngLat([m.longitude, m.latitude]);
-      } else {
-        const el = document.createElement('div');
-        el.style.backgroundColor = m.color || '#2563EB';
-        el.style.width = '30px';
-        el.style.height = '30px';
-        el.style.borderRadius = '15px';
-        el.style.border = '2px solid #FFFFFF';
-        el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-        el.style.color = '#FFFFFF';
-        el.style.fontWeight = 'bold';
-        el.style.fontSize = '12px';
-        el.style.display = 'flex';
-        el.style.alignItems = 'center';
-        el.style.justifyContent = 'center';
-        el.style.cursor = 'pointer';
-        if (m.badgeText) {
-          el.innerText = m.badgeText;
+    markers.forEach((marker) => {
+      const current = existing.get(marker.id);
+      if (current) {
+        current.setLngLat([marker.longitude, marker.latitude]);
+        if (marker.heading !== undefined) {
+          current.setRotation(marker.heading);
         }
-
-        const newMarker = new maplibregl.Marker({ element: el })
-          .setLngLat([m.longitude, m.latitude]);
-
-        if (m.title) {
-          newMarker.setPopup(new maplibregl.Popup({ offset: 20 }).setText(m.title));
-        }
-
-        newMarker.addTo(currentMap);
-        existing.set(m.id, newMarker);
+        return;
       }
+
+      const element = document.createElement('div');
+      const isVehicle = marker.isVehicle;
+
+      Object.assign(element.style, {
+        backgroundColor: marker.color || (isVehicle ? '#0F172A' : '#2563EB'),
+        width: isVehicle ? '38px' : '32px',
+        height: isVehicle ? '38px' : '32px',
+        borderRadius: isVehicle ? '19px' : '16px',
+        border: '2px solid #FFFFFF',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+        color: '#FFFFFF',
+        fontWeight: 'bold',
+        fontSize: isVehicle ? '18px' : '13px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        transition: 'transform 0.3s ease',
+      });
+
+      element.innerText = marker.badgeText || (isVehicle ? '🚗' : '•');
+
+      const next = new maplibregl.Marker({
+        element,
+        rotation: marker.heading || 0,
+        rotationAlignment: 'map',
+      }).setLngLat([marker.longitude, marker.latitude]);
+
+      if (marker.title) {
+        next.setPopup(new maplibregl.Popup({ offset: 20 }).setText(marker.title));
+      }
+
+      next.addTo(mapRef.current!);
+      existing.set(marker.id, next);
     });
   }, [markers]);
 
-  if (Platform.OS === 'web') {
+  if (Platform.OS !== 'web') {
     return (
-      <View style={[styles.container, style]}>
-        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} />
-      </View>
+      <NativeMapView
+        center={center}
+        zoom={zoom}
+        markers={markers}
+        interactive={interactive}
+        style={style}
+      />
     );
   }
 
   return (
-    <View style={[styles.container, styles.fallbackContainer, style]}>
-      <Text style={styles.fallbackText}>MapLibre Mobile View</Text>
-      <Text style={styles.fallbackSubtext}>Latitude: {center.latitude.toFixed(4)}, Longitude: {center.longitude.toFixed(4)}</Text>
+    <View style={[styles.container, style]}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }} />
     </View>
   );
 }
@@ -239,21 +271,5 @@ const styles = StyleSheet.create({
     height: '100%',
     position: 'relative',
     overflow: 'hidden',
-  },
-  fallbackContainer: {
-    backgroundColor: '#1E293B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  fallbackText: {
-    color: '#F8FAFC',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  fallbackSubtext: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 4,
   },
 });

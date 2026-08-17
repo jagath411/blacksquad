@@ -29,7 +29,9 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="blacksquad"/>
+        <data android:scheme="com.blacksquad.mobile"/>
         <data android:scheme="exp+blacksquad-mobile"/>
+        <data android:scheme="com.googleusercontent.apps.892541607147-no1cnphat1e4ksb72urft5l2991afn6l"/>
       </intent-filter>
     </activity>
   </application>

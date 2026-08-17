@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { Image, Pressable, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
+import { makeRedirectUri } from 'expo-auth-session';
+import { Image, Platform, Pressable, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
@@ -28,16 +29,37 @@ export function LoginScreen({ route, navigation }: Props) {
   const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
   const isGoogleConfigured = Boolean(webClientId || androidClientId || iosClientId);
-  const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({ webClientId, androidClientId, iosClientId });
+  // Google native OAuth expects the reversed Android/iOS client scheme, not the API URL or app package.
+  const nativeClientId = Platform.OS === 'android' ? androidClientId : iosClientId;
+  const nativeClientKey = nativeClientId.split('.apps.googleusercontent.com')[0];
+  const redirectUri = makeRedirectUri({
+    native: nativeClientKey ? `com.googleusercontent.apps.${nativeClientKey}:/oauthredirect` : 'blacksquad:/oauthredirect',
+  });
+  const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({
+    webClientId,
+    androidClientId,
+    iosClientId,
+    redirectUri,
+    selectAccount: true,
+  });
 
   useEffect(() => {
     getHealth().then(() => setApi('Backend connected')).catch(() => setApi('Backend unavailable'));
   }, []);
 
   useEffect(() => {
-    if (googleResponse?.type !== 'success' || !googleResponse.authentication?.idToken) return;
+    if (!googleResponse || googleResponse.type === 'dismiss' || googleResponse.type === 'cancel') return;
+    if (googleResponse.type !== 'success') {
+      setError('Google sign-in was not completed. Please try again.');
+      return;
+    }
+    const idToken = googleResponse.authentication?.idToken || googleResponse.params?.id_token;
+    if (!idToken) {
+      setError('Google did not return an ID token. Please try again.');
+      return;
+    }
     setLoading(true);
-    googleLogin(googleResponse.authentication.idToken, route.params.role)
+    googleLogin(idToken, route.params.role)
       .then(() => navigation.navigate('Home', { role: route.params.role }))
       .catch(() => setError('Google sign-in could not be completed. Please try again.'))
       .finally(() => setLoading(false));
@@ -76,7 +98,7 @@ export function LoginScreen({ route, navigation }: Props) {
     }
   };
 
-  const googleEnabled = isGoogleConfigured && Boolean(googleRequest);
+  const googleEnabled = isGoogleConfigured;
 
   return (
     <Screen>
@@ -93,7 +115,13 @@ export function LoginScreen({ route, navigation }: Props) {
           variant="secondary"
           tone="dark"
           disabled={!googleEnabled || loading}
-          onPress={() => promptGoogle()}
+          onPress={() => {
+            if (!googleRequest) {
+              setError('Google sign-in is still loading. Please try again in a moment.');
+              return;
+            }
+            promptGoogle();
+          }}
         />
         <Text style={s.divider}>OR USE EMAIL</Text>
         {createMode && (
@@ -171,25 +199,28 @@ const s = StyleSheet.create<{
   note: TextStyle;
 }>({
   header: {
+    alignItems: 'center',
     marginTop: 40,
     marginBottom: 36,
   },
   logoImage: {
-    width: 52,
-    height: 52,
+    width: 132,
+    height: 132,
     borderRadius: 14,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   kicker: {
     color: colors.green,
     fontSize: 11,
     letterSpacing: 2,
     fontWeight: '800',
+    textAlign: 'center',
   },
   title: {
     fontSize: 38,
     color: colors.text,
     fontWeight: '800',
+    textAlign: 'center',
     marginTop: 8,
   },
   status: {
@@ -224,6 +255,7 @@ const s = StyleSheet.create<{
   errorTitle: {
     color: '#FCA5A5',
     fontWeight: '800',
+    textAlign: 'center',
     fontSize: 13,
   },
   errorText: {

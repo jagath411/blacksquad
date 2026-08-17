@@ -1,31 +1,5 @@
 import { apiRequest } from './api/client';
-
-export type BookingStatus =
-  | 'REQUESTED'
-  | 'ASSIGNED'
-  | 'DRIVER_ACCEPTED'
-  | 'DRIVER_ARRIVING'
-  | 'TRIP_STARTED'
-  | 'TRIP_COMPLETED'
-  | 'CANCELLED';
-
-export interface BookingData {
-  _id: string;
-  customerId: any;
-  driverId?: any;
-  vehicleId?: any;
-  pickupAddress: string;
-  dropAddress: string;
-  pickupLocation: { type: string; coordinates: [number, number] };
-  dropLocation: { type: string; coordinates: [number, number] };
-  serviceTier: string;
-  status: BookingStatus;
-  fare: number;
-  distanceKm?: number;
-  startedAt?: string;
-  completedAt?: string;
-  createdAt: string;
-}
+import type { BookingData, BookingStatus } from '../types';
 
 export async function createBooking(payload: {
   pickupAddress: string;
@@ -44,26 +18,50 @@ export async function createBooking(payload: {
 }
 
 export async function getActiveBooking(): Promise<BookingData | null> {
-  const response = await apiRequest<{ success: boolean; booking: BookingData | null }>('/bookings/active');
+  const response = await apiRequest<{ success: boolean; booking: BookingData | null }>(
+    '/bookings/active',
+  );
   return response.booking;
 }
 
 export async function acceptBooking(bookingId: string): Promise<BookingData> {
-  const response = await apiRequest<{ success: boolean; booking: BookingData }>(`/bookings/${bookingId}/accept`, {
-    method: 'POST',
-  });
+  const response = await apiRequest<{ success: boolean; booking: BookingData }>(
+    `/bookings/${bookingId}/accept`,
+    {
+      method: 'POST',
+    },
+  );
   return response.booking;
 }
 
-export async function updateBookingStatus(bookingId: string, status: BookingStatus): Promise<BookingData> {
-  const response = await apiRequest<{ success: boolean; booking: BookingData }>(`/bookings/${bookingId}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  });
+export async function updateBookingStatus(
+  bookingId: string,
+  status: BookingStatus,
+  options?: { otp?: string; cancellationReason?: string },
+): Promise<BookingData> {
+  const response = await apiRequest<{ success: boolean; booking: BookingData }>(
+    `/bookings/${bookingId}/status`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ status, ...options }),
+    },
+  );
   return response.booking;
+}
+
+export async function rateBooking(
+  bookingId: string,
+  rating: number,
+): Promise<{ success: boolean; message: string }> {
+  return apiRequest<{ success: boolean; message: string }>(`/bookings/${bookingId}/rate`, {
+    method: 'POST',
+    body: JSON.stringify({ rating }),
+  });
 }
 
 export async function getBookingHistory(): Promise<BookingData[]> {
-  const response = await apiRequest<{ success: boolean; bookings: BookingData[] }>('/bookings/history');
+  const response = await apiRequest<{ success: boolean; bookings: BookingData[] }>(
+    '/bookings/history',
+  );
   return response.bookings;
 }
