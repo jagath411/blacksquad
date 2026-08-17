@@ -24,6 +24,8 @@ npm-debug.log*
 *.p8
 *.p12
 *.mobileprovision
+frontend/android/
+frontend/ios/
 
 # Editors
 .idea/
