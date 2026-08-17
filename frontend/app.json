@@ -7,11 +7,6 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#07100D"
-    },
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
@@ -19,7 +14,15 @@
     "plugins": [
       "expo-secure-store",
       "expo-location",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#07100D"
+        }
+      ]
     ],
     "android": {
       "package": "com.blacksquad.mobile",
