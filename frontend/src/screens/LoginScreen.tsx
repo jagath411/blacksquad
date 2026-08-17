@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 import { Image, Pressable, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../components/Screen';
@@ -28,14 +29,25 @@ export function LoginScreen({ route, navigation }: Props) {
   const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
   const isGoogleConfigured = Boolean(webClientId || androidClientId || iosClientId);
-  const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({ webClientId, androidClientId, iosClientId });
+  const redirectUri = makeRedirectUri({ scheme: 'blacksquad', path: 'oauthredirect' });
+  const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({
+    webClientId,
+    androidClientId,
+    iosClientId,
+    redirectUri,
+    selectAccount: true,
+  });
 
   useEffect(() => {
     getHealth().then(() => setApi('Backend connected')).catch(() => setApi('Backend unavailable'));
   }, []);
 
   useEffect(() => {
-    if (googleResponse?.type !== 'success') return;
+    if (!googleResponse || googleResponse.type === 'dismiss' || googleResponse.type === 'cancel') return;
+    if (googleResponse.type !== 'success') {
+      setError('Google sign-in was not completed. Please try again.');
+      return;
+    }
     const idToken = googleResponse.authentication?.idToken || googleResponse.params?.id_token;
     if (!idToken) {
       setError('Google did not return an ID token. Please try again.');
@@ -81,7 +93,7 @@ export function LoginScreen({ route, navigation }: Props) {
     }
   };
 
-  const googleEnabled = isGoogleConfigured && Boolean(googleRequest);
+  const googleEnabled = isGoogleConfigured;
 
   return (
     <Screen>
@@ -98,7 +110,13 @@ export function LoginScreen({ route, navigation }: Props) {
           variant="secondary"
           tone="dark"
           disabled={!googleEnabled || loading}
-          onPress={() => promptGoogle()}
+          onPress={() => {
+            if (!googleRequest) {
+              setError('Google sign-in is still loading. Please try again in a moment.');
+              return;
+            }
+            promptGoogle();
+          }}
         />
         <Text style={s.divider}>OR USE EMAIL</Text>
         {createMode && (
