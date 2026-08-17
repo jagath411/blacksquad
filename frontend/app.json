@@ -22,6 +22,7 @@
     ],
     "android": {
       "package": "com.blacksquad.mobile",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#07100D"
