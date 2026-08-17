@@ -20,8 +20,13 @@ jobs:
           node-version: 22
       - name: Read latest EAS APK URL
         working-directory: frontend
+        continue-on-error: true
         run: |
-          npx --yes eas-cli@latest build:list --platform android --limit 1 --json > /tmp/latest-build.json
+          set +e
+          npx --yes eas-cli@latest build:list --platform android --limit 1 --json > /tmp/eas-output.txt 2>&1
+          status=$?
+          cp /tmp/eas-output.txt ../eas-diagnostic.txt
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
           node - <<'NODE'
           const fs = require('fs');
           const raw = JSON.parse(fs.readFileSync('/tmp/latest-build.json', 'utf8'));
@@ -31,6 +36,7 @@ jobs:
           fs.writeFileSync('latest-apk-url.txt', `${url}\n`);
           NODE
       - name: Commit public link
+        if: always()
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
