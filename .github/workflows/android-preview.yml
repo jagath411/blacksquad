@@ -45,6 +45,10 @@ jobs:
         continue-on-error: true
         run: npx expo-doctor
 
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: npm run typecheck
+
       - name: Install EAS CLI
         run: npm install --global eas-cli@22.0.0
 
