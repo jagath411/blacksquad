@@ -19,6 +19,7 @@ jobs:
         with:
           node-version: 22
       - name: Read latest EAS APK URL
+        working-directory: frontend
         run: |
           npx --yes eas-cli@latest build:list --platform android --limit 1 --json > /tmp/latest-build.json
           node - <<'NODE'
