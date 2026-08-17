@@ -1,5 +1,6 @@
 export interface BankPreset {
   id: string;
+  code?: string;
   name: string;
   shortName: string;
   logo: string; // Icon / Logo representation
@@ -124,3 +125,10 @@ export function searchBanks(query: string): BankPreset[] {
     (b) => b.name.toLowerCase().includes(q) || b.shortName.toLowerCase().includes(q) || b.ifscPrefix.toLowerCase().includes(q)
   );
 }
+
+
+export type BankInfo = BankPreset;
+export const POPULAR_INDIAN_BANKS: BankInfo[] = POPULAR_BANKS.map((bank) => ({
+  ...bank,
+  code: bank.ifscPrefix.slice(0, 4).toUpperCase(),
+}));

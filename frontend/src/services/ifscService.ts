@@ -95,3 +95,21 @@ export async function lookupIfscCode(ifsc: string): Promise<VerifiedIfscResult |
     };
   }
 }
+
+
+export interface IfscDetails {
+  bank: string;
+  branch: string;
+  ifsc: string;
+  address?: string;
+  city?: string;
+}
+
+export async function lookupIFSC(ifsc: string): Promise<{ success: boolean; details?: IfscDetails }> {
+  const result = await lookupIfscCode(ifsc);
+  if (!result) return { success: false };
+  return {
+    success: true,
+    details: { bank: result.bankName, branch: result.branchName, ifsc: result.ifsc, address: result.address, city: result.city },
+  };
+}

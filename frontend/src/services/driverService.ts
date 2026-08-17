@@ -34,3 +34,9 @@ export async function updateDriverProfile(data: {
   });
   return response.driver;
 }
+
+export async function updateBankDetails(bankDetails: BankDetails): Promise<DriverProfile> {
+  return updateDriverProfile({ bankDetails });
+}
+
+export type DriverProfileData = DriverProfile;
