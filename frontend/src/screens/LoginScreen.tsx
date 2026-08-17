@@ -194,25 +194,28 @@ const s = StyleSheet.create<{
   note: TextStyle;
 }>({
   header: {
+    alignItems: 'center',
     marginTop: 40,
     marginBottom: 36,
   },
   logoImage: {
-    width: 52,
-    height: 52,
+    width: 96,
+    height: 96,
     borderRadius: 14,
-    marginBottom: 14,
+    marginBottom: 20,
   },
   kicker: {
     color: colors.green,
     fontSize: 11,
     letterSpacing: 2,
     fontWeight: '800',
+    textAlign: 'center',
   },
   title: {
     fontSize: 38,
     color: colors.text,
     fontWeight: '800',
+    textAlign: 'center',
     marginTop: 8,
   },
   status: {
@@ -247,6 +250,7 @@ const s = StyleSheet.create<{
   errorTitle: {
     color: '#FCA5A5',
     fontWeight: '800',
+    textAlign: 'center',
     fontSize: 13,
   },
   errorText: {
