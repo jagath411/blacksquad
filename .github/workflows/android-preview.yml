@@ -1,0 +1,39 @@
+name: Android preview APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent_dev
+
+jobs:
+  build:
+    name: Build Expo preview APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Validate Expo project
+        working-directory: frontend
+        run: npx expo-doctor
+
+      - name: Build preview APK with EAS
+        working-directory: frontend
+        run: npx eas build --platform android --profile preview --non-interactive --wait
