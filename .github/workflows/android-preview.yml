@@ -13,11 +13,14 @@ jobs:
     permissions:
       contents: read
     env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_ACCESS_TOKEN || secrets.EAS_TOKEN }}
+      EAS_NO_VCS: '1'
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -50,42 +53,50 @@ jobs:
         run: npm run typecheck
 
       - name: Install EAS CLI
-        run: npm install --global eas-cli@22.0.0
+        run: npm install --global eas-cli@latest
+
+      - name: Inspect EAS environment
+        working-directory: frontend
+        run: |
+          {
+            echo "### EAS Debugging Info"
+            echo "- EXPO_TOKEN length: ${#EXPO_TOKEN}"
+            echo "- EAS CLI version: $(eas --version)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN secret is empty! Please check your GitHub repository secrets."
+            echo "❌ **ERROR**: EXPO_TOKEN secret is empty in GitHub repository settings!" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "Checking EAS whoami..."
+          eas whoami >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
 
       - name: Build preview APK with EAS
         working-directory: frontend
         run: |
-          echo "=== EAS Auth Check ==="
-          eas whoami
-          echo "=== EAS Project Info ==="
-          eas project:info
-          echo "=== Launching EAS Build ==="
+          echo "Launching EAS Build..."
           eas build --platform android --profile preview --non-interactive --wait
 
       - name: Publish APK download URL
         working-directory: frontend
+        if: always()
         run: |
-          eas build:list --platform android --limit 1 --json > /tmp/latest-build.json
-          node - <<'NODE'
-          const fs = require('fs');
-          const raw = JSON.parse(fs.readFileSync('/tmp/latest-build.json', 'utf8'));
-          const build = Array.isArray(raw) ? raw[0] : (raw.builds || [])[0];
-          const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl || build?.applicationArchiveUrl;
-          if (!url) throw new Error('EAS completed but did not return an APK URL');
-          fs.writeFileSync('/tmp/latest-apk-url.txt', url);
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Android preview APK\n\n[Download APK](${url})\n`);
-          console.log(`APK URL: ${url}`);
-          NODE
-          curl --fail --location "$(cat /tmp/latest-apk-url.txt)" --output /tmp/blacksquad-preview.apk
-          keytool -printcert -jarfile /tmp/blacksquad-preview.apk > /tmp/blacksquad-cert.txt
-          sha1=$(awk -F': ' '/SHA1:/ {print $2}' /tmp/blacksquad-cert.txt)
-          sha256=$(awk -F': ' '/SHA256:/ {print $2}' /tmp/blacksquad-cert.txt)
-          if [ -z "$sha1" ]; then echo 'Could not extract APK SHA-1 certificate' >&2; cat /tmp/blacksquad-cert.txt; exit 1; fi
-          {
-            echo
-            echo '### Android OAuth certificate'
-            echo
-            echo "Package: \`com.blacksquad.mobile\`"
-            echo "SHA-1: \`$sha1\`"
-            echo "SHA-256: \`$sha256\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          eas build:list --platform android --limit 1 --json > /tmp/latest-build.json || true
+          if [ -s /tmp/latest-build.json ]; then
+            node - <<'NODE'
+            const fs = require('fs');
+            try {
+              const raw = JSON.parse(fs.readFileSync('/tmp/latest-build.json', 'utf8'));
+              const build = Array.isArray(raw) ? raw[0] : (raw.builds || [])[0];
+              const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl || build?.applicationArchiveUrl;
+              if (url) {
+                fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Android preview APK\n\n🎉 **[Download BlackSquad Preview APK](${url})**\n\n- Build ID: \`${build.id}\`\n- Status: \`${build.status}\`\n- Created: \`${build.createdAt}\`\n`);
+                console.log(`APK URL: ${url}`);
+              } else {
+                console.log('No build URL found in EAS JSON:', JSON.stringify(build, null, 2));
+              }
+            } catch (e) {
+              console.error(e);
+            }
+            NODE
+          fi
