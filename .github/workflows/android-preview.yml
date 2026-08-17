@@ -11,16 +11,24 @@ jobs:
     name: Build Expo preview APK
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_ACCESS_TOKEN || secrets.EAS_TOKEN }}
-      EAS_NO_VCS: '1'
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -43,61 +51,71 @@ jobs:
             'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=892541607147-mrse0ua8umjjk9rdc588chb3qtauph41.apps.googleusercontent.com' \
             > .env
 
-      - name: Validate Expo project
-        working-directory: frontend
-        continue-on-error: true
-        run: npx expo-doctor
-
       - name: Typecheck frontend
         working-directory: frontend
         run: npm run typecheck
 
-      - name: Install EAS CLI
-        run: npm install --global eas-cli@latest
-
-      - name: Inspect EAS environment
-        working-directory: frontend
+      - name: Build Android APK with Gradle
+        working-directory: frontend/android
         run: |
-          echo "EXPO_TOKEN length: ${#EXPO_TOKEN}"
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::EXPO_TOKEN secret is completely empty in GitHub Secrets!"
-            exit 1
-          fi
-          whoami_out=$(eas whoami 2>&1 || true)
-          echo "::notice::EAS Authenticated as: $whoami_out"
-          echo "Logged in as: $whoami_out"
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon -x lint
 
-      - name: Build preview APK with EAS
-        working-directory: frontend
+      - name: Prepare APK Artifact
         run: |
-          echo "Launching EAS Build..."
-          if ! eas build --platform android --profile preview --non-interactive --wait > /tmp/eas-build.log 2>&1; then
-            echo "::error::===== EAS BUILD FAILED WITH OUTPUT: ====="
-            while IFS= read -r line; do
-              echo "::error::[EAS] $line"
-            done < /tmp/eas-build.log
-            exit 1
-          fi
-          echo "✅ EAS Build Succeeded"
+          mkdir -p /tmp/artifacts
+          find frontend/android/app/build/outputs/apk -name "*.apk" -exec cp {} /tmp/artifacts/blacksquad-preview.apk \;
+          cp /tmp/artifacts/blacksquad-preview.apk /tmp/blacksquad-preview.apk
+          ls -lh /tmp/artifacts/blacksquad-preview.apk
 
-      - name: Publish APK download URL
-        working-directory: frontend
-        if: always()
+      - name: Extract Certificate Fingerprints
         run: |
-          eas build:list --platform android --limit 1 --json > /tmp/latest-build.json || true
-          if [ -s /tmp/latest-build.json ]; then
-            node - <<'NODE'
-            const fs = require('fs');
-            try {
-              const raw = JSON.parse(fs.readFileSync('/tmp/latest-build.json', 'utf8'));
-              const build = Array.isArray(raw) ? raw[0] : (raw.builds || [])[0];
-              const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl || build?.applicationArchiveUrl;
-              if (url) {
-                fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Android preview APK\n\n🎉 **[Download BlackSquad Preview APK](${url})**\n\n- Build ID: \`${build.id}\`\n- Status: \`${build.status}\`\n- Created: \`${build.createdAt}\`\n`);
-                console.log(`APK URL: ${url}`);
-              }
-            } catch (e) {
-              console.error(e);
-            }
-            NODE
-          fi
+          keytool -printcert -jarfile /tmp/blacksquad-preview.apk > /tmp/blacksquad-cert.txt
+          sha1=$(awk -F': ' '/SHA1:/ {print $2}' /tmp/blacksquad-cert.txt | head -n 1)
+          sha256=$(awk -F': ' '/SHA256:/ {print $2}' /tmp/blacksquad-cert.txt | head -n 1)
+          echo "SHA1=$sha1" >> "$GITHUB_ENV"
+          echo "SHA256=$sha256" >> "$GITHUB_ENV"
+
+      - name: Upload APK to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: blacksquad-preview-apk
+          path: /tmp/artifacts/blacksquad-preview.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create or Update GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/heads/agent_dev') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: preview-latest
+          name: "BlackSquad Android Preview APK (Latest)"
+          body: |
+            ## 📱 BlackSquad Android Preview Build
+            
+            Built automatically from branch `agent_dev` at commit `${{ github.sha }}`.
+            
+            ### 🔑 OAuth Certificate Fingerprints
+            - **Package**: `com.blacksquad.mobile`
+            - **SHA-1**: `${{ env.SHA1 }}`
+            - **SHA-256**: `${{ env.SHA256 }}`
+            
+            ### ⬇️ Direct Download
+            Download and install directly on Android device:
+            **[blacksquad-preview.apk](https://github.com/${{ github.repository }}/releases/download/preview-latest/blacksquad-preview.apk)**
+          files: /tmp/artifacts/blacksquad-preview.apk
+          prerelease: true
+          make_latest: true
+
+      - name: Publish Summary
+        run: |
+          {
+            echo "### 📱 Android Preview APK Ready!"
+            echo ""
+            echo "🎉 **[Download APK directly from GitHub Release](https://github.com/${{ github.repository }}/releases/download/preview-latest/blacksquad-preview.apk)**"
+            echo ""
+            echo "#### 🔐 Certificate Fingerprints"
+            echo "- **Package**: \`com.blacksquad.mobile\`"
+            echo "- **SHA-1**: \`${{ env.SHA1 }}\`"
+            echo "- **SHA-256**: \`${{ env.SHA256 }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
