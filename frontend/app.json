@@ -15,6 +15,7 @@
       "expo-secure-store",
       "expo-location",
       "expo-web-browser",
+      "@maplibre/maplibre-react-native",
       [
         "expo-splash-screen",
         {
@@ -54,3 +55,4 @@
     "owner": "jagath2001s-team"
   }
 }
+
