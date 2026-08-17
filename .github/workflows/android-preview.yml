@@ -59,7 +59,13 @@ jobs:
         working-directory: frontend/android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon -x lint
+          if ! ./gradlew assembleRelease --no-daemon -x lint --stacktrace > /tmp/gradle-build.log 2>&1; then
+            echo "::error::===== GRADLE BUILD FAILED ====="
+            tail -n 60 /tmp/gradle-build.log | while IFS= read -r line; do
+              echo "::error::[Gradle] $line"
+            done
+            exit 1
+          fi
 
       - name: Prepare APK Artifact
         run: |
