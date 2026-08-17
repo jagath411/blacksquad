@@ -1,4 +1,4 @@
-name: Android preview APK
+name: Expo Preview APK Build
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build Expo preview APK
+    name: Build APK with EAS Cloud
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -18,17 +18,6 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Java JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -36,6 +25,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN || secrets.EXPO_ACCESS_TOKEN || secrets.EAS_TOKEN }}
 
       - name: Install dependencies
         working-directory: frontend
@@ -55,73 +50,7 @@ jobs:
         working-directory: frontend
         run: npm run typecheck
 
-      - name: Build Android APK with Gradle
-        working-directory: frontend/android
+      - name: Build APK on Expo EAS Cloud
+        working-directory: frontend
         run: |
-          chmod +x ./gradlew
-          if ! ./gradlew assembleRelease --no-daemon -x lint --stacktrace > /tmp/gradle-build.log 2>&1; then
-            echo "::error::===== GRADLE BUILD FAILED ====="
-            tail -n 60 /tmp/gradle-build.log | while IFS= read -r line; do
-              echo "::error::[Gradle] $line"
-            done
-            exit 1
-          fi
-
-      - name: Prepare APK Artifact
-        run: |
-          mkdir -p /tmp/artifacts
-          find frontend/android/app/build/outputs/apk -name "*.apk" -exec cp {} /tmp/artifacts/blacksquad-preview.apk \;
-          cp /tmp/artifacts/blacksquad-preview.apk /tmp/blacksquad-preview.apk
-          ls -lh /tmp/artifacts/blacksquad-preview.apk
-
-      - name: Extract Certificate Fingerprints
-        run: |
-          keytool -printcert -jarfile /tmp/blacksquad-preview.apk > /tmp/blacksquad-cert.txt
-          sha1=$(awk -F': ' '/SHA1:/ {print $2}' /tmp/blacksquad-cert.txt | head -n 1)
-          sha256=$(awk -F': ' '/SHA256:/ {print $2}' /tmp/blacksquad-cert.txt | head -n 1)
-          echo "SHA1=$sha1" >> "$GITHUB_ENV"
-          echo "SHA256=$sha256" >> "$GITHUB_ENV"
-
-      - name: Upload APK to GitHub Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: blacksquad-preview-apk
-          path: /tmp/artifacts/blacksquad-preview.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Create or Update GitHub Release with APK
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/heads/agent_dev') || github.event_name == 'workflow_dispatch'
-        with:
-          tag_name: preview-latest
-          name: "BlackSquad Android Preview APK (Latest)"
-          body: |
-            ## 📱 BlackSquad Android Preview Build
-            
-            Built automatically from branch `agent_dev` at commit `${{ github.sha }}`.
-            
-            ### 🔑 OAuth Certificate Fingerprints
-            - **Package**: `com.blacksquad.mobile`
-            - **SHA-1**: `${{ env.SHA1 }}`
-            - **SHA-256**: `${{ env.SHA256 }}`
-            
-            ### ⬇️ Direct Download
-            Download and install directly on Android device:
-            **[blacksquad-preview.apk](https://github.com/${{ github.repository }}/releases/download/preview-latest/blacksquad-preview.apk)**
-          files: /tmp/artifacts/blacksquad-preview.apk
-          prerelease: true
-          make_latest: true
-
-      - name: Publish Summary
-        run: |
-          {
-            echo "### 📱 Android Preview APK Ready!"
-            echo ""
-            echo "🎉 **[Download APK directly from GitHub Release](https://github.com/${{ github.repository }}/releases/download/preview-latest/blacksquad-preview.apk)**"
-            echo ""
-            echo "#### 🔐 Certificate Fingerprints"
-            echo "- **Package**: \`com.blacksquad.mobile\`"
-            echo "- **SHA-1**: \`${{ env.SHA1 }}\`"
-            echo "- **SHA-256**: \`${{ env.SHA256 }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          npx eas-cli build --platform android --profile preview --non-interactive
