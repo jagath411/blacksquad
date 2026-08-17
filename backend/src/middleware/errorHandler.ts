@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { env } from '../config/env';
 import { ZodError } from 'zod';
 
 export interface AppError extends Error {
   statusCode?: number;
+  type?: string;
 }
 
 export const errorHandler = (
@@ -12,9 +12,16 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction,
 ): void => {
-  const statusCode = err instanceof ZodError ? 400 : err.statusCode || 500;
+  const isMalformedJson = err.type === 'entity.parse.failed';
+  const statusCode = err instanceof ZodError || isMalformedJson ? 400 : err.statusCode || 500;
   const message =
-    err instanceof ZodError ? 'Request validation failed' : err.message || 'Internal Server Error';
+    isMalformedJson
+      ? 'Request body must be valid JSON'
+      : err instanceof ZodError
+      ? 'Request validation failed'
+      : statusCode >= 500
+      ? 'An unexpected server error occurred'
+      : err.message || 'Request failed';
 
   // eslint-disable-next-line no-console
   console.error(`❌ [Error ${statusCode}]:`, err.message);
@@ -22,7 +29,6 @@ export const errorHandler = (
   res.status(statusCode).json({
     success: false,
     message,
-    ...(env.NODE_ENV === 'development' && { stack: err.stack }),
     ...(err instanceof ZodError && {
       issues: err.issues.map((issue) => ({ path: issue.path, message: issue.message })),
     }),
