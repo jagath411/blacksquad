@@ -1,6 +1,6 @@
 import { getAccessToken } from '../tokenStore';
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api').replace(/\/$/, '');
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://65.2.202.84:5000/api').replace(/\/$/, '');
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -26,7 +26,7 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
       ...init,
       headers,
     });
-  } catch {
+  } catch (netErr) {
     throw new ApiError(0, 'Unable to reach the server. Please check your network connection.');
   }
 

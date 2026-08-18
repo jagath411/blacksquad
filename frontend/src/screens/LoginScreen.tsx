@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ImageStyle,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
@@ -18,10 +27,21 @@ WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
+const WEB_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+  '892541607147-lsvgfd2bnc14bedn150a0jflmv30gh1m.apps.googleusercontent.com';
+const ANDROID_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
+  '892541607147-no1cnphat1e4ksb72urft5l2991afn6l.apps.googleusercontent.com';
+const IOS_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+  '892541607147-mrse0ua8umjjk9rdc588chb3qtauph41.apps.googleusercontent.com';
+
 export function LoginScreen({ navigation, route }: Props) {
   const [createMode, setCreateMode] = useState(false);
-  const [api, setApi] = useState('Checking connectivity...');
+  const [api, setApi] = useState('Connecting to server...');
   const [apiOnline, setApiOnline] = useState(false);
+  const [checkingApi, setCheckingApi] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,59 +49,59 @@ export function LoginScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
-  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
-  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
-  const isGoogleConfigured = Boolean(webClientId || androidClientId || iosClientId);
-
-  const nativeClientId = Platform.OS === 'android' ? androidClientId : iosClientId;
-  const nativeClientKey = nativeClientId.split('.apps.googleusercontent.com')[0];
-  const redirectUri = makeRedirectUri({
-    scheme: 'blacksquad',
-    native: nativeClientKey ? `com.googleusercontent.apps.${nativeClientKey}:/oauthredirect` : 'blacksquad:/oauthredirect',
-  });
-
   const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({
-    webClientId: webClientId || undefined,
-    androidClientId: androidClientId || undefined,
-    iosClientId: iosClientId || undefined,
+    clientId: WEB_CLIENT_ID,
+    webClientId: WEB_CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID,
+    iosClientId: IOS_CLIENT_ID,
     scopes: ['openid', 'profile', 'email'],
-    redirectUri,
-    selectAccount: true,
+    responseType: 'id_token',
   });
+
+  const checkBackendHealth = async () => {
+    setCheckingApi(true);
+    setApi('Checking server...');
+    try {
+      await getHealth();
+      setApi('Server Online (65.2.202.84:5000)');
+      setApiOnline(true);
+      setError('');
+    } catch {
+      setApi('Server offline / Reconnecting');
+      setApiOnline(false);
+    } finally {
+      setCheckingApi(false);
+    }
+  };
 
   useEffect(() => {
-    getHealth()
-      .then(() => {
-        setApi('Connected to Server');
-        setApiOnline(true);
-      })
-      .catch(() => {
-        setApi('Offline / Reconnecting');
-        setApiOnline(false);
-      });
+    checkBackendHealth();
+    const timer = setInterval(checkBackendHealth, 15000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
     if (!googleResponse) return;
-    if (googleResponse.type === 'dismiss' || googleResponse.type === 'cancel') {
-      setGoogleLoading(false);
-      return;
-    }
+
     if (googleResponse.type !== 'success') {
-      setError('Google sign-in was not completed. Please try again.');
+      if (googleResponse.type === 'error') {
+        const errorMsg =
+          googleResponse.error?.message ||
+          googleResponse.params?.error_description ||
+          'Google authentication was cancelled or blocked.';
+        setError(`Google Sign-in: ${errorMsg}`);
+      }
       setGoogleLoading(false);
       return;
     }
 
-    const token =
-      googleResponse.authentication?.idToken ||
+    const idToken =
       googleResponse.params?.id_token ||
-      googleResponse.authentication?.accessToken ||
-      googleResponse.params?.access_token;
+      (googleResponse.authentication as any)?.idToken ||
+      googleResponse.authentication?.accessToken;
 
-    if (!token) {
-      setError('Google did not return an authentication token. Please try again.');
+    if (!idToken) {
+      setError('Unable to retrieve identity credentials from Google.');
       setGoogleLoading(false);
       return;
     }
@@ -89,11 +109,16 @@ export function LoginScreen({ navigation, route }: Props) {
     setGoogleLoading(true);
     setError('');
 
-    googleLogin(token, route.params.role)
-      .then(() => navigation.navigate('Home', { role: route.params.role }))
+    googleLogin(idToken, route.params.role)
+      .then(() => {
+        navigation.navigate('Home', { role: route.params.role });
+      })
       .catch((err) => {
-        const msg = err instanceof Error ? err.message : 'Google sign-in could not be completed.';
-        setError(msg);
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Google authentication failed. Please check network connection.'
+        );
       })
       .finally(() => setGoogleLoading(false));
   }, [googleResponse, navigation, route.params.role]);
@@ -128,7 +153,7 @@ export function LoginScreen({ navigation, route }: Props) {
           ? 'Please check the highlighted details and try again.'
           : cause instanceof Error
           ? cause.message
-          : 'Unable to complete the request.'
+          : 'Unable to complete request. Please verify server connection.'
       );
     } finally {
       setLoading(false);
@@ -136,34 +161,47 @@ export function LoginScreen({ navigation, route }: Props) {
   };
 
   const handleGooglePress = () => {
-    if (!isGoogleConfigured) {
-      setError('Google Sign-in is not yet configured for this build.');
-      return;
-    }
-    if (!googleRequest) {
-      setError('Google authentication service is initializing. Please tap again.');
-      return;
-    }
     setError('');
     setGoogleLoading(true);
-    promptGoogle().catch(() => {
-      setGoogleLoading(false);
-      setError('Unable to launch Google sign-in window.');
-    });
+    promptGoogle()
+      .then((res) => {
+        if (res.type === 'cancel' || res.type === 'dismiss') {
+          setGoogleLoading(false);
+        }
+      })
+      .catch((err) => {
+        setGoogleLoading(false);
+        setError(`Unable to launch Google sign-in: ${err?.message || 'Authentication blocked'}`);
+      });
   };
 
   return (
     <Screen>
       <View style={s.header}>
-        <Image source={require('../assets/logo.png')} style={s.logoImage} resizeMode="contain" />
+        {/* Modern Truck Location Branding Logo */}
+        <Image
+          source={require('../assets/logo.png')}
+          style={s.logoImage}
+          resizeMode="cover"
+        />
         <View style={s.roleBadge}>
           <Text style={s.kicker}>{route.params.role} WORKSPACE</Text>
         </View>
         <Text style={s.title}>{createMode ? 'Create Account' : 'Welcome Back'}</Text>
-        <View style={s.statusRow}>
-          <View style={[s.statusDot, { backgroundColor: apiOnline ? '#00D084' : '#F59E0B' }]} />
-          <Text style={s.status}>{api}</Text>
-        </View>
+
+        {/* Real-time Server Ping Pill with Tap to Retry */}
+        <Pressable style={s.statusRow} onPress={checkBackendHealth}>
+          <View
+            style={[
+              s.statusDot,
+              { backgroundColor: apiOnline ? '#00D084' : '#EF4444' },
+            ]}
+          />
+          <Text style={[s.status, { color: apiOnline ? '#00D084' : '#FCA5A5' }]}>
+            {api}
+          </Text>
+          {checkingApi && <ActivityIndicator size="small" color="#00D084" style={{ marginLeft: 4 }} />}
+        </Pressable>
       </View>
 
       <View style={s.form}>
@@ -230,7 +268,7 @@ export function LoginScreen({ navigation, route }: Props) {
           <View accessible accessibilityRole="alert" style={s.errorBox}>
             <Icon name="alert-circle" size={18} color="#F87171" />
             <View style={s.errorContent}>
-              <Text style={s.errorTitle}>Authentication Error</Text>
+              <Text style={s.errorTitle}>Authentication Notice</Text>
               <Text style={s.errorText}>{error}</Text>
             </View>
           </View>
@@ -282,14 +320,16 @@ const s = StyleSheet.create<{
 }>({
   header: {
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 28,
+    marginTop: 18,
+    marginBottom: 20,
   },
   logoImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 20,
     marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 208, 132, 0.3)',
   },
   roleBadge: {
     backgroundColor: 'rgba(0, 208, 132, 0.12)',
@@ -305,17 +345,23 @@ const s = StyleSheet.create<{
     textAlign: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     color: colors.text,
     fontWeight: '900',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginTop: 6,
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   statusDot: {
     width: 6,
@@ -323,9 +369,8 @@ const s = StyleSheet.create<{
     borderRadius: 3,
   },
   status: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   form: {
     gap: 12,

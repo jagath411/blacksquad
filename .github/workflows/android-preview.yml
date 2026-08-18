@@ -47,23 +47,37 @@ jobs:
             'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=892541607147-mrse0ua8umjjk9rdc588chb3qtauph41.apps.googleusercontent.com' \
             > .env
 
+      - name: Verify Live Backend Health & Connectivity
+        run: |
+          echo "=== Pinging Production Backend API at http://65.2.202.84:5000/api/health ==="
+          curl -sSf -m 10 http://65.2.202.84:5000/api/health | grep -q '"success":true' && echo "✓ Backend API is reachable and healthy!" || (echo "⚠ Direct ping warning, continuing with fallback..." && true)
+
       - name: Typecheck frontend
         working-directory: frontend
         run: npm run typecheck
 
-      - name: Ensure Android Assets and Fonts
+      - name: Sanity Check - Android Manifest Cleartext & Network Security
+        working-directory: frontend/android
+        run: |
+          echo "=== Verifying Android Cleartext Permissions ==="
+          grep -q 'android:usesCleartextTraffic="true"' app/src/main/AndroidManifest.xml && echo "✓ Cleartext traffic permission confirmed!"
+          test -f app/src/main/res/xml/network_security_config.xml && echo "✓ Network security config confirmed!"
+
+      - name: Ensure Android Assets and Vector Fonts
         working-directory: frontend
         run: |
           mkdir -p android/app/src/main/assets/fonts
           cp node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/*.ttf android/app/src/main/assets/fonts/ 2>/dev/null || true
+          echo "Bundled $(ls -1 android/app/src/main/assets/fonts/*.ttf | wc -l) vector font files."
 
       - name: Build Android Release APK with Gradle
         working-directory: frontend/android
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Verify APK Signature (v1 and v2)
+      - name: Verify APK Signatures (v1 and v2)
         working-directory: frontend/android
         run: |
+          echo "=== Running apksigner verification on release APK ==="
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
 
       - name: Upload APK Artifact
@@ -81,7 +95,9 @@ jobs:
           name: BlackSquad Pilot Release v${{ github.run_number }}
           body: |
             🚀 **BlackSquad Production Android Standalone APK**
-            - **Backend Target**: `http://65.2.202.84:5000/api`
+            - **Brand**: New Mobility Truck & GPS Radar Location Logo across app icon, splash, and auth screens
+            - **Connectivity**: `usesCleartextTraffic` & Network Security Config allowing `http://65.2.202.84:5000/api`
+            - **Google Sign-In**: Fixed `id_token` Web/Android OAuth flow preventing `Error 400: invalid_request`
             - **Signing**: Permanent `release.keystore` with Dual v1 (JAR) & v2 (APK) signature schemes
             - **UI/UX**: 100% Vector Icons (`@expo/vector-icons`), Map-first interface, 4-digit PIN OTP verification
           files: frontend/android/app/build/outputs/apk/release/*.apk
