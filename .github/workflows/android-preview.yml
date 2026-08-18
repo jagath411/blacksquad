@@ -29,7 +29,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -51,13 +51,20 @@ jobs:
         working-directory: frontend
         run: npm run typecheck
 
-      - name: Prebuild Native Android Project
+      - name: Ensure Android Assets and Fonts
         working-directory: frontend
-        run: npx expo prebuild --platform android --clean
+        run: |
+          mkdir -p android/app/src/main/assets/fonts
+          cp node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/*.ttf android/app/src/main/assets/fonts/ 2>/dev/null || true
 
       - name: Build Android Release APK with Gradle
         working-directory: frontend/android
         run: ./gradlew assembleRelease --no-daemon
+
+      - name: Verify APK Signature (v1 and v2)
+        working-directory: frontend/android
+        run: |
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -73,9 +80,10 @@ jobs:
           tag_name: pilot-apk-v${{ github.run_number }}
           name: BlackSquad Pilot Release v${{ github.run_number }}
           body: |
-            🚀 **BlackSquad Pilot Android APK Ready!**
-            - Backend Target: `http://65.2.202.84:5000/api`
-            - Built automatically via GitHub Actions Native Runner
+            🚀 **BlackSquad Production Android Standalone APK**
+            - **Backend Target**: `http://65.2.202.84:5000/api`
+            - **Signing**: Permanent `release.keystore` with Dual v1 (JAR) & v2 (APK) signature schemes
+            - **UI/UX**: 100% Vector Icons (`@expo/vector-icons`), Map-first interface, 4-digit PIN OTP verification
           files: frontend/android/app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
