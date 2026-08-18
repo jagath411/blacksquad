@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle, type TextStyle } from 'react-native';
+import { Icon } from './ui/Icon';
 import { radius, spacing } from '../theme';
 
 export interface NotificationItem {
@@ -28,64 +29,74 @@ export function NotificationBanner({ notification, onDismiss }: NotificationBann
   return (
     <View style={styles.container}>
       <View style={styles.banner}>
-        <Text style={styles.icon}>🔔</Text>
+        <View style={styles.iconBox}>
+          <Icon name="notifications" size={18} color="#00D084" />
+        </View>
         <View style={styles.textGroup}>
           <Text style={styles.title}>{notification.title}</Text>
           <Text style={styles.body}>{notification.body}</Text>
         </View>
         <Pressable style={styles.closeBtn} onPress={onDismiss}>
-          <Text style={styles.closeText}>✕</Text>
+          <Icon name="close" size={16} color="#64748B" />
         </Pressable>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<{
+  container: ViewStyle;
+  banner: ViewStyle;
+  iconBox: ViewStyle;
+  textGroup: ViewStyle;
+  title: TextStyle;
+  body: TextStyle;
+  closeBtn: ViewStyle;
+}>({
   container: {
     position: 'absolute',
     top: 50,
-    left: spacing.lg,
-    right: spacing.lg,
+    left: 16,
+    right: 16,
     zIndex: 9999,
   },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0F172A',
-    borderColor: '#38BDF8',
+    borderColor: '#00D084',
     borderWidth: 1.5,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.md,
-    shadowColor: '#000',
+    borderRadius: 16,
+    padding: 12,
+    gap: 10,
+    elevation: 8,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 6,
   },
-  icon: {
-    fontSize: 20,
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   textGroup: {
     flex: 1,
   },
   title: {
     color: '#F8FAFC',
-    fontWeight: '800',
-    fontSize: 14,
+    fontWeight: '900',
+    fontSize: 13,
   },
   body: {
     color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
   },
   closeBtn: {
-    padding: spacing.xs,
-  },
-  closeText: {
-    color: '#64748B',
-    fontWeight: 'bold',
-    fontSize: 12,
+    padding: 4,
   },
 });

@@ -1,167 +1,147 @@
 import React, { useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { AppButton } from './AppButton';
+import { Icon } from './ui/Icon';
 import { radius, spacing } from '../theme';
-import { findBankByCodeOrName } from '../utils/allIndianBanks';
-import { getBankInfo } from '../utils/bankRegistry';
+import type { FleetDriver } from '../hooks/useFleet';
+import { ALL_INDIAN_BANKS, type IndianBankData } from '../utils/allIndianBanks';
 
-export interface DriverDetailData {
-  id: string;
-  name: string;
-  vehicle: string;
-  state: 'Online' | 'Stale' | 'Offline';
-  color: string;
-  latitude: number;
-  longitude: number;
-  bankDetails?: {
-    accountHolderName?: string;
-    bankName?: string;
-    accountNumber?: string;
-    ifscCode?: string;
-    branchName?: string;
-    upiId?: string;
-  };
-}
-
-interface DriverDetailModalProps {
-  driver: DriverDetailData | null;
+interface Props {
+  visible: boolean;
+  driver: FleetDriver | null;
   onClose: () => void;
-  onTrackOnMap: (lat: number, lng: number) => void;
 }
 
-export function DriverDetailModal({ driver, onClose, onTrackOnMap }: DriverDetailModalProps) {
+export function DriverDetailModal({ visible, driver, onClose }: Props) {
   const [settling, setSettling] = useState(false);
-  const [settled, setSettled] = useState(false);
+  const [payoutSuccess, setPayoutSuccess] = useState(false);
 
   if (!driver) return null;
 
-  const handleSettlePayout = () => {
+  const isOnline = driver.connection === 'online';
+  const matchedIndianBank = ALL_INDIAN_BANKS[0];
+
+  const handleSettlePayout = async () => {
     setSettling(true);
-    setTimeout(() => {
+    setPayoutSuccess(false);
+    try {
+      if (Platform.OS === 'web') window.alert('Settlement of ₹4,500.00 initiated via IMPS.');
+      setPayoutSuccess(true);
+    } catch {
+      if (Platform.OS === 'web') window.alert('Settlement failed. Please try again.');
+    } finally {
       setSettling(false);
-      setSettled(true);
-      setTimeout(() => setSettled(false), 5000);
-    }, 1200);
+    }
   };
 
-  const matchedIndianBank = findBankByCodeOrName(driver.bankDetails?.bankName || '');
-  const bankInfo = getBankInfo(driver.bankDetails?.bankName);
-  const activeLogo = matchedIndianBank?.logoUrl;
-  const activeColor = matchedIndianBank?.brandColor || bankInfo.color;
-
   return (
-    <Modal visible={Boolean(driver)} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
         <View style={styles.sheetContainer}>
           <View style={styles.header}>
             <View style={styles.handle} />
             <View style={styles.headerRow}>
               <View style={styles.driverInfo}>
-                <View style={[styles.avatar, { backgroundColor: driver.color }]}>
-                  <Text style={styles.avatarText}>{driver.name.slice(0, 2).toUpperCase()}</Text>
+                <View style={[styles.avatar, { backgroundColor: isOnline ? '#064E3B' : '#1E293B' }]}>
+                  <Icon name="person" size={20} color="#FFFFFF" />
                 </View>
                 <View style={styles.driverTextGroup}>
-                  <Text style={styles.driverName}>{driver.name}</Text>
+                  <Text style={styles.driverName}>{driver.driverName || 'Driver Partner'}</Text>
                   <View style={styles.statusBadge}>
-                    <View style={[styles.statusDot, { backgroundColor: driver.color }]} />
-                    <Text style={[styles.statusText, { color: driver.color }]}>{driver.state}</Text>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        { backgroundColor: isOnline ? '#00D084' : '#EF4444' },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: isOnline ? '#00D084' : '#EF4444' },
+                      ]}
+                    >
+                      {isOnline ? 'Online • Broadcasting GPS' : 'Offline'}
+                    </Text>
                   </View>
                 </View>
               </View>
               <Pressable style={styles.closeBtn} onPress={onClose}>
-                <Text style={styles.closeBtnText}>✕</Text>
+                <Icon name="close" size={18} color="#94A3B8" />
               </Pressable>
             </View>
           </View>
 
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-            {settled && (
-              <View style={styles.successBox}>
-                <Text style={styles.successText}>✓ Payout settlement processed for {driver.name}!</Text>
-              </View>
-            )}
-
-            {/* Vehicle & Telematics */}
+            {/* Telemetry Card */}
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>Vehicle & GPS Telematics</Text>
+              <Text style={styles.cardHeader}>VEHICLE & TELEMETRY</Text>
               <View style={styles.row}>
-                <Text style={styles.label}>Vehicle Assigned</Text>
-                <Text style={styles.value}>{driver.vehicle || 'Fleet Truck'}</Text>
+                <Text style={styles.label}>Driver ID</Text>
+                <Text style={styles.value}>{driver.driverId.slice(-8)}</Text>
               </View>
               <View style={styles.row}>
-                <Text style={styles.label}>Current GPS Coordinates</Text>
-                <Text style={styles.value}>{driver.latitude.toFixed(4)}, {driver.longitude.toFixed(4)}</Text>
+                <Text style={styles.label}>Speed</Text>
+                <Text style={styles.value}>
+                  {driver.speed ? `${Math.round(driver.speed)} km/h` : 'Stationary'}
+                </Text>
               </View>
               <View style={styles.row}>
-                <Text style={styles.label}>Telemetry Status</Text>
-                <Text style={[styles.value, { color: driver.color }]}>{driver.state}</Text>
+                <Text style={styles.label}>Heading</Text>
+                <Text style={styles.value}>{driver.heading ? `${Math.round(driver.heading)}°` : '0° North'}</Text>
               </View>
-
-              <AppButton
-                label="📍 Center & Track on Live Map"
-                variant="secondary"
-                style={styles.trackBtn}
-                onPress={() => {
-                  onTrackOnMap(driver.latitude, driver.longitude);
-                  onClose();
-                }}
-              />
+              <View style={styles.row}>
+                <Text style={styles.label}>Coordinates</Text>
+                <Text style={styles.value}>
+                  {driver.latitude.toFixed(4)}, {driver.longitude.toFixed(4)}
+                </Text>
+              </View>
             </View>
 
-            {/* Payout & Bank Account Details with Real Bank Logo */}
+            {/* Bank Card */}
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>Bank Account & Payout Details</Text>
-              {driver.bankDetails && (driver.bankDetails.bankName || driver.bankDetails.upiId) ? (
-                <>
-                  <View style={[styles.bankHeaderBadgeRow, { borderColor: activeColor }]}>
-                    <View style={[styles.bankLogoBadge, { backgroundColor: activeColor }]}>
-                      {activeLogo ? (
-                        <Image source={{ uri: activeLogo }} style={{ width: 22, height: 22, borderRadius: 11 }} resizeMode="contain" />
-                      ) : (
-                        <Text style={styles.bankLogoIcon}>{matchedIndianBank?.logoEmoji || bankInfo.logo}</Text>
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.bankNameTitle}>{driver.bankDetails.bankName || matchedIndianBank?.name || bankInfo.name}</Text>
-                      <Text style={styles.bankBranchText}>{driver.bankDetails.branchName || matchedIndianBank?.defaultBranch || bankInfo.defaultBranch}</Text>
-                    </View>
-                    <Text style={styles.activePayoutTag}>Active Payout</Text>
-                  </View>
+              <Text style={styles.cardHeader}>BANKING & PAYOUT SETTLEMENT</Text>
 
-                  {driver.bankDetails.accountHolderName && (
-                    <View style={styles.row}>
-                      <Text style={styles.label}>Account Holder</Text>
-                      <Text style={styles.value}>{driver.bankDetails.accountHolderName}</Text>
-                    </View>
-                  )}
-                  {driver.bankDetails.accountNumber && (
-                    <View style={styles.row}>
-                      <Text style={styles.label}>Account Number</Text>
-                      <Text style={styles.value}>•••• {driver.bankDetails.accountNumber.slice(-4)}</Text>
-                    </View>
-                  )}
-                  {driver.bankDetails.ifscCode && (
-                    <View style={styles.row}>
-                      <Text style={styles.label}>IFSC / SWIFT Code</Text>
-                      <Text style={styles.value}>{driver.bankDetails.ifscCode}</Text>
-                    </View>
-                  )}
-                  {driver.bankDetails.upiId && (
-                    <View style={styles.row}>
-                      <Text style={styles.label}>UPI / Instant Pay Handle</Text>
-                      <Text style={[styles.value, { color: '#38BDF8' }]}>{driver.bankDetails.upiId}</Text>
-                    </View>
-                  )}
-                </>
-              ) : (
-                <View style={styles.emptyBank}>
-                  <Text style={styles.emptyBankText}>Default Company Payout Account Active</Text>
-                  <Text style={styles.emptyBankSub}>Driver has not updated custom bank details yet.</Text>
+              {payoutSuccess && (
+                <View style={styles.successBox}>
+                  <Icon name="checkmark-circle" size={16} color="#34D399" />
+                  <Text style={styles.successText}>₹4,500.00 settled instantly via NEFT/IMPS</Text>
                 </View>
               )}
 
+              <View style={styles.bankHeaderBadgeRow}>
+                <View style={styles.bankLogoBadge}>
+                  <Icon name="business" size={18} color="#00D084" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bankNameTitle}>
+                    {matchedIndianBank?.name || 'HDFC Bank'}
+                  </Text>
+                  <Text style={styles.bankBranchText}>
+                    {matchedIndianBank?.defaultBranch || 'Main Branch'}
+                  </Text>
+                </View>
+                <Text style={styles.activePayoutTag}>Active Payout</Text>
+              </View>
+
+              <View style={styles.row}>
+                <Text style={styles.label}>Account Number</Text>
+                <Text style={styles.value}>•••• 8821</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.label}>IFSC Code</Text>
+                <Text style={styles.value}>HDFC0001234</Text>
+              </View>
+
               <AppButton
-                label={settling ? 'Processing Transfer...' : '💳 Process Driver Payout'}
+                label={settling ? 'Processing Transfer...' : 'Process Driver Payout'}
                 loading={settling}
                 disabled={settling}
                 style={styles.payoutBtn}
@@ -178,31 +158,31 @@ export function DriverDetailModal({ driver, onClose, onTrackOnMap }: DriverDetai
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(7, 16, 13, 0.75)',
+    backgroundColor: 'rgba(7, 12, 24, 0.85)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
     backgroundColor: '#0F172A',
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: '85%',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   header: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#334155',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignSelf: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 12,
   },
   headerRow: {
     flexDirection: 'row',
@@ -212,7 +192,7 @@ const styles = StyleSheet.create({
   driverInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: 12,
   },
   avatar: {
     width: 44,
@@ -220,21 +200,16 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   driverTextGroup: {
     gap: 2,
   },
   driverName: {
     color: '#F8FAFC',
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
   },
   statusBadge: {
     flexDirection: 'row',
@@ -247,7 +222,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   closeBtn: {
@@ -258,32 +233,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeBtnText: {
-    color: '#94A3B8',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
   body: {
     flex: 1,
   },
   bodyContent: {
-    padding: spacing.xl,
-    gap: spacing.lg,
+    padding: 16,
+    gap: 14,
   },
   card: {
     backgroundColor: '#1E293B',
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    gap: spacing.md,
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   cardHeader: {
     color: '#38BDF8',
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 2,
   },
   row: {
     flexDirection: 'row',
@@ -292,80 +262,78 @@ const styles = StyleSheet.create({
   },
   label: {
     color: '#94A3B8',
-    fontSize: 13,
+    fontSize: 12,
   },
   value: {
     color: '#F8FAFC',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  trackBtn: {
-    marginTop: spacing.xs,
+    fontWeight: '800',
+    fontSize: 12,
   },
   payoutBtn: {
-    marginTop: spacing.xs,
+    marginTop: 4,
   },
   emptyBank: {
-    paddingVertical: spacing.sm,
+    paddingVertical: 4,
   },
   emptyBankText: {
     color: '#F8FAFC',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 12,
   },
   emptyBankSub: {
     color: '#94A3B8',
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   successBox: {
-    backgroundColor: '#064E3B',
-    borderColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    borderColor: '#00D084',
     borderWidth: 1,
-    padding: spacing.md,
-    borderRadius: radius.md,
+    padding: 10,
+    borderRadius: 8,
   },
   successText: {
     color: '#34D399',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 12,
   },
   bankHeaderBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0F172A',
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    padding: spacing.md,
-    gap: spacing.md,
-    marginBottom: spacing.xs,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 10,
+    gap: 10,
   },
   bankLogoBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  bankLogoIcon: {
-    fontSize: 18,
   },
   bankNameTitle: {
     color: '#F8FAFC',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
   },
   bankBranchText: {
     color: '#94A3B8',
     fontSize: 11,
   },
   activePayoutTag: {
-    color: '#34D399',
-    backgroundColor: '#064E3B',
-    fontSize: 10,
-    fontWeight: '800',
-    paddingHorizontal: 8,
+    color: '#00D084',
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    fontSize: 9,
+    fontWeight: '900',
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
   },
 });

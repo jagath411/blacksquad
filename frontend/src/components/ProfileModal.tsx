@@ -9,22 +9,16 @@ import {
   Text,
   TextInput,
   View,
+  type ViewStyle,
+  type TextStyle,
 } from 'react-native';
 import { AppButton } from './AppButton';
-import { radius, spacing } from '../theme';
-import {
-  getCurrentUser,
-  updateUserProfile,
-  type UserProfile,
-} from '../services/authService';
-import {
-  getDriverProfile,
-  updateBankDetails,
-  type DriverProfile,
-} from '../services/driverService';
-import { POPULAR_BANKS, type BankPreset } from '../utils/bankRegistry';
+import { Icon } from './ui/Icon';
+import { darkColors, radius, spacing } from '../theme';
+import type { UserRole } from '../types';
+import { getCurrentUser, updateUserProfile, type UserProfile } from '../services/authService';
 import { lookupIfscCode, type VerifiedIfscResult } from '../services/ifscService';
-import type { SavedPlace, UserRole } from '../types';
+import { ALL_INDIAN_BANKS, type IndianBankData } from '../utils/allIndianBanks';
 
 interface Props {
   visible: boolean;
@@ -33,1037 +27,764 @@ interface Props {
   onLogout: () => void;
 }
 
-type TabType = 'account' | 'saved_places' | 'driver_kyc' | 'safety' | 'wallet' | 'settings';
+type TabType = 'account' | 'places' | 'documents' | 'safety' | 'wallet' | 'settings';
+
+interface SavedPlace {
+  id: string;
+  title: string;
+  address: string;
+  icon: string;
+}
 
 export function ProfileModal({ visible, role, onClose, onLogout }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('account');
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
-
-  // Form states
   const [name, setName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [phone, setPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Safety states
-  const [pinEnabled, setPinEnabled] = useState(true);
-  const [emergencyContact, setEmergencyContact] = useState('+91 98765 43210');
-
-  // Saved places
-  const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([
-    {
-      id: '1',
-      title: 'Home',
-      address: 'Prestige Falcon City, Kanakapura Rd, Bangalore',
-      latitude: 12.8876,
-      longitude: 77.5562,
-      icon: 'home',
-    },
-    {
-      id: '2',
-      title: 'Office / Tech Park',
-      address: 'Ecospace Business Park, Outer Ring Rd, Bellandur, Bangalore',
-      latitude: 12.926,
-      longitude: 77.6834,
-      icon: 'work',
-    },
+  // Saved Places (Customer)
+  const [places, setPlaces] = useState<SavedPlace[]>([
+    { id: '1', title: 'Home', address: 'Indiranagar 100ft Rd, Bengaluru', icon: 'home' },
+    { id: '2', title: 'Work', address: 'BLR Tech Park, Bellandur, Bengaluru', icon: 'briefcase' },
   ]);
 
-  // Bank Form State (Drivers)
-  const [accountHolderName, setAccountHolderName] = useState('');
-  const [selectedBank, setSelectedBank] = useState<BankPreset | null>(null);
-  const [accountNumber, setAccountNumber] = useState('');
-  const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
-  const [ifscCode, setIfscCode] = useState('');
-  const [branchName, setBranchName] = useState('');
-  const [upiId, setUpiId] = useState('');
-  const [ifscLookupLoading, setIfscLookupLoading] = useState(false);
-  const [verifiedIfsc, setVerifiedIfsc] = useState<VerifiedIfscResult | null>(null);
+  // Indian Banking & IFSC State (Driver / Owner)
+  const [accountNumber, setAccountNumber] = useState('918237461928');
+  const [ifscCode, setIfscCode] = useState('HDFC0001234');
+  const [bankInfo, setBankInfo] = useState<VerifiedIfscResult | null>(null);
+  const [verifyingIfsc, setVerifyingIfsc] = useState(false);
 
-  // Settings
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
-  const [darkMode, setDarkMode] = useState(true);
+  // Safety / SOS (Customer & Driver)
+  const [emergencyContact, setEmergencyContact] = useState('+91 98765 43210');
+  const [audioRecordingEnabled, setAudioRecordingEnabled] = useState(true);
+  const [nightSafetyShare, setNightSafetyShare] = useState(true);
+
+  // Wallet
+  const [walletBalance, setWalletBalance] = useState('₹1,450.00');
 
   useEffect(() => {
     if (visible) {
-      loadProfileData();
+      getCurrentUser()
+        .then((u) => {
+          setUser(u);
+          setName(u.name || '');
+          setPhone(u.phoneNumber || '');
+        })
+        .catch(() => {});
     }
   }, [visible]);
 
-  const loadProfileData = async () => {
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const u = await getCurrentUser();
-      setUser(u);
-      setName(u.name || '');
-      setPhoneNumber(u.phoneNumber || '');
-
-      if (role === 'DRIVER') {
-        const d = await getDriverProfile();
-        setDriverProfile(d);
-        if (d.bankDetails) {
-          setAccountHolderName(d.bankDetails.accountHolderName || '');
-          setAccountNumber(d.bankDetails.accountNumber || '');
-          setConfirmAccountNumber(d.bankDetails.accountNumber || '');
-          setIfscCode(d.bankDetails.ifscCode || '');
-          setBranchName(d.bankDetails.branchName || '');
-          setUpiId(d.bankDetails.upiId || '');
-          if (d.bankDetails.bankName) {
-            const found = POPULAR_BANKS.find(
-              (b) => b.name.toLowerCase() === d.bankDetails!.bankName!.toLowerCase(),
-            );
-            if (found) setSelectedBank(found);
-          }
-        }
+  // Handle IFSC lookup
+  const handleIfscLookup = async (code: string) => {
+    setIfscCode(code.toUpperCase());
+    if (code.length === 11) {
+      setVerifyingIfsc(true);
+      try {
+        const info = await lookupIfscCode(code);
+        setBankInfo(info);
+      } catch {
+        setBankInfo(null);
+      } finally {
+        setVerifyingIfsc(false);
       }
-    } catch {
-      setErrorMsg('Failed to load profile details');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleSaveAccount = async () => {
+  const handleSaveProfile = async () => {
     setSaving(true);
-    setSuccessMsg('');
-    setErrorMsg('');
+    setSavedSuccess(false);
+    setErrorMessage('');
     try {
-      const updated = await updateUserProfile({ name, phoneNumber });
+      const updated = await updateUserProfile({ name, phoneNumber: phone });
       setUser(updated);
-      setSuccessMsg('Profile updated successfully!');
-      setTimeout(() => setSuccessMsg(''), 3500);
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Failed to update profile');
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to update profile');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleIfscChange = async (val: string) => {
-    const clean = val.toUpperCase().trim();
-    setIfscCode(clean);
-    if (clean.length === 11) {
-      setIfscLookupLoading(true);
-      const res = await lookupIfscCode(clean);
-      setIfscLookupLoading(false);
-      if (res) {
-        setVerifiedIfsc(res);
-        setBranchName(res.branchName);
-        const match = POPULAR_BANKS.find((b) =>
-          res.bankName.toLowerCase().includes(b.shortName.toLowerCase()),
-        );
-        if (match) setSelectedBank(match);
-      }
-    } else {
-      setVerifiedIfsc(null);
-    }
-  };
-
-  const handleSaveBank = async () => {
-    if (!accountHolderName.trim()) {
-      setErrorMsg('Account holder name is required');
-      return;
-    }
-    if (!accountNumber || accountNumber !== confirmAccountNumber) {
-      setErrorMsg('Account numbers do not match');
-      return;
-    }
-    if (ifscCode.length !== 11) {
-      setErrorMsg('Enter a valid 11-character IFSC Code');
-      return;
-    }
-
-    setSaving(true);
-    setSuccessMsg('');
-    setErrorMsg('');
-    try {
-      const bankName = selectedBank ? selectedBank.name : verifiedIfsc?.bankName || 'Bank';
-      const updated = await updateBankDetails({
-        accountHolderName,
-        bankName,
-        accountNumber,
-        ifscCode,
-        branchName,
-        upiId: upiId.trim() || undefined,
-      });
-      setDriverProfile(updated);
-      setSuccessMsg('Bank details saved for automated settlements!');
-      setTimeout(() => setSuccessMsg(''), 3500);
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Failed to update bank details');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const triggerEmergencySOS = () => {
-    if (Platform.OS === 'web') {
-      window.alert(
-        '🚨 EMERGENCY SOS ALERT TRIGGERED!\n\nYour live GPS location and trip details have been broadcasted to BlackSquad 24x7 Safety Response and your Emergency Contacts.',
-      );
-    } else {
-      Alert.alert(
-        '🚨 Emergency SOS Activated',
-        'Your live location and active vehicle status have been transmitted to BlackSquad 24x7 Security Operations.',
-      );
-    }
+  const triggerSOS = () => {
+    const msg =
+      'EMERGENCY SOS ALERT: Vehicle live coordinates & audio broadcast initiated to police (112) and emergency contacts.';
+    if (Platform.OS === 'web') window.alert(msg);
+    else Alert.alert('EMERGENCY SOS ACTIVE', msg, [{ text: 'OK' }]);
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <View style={s.modalRoot}>
-        {/* Top App Bar */}
-        <View style={s.appBar}>
-          <Pressable style={s.backBtn} onPress={onClose}>
-            <Text style={s.backBtnIcon}>✕</Text>
-          </Pressable>
-          <Text style={s.appBarTitle}>Account & Settings</Text>
-          <View style={{ width: 36 }} />
-        </View>
-
-        <ScrollView style={s.scrollContainer} showsVerticalScrollIndicator={false}>
-          {/* Uber/Rapido Hero Profile Header */}
-          <View style={s.heroCard}>
-            <View style={s.heroTop}>
-              <View style={s.avatarWrapper}>
-                <View style={s.avatar}>
-                  <Text style={s.avatarText}>
-                    {user?.name ? user.name.slice(0, 2).toUpperCase() : 'BS'}
-                  </Text>
-                </View>
-                <View style={s.verifiedBadgeIcon}>
-                  <Text style={s.verifiedCheck}>✓</Text>
-                </View>
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={s.overlay}>
+        <View style={s.sheetContainer}>
+          {/* Header */}
+          <View style={s.header}>
+            <View style={s.userBadgeGroup}>
+              <View style={s.avatarBox}>
+                <Icon name="person" size={24} color="#FFFFFF" />
               </View>
-
-              <View style={s.heroInfo}>
-                <Text style={s.heroName}>{user?.name || 'BlackSquad Member'}</Text>
-                <Text style={s.heroEmail}>{user?.email || 'user@blacksquad.com'}</Text>
-                <View style={s.heroBadgesRow}>
-                  <View style={s.ratingBadge}>
-                    <Text style={s.ratingStar}>★</Text>
-                    <Text style={s.ratingScore}>{role === 'DRIVER' ? '4.96' : '4.92'}</Text>
-                  </View>
-                  <View style={s.rolePill}>
-                    <Text style={s.rolePillText}>{role} WORKSPACE</Text>
-                  </View>
+              <View style={s.userInfo}>
+                <Text style={s.userName}>{user?.name || 'BlackSquad Member'}</Text>
+                <Text style={s.userEmail}>{user?.email || 'authenticated'}</Text>
+                <View style={s.rolePill}>
+                  <Text style={s.roleText}>{role} PORTAL</Text>
                 </View>
               </View>
             </View>
-
-            <View style={s.heroDivider} />
-
-            <View style={s.memberFooter}>
-              <Text style={s.memberSinceText}>🛡️ BlackSquad Pilot Member • Verified Identity</Text>
-            </View>
+            <Pressable style={s.closeBtn} onPress={onClose}>
+              <Icon name="close" size={20} color="#94A3B8" />
+            </Pressable>
           </View>
 
-          {/* Quick 4-Pill Action Hub (Uber/Rapido style) */}
-          <View style={s.quickHubGrid}>
+          {/* Navigation Tab Bar */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabsScroll}>
             <Pressable
-              style={[s.quickHubCard, activeTab === 'safety' && s.quickHubActive]}
-              onPress={() => setActiveTab('safety')}
-            >
-              <Text style={s.quickHubIcon}>🛡️</Text>
-              <Text style={s.quickHubLabel}>Safety</Text>
-              <Text style={s.quickHubSub}>24x7 SOS</Text>
-            </Pressable>
-
-            <Pressable
-              style={[s.quickHubCard, activeTab === 'wallet' && s.quickHubActive]}
-              onPress={() => setActiveTab('wallet')}
-            >
-              <Text style={s.quickHubIcon}>💳</Text>
-              <Text style={s.quickHubLabel}>Wallet</Text>
-              <Text style={s.quickHubSub}>₹1,450.00</Text>
-            </Pressable>
-
-            <Pressable
-              style={[s.quickHubCard, activeTab === 'saved_places' && s.quickHubActive]}
-              onPress={() => setActiveTab('saved_places')}
-            >
-              <Text style={s.quickHubIcon}>📍</Text>
-              <Text style={s.quickHubLabel}>Saved</Text>
-              <Text style={s.quickHubSub}>Home / Work</Text>
-            </Pressable>
-
-            <Pressable
-              style={[s.quickHubCard, activeTab === 'account' && s.quickHubActive]}
+              style={[s.tabPill, activeTab === 'account' && s.tabPillActive]}
               onPress={() => setActiveTab('account')}
             >
-              <Text style={s.quickHubIcon}>👤</Text>
-              <Text style={s.quickHubLabel}>Account</Text>
-              <Text style={s.quickHubSub}>Edit Profile</Text>
+              <Icon
+                name="person"
+                size={14}
+                color={activeTab === 'account' ? '#00D084' : '#94A3B8'}
+              />
+              <Text style={[s.tabText, activeTab === 'account' && s.tabTextActive]}>
+                Account
+              </Text>
             </Pressable>
-          </View>
 
-          {/* Secondary Tab Navigation */}
-          <View style={s.tabScrollContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabList}>
+            {role === 'CUSTOMER' && (
               <Pressable
-                style={[s.navTabPill, activeTab === 'account' && s.navTabPillActive]}
-                onPress={() => setActiveTab('account')}
+                style={[s.tabPill, activeTab === 'places' && s.tabPillActive]}
+                onPress={() => setActiveTab('places')}
               >
-                <Text style={[s.navTabText, activeTab === 'account' && s.navTabTextActive]}>
-                  👤 Personal Info
+                <Icon
+                  name="bookmark"
+                  size={14}
+                  color={activeTab === 'places' ? '#00D084' : '#94A3B8'}
+                />
+                <Text style={[s.tabText, activeTab === 'places' && s.tabTextActive]}>
+                  Saved Places
                 </Text>
               </Pressable>
+            )}
 
-              {role === 'DRIVER' && (
-                <Pressable
-                  style={[s.navTabPill, activeTab === 'driver_kyc' && s.navTabPillActive]}
-                  onPress={() => setActiveTab('driver_kyc')}
-                >
-                  <Text style={[s.navTabText, activeTab === 'driver_kyc' && s.navTabTextActive]}>
-                    🛞 KYC & Bank Account
-                  </Text>
-                </Pressable>
-              )}
-
+            {role === 'DRIVER' && (
               <Pressable
-                style={[s.navTabPill, activeTab === 'saved_places' && s.navTabPillActive]}
-                onPress={() => setActiveTab('saved_places')}
+                style={[s.tabPill, activeTab === 'documents' && s.tabPillActive]}
+                onPress={() => setActiveTab('documents')}
               >
-                <Text style={[s.navTabText, activeTab === 'saved_places' && s.navTabTextActive]}>
-                  📍 Saved Places
+                <Icon
+                  name="card"
+                  size={14}
+                  color={activeTab === 'documents' ? '#00D084' : '#94A3B8'}
+                />
+                <Text style={[s.tabText, activeTab === 'documents' && s.tabTextActive]}>
+                  Bank & Docs
                 </Text>
               </Pressable>
+            )}
 
-              <Pressable
-                style={[s.navTabPill, activeTab === 'safety' && s.navTabPillActive]}
-                onPress={() => setActiveTab('safety')}
-              >
-                <Text style={[s.navTabText, activeTab === 'safety' && s.navTabTextActive]}>
-                  🛡️ Safety Center
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[s.navTabPill, activeTab === 'wallet' && s.navTabPillActive]}
-                onPress={() => setActiveTab('wallet')}
-              >
-                <Text style={[s.navTabText, activeTab === 'wallet' && s.navTabTextActive]}>
-                  💳 Payments & UPI
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[s.navTabPill, activeTab === 'settings' && s.navTabPillActive]}
-                onPress={() => setActiveTab('settings')}
-              >
-                <Text style={[s.navTabText, activeTab === 'settings' && s.navTabTextActive]}>
-                  ⚙️ Settings & Legal
-                </Text>
-              </Pressable>
-            </ScrollView>
-          </View>
-
-          {/* Feedback alerts */}
-          {successMsg.length > 0 && (
-            <View style={s.alertSuccess}>
-              <Text style={s.alertSuccessText}>✓ {successMsg}</Text>
-            </View>
-          )}
-
-          {errorMsg.length > 0 && (
-            <View style={s.alertError}>
-              <Text style={s.alertErrorText}>⚠️ {errorMsg}</Text>
-            </View>
-          )}
-
-          {/* TAB 1: PERSONAL ACCOUNT INFO */}
-          {activeTab === 'account' && (
-            <View style={s.sectionContent}>
-              <Text style={s.sectionHeaderTitle}>Profile Information</Text>
-              <Text style={s.sectionHeaderSub}>
-                Manage your verified contact details and personal settings.
+            <Pressable
+              style={[s.tabPill, activeTab === 'safety' && s.tabPillActive]}
+              onPress={() => setActiveTab('safety')}
+            >
+              <Icon
+                name="shield-checkmark"
+                size={14}
+                color={activeTab === 'safety' ? '#00D084' : '#94A3B8'}
+              />
+              <Text style={[s.tabText, activeTab === 'safety' && s.tabTextActive]}>
+                Safety & SOS
               </Text>
+            </Pressable>
 
-              <View style={s.inputCard}>
-                <Text style={s.inputLabel}>FULL NAME</Text>
-                <TextInput
-                  style={s.textInput}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Enter your name"
-                  placeholderTextColor="#64748B"
-                />
-
-                <Text style={s.inputLabel}>EMAIL ADDRESS (READ-ONLY)</Text>
-                <TextInput
-                  style={[s.textInput, s.textInputDisabled]}
-                  value={user?.email || ''}
-                  editable={false}
-                />
-
-                <Text style={s.inputLabel}>PHONE NUMBER (FOR RIDE NOTIFICATIONS)</Text>
-                <TextInput
-                  style={s.textInput}
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  placeholder="+91 98765 43210"
-                  placeholderTextColor="#64748B"
-                  keyboardType="phone-pad"
-                />
-
-                <AppButton
-                  label={saving ? 'Saving changes...' : 'Save Profile Changes'}
-                  onPress={handleSaveAccount}
-                  disabled={saving}
-                />
-              </View>
-            </View>
-          )}
-
-          {/* TAB 2: SAVED PLACES */}
-          {activeTab === 'saved_places' && (
-            <View style={s.sectionContent}>
-              <Text style={s.sectionHeaderTitle}>Saved Addresses</Text>
-              <Text style={s.sectionHeaderSub}>
-                1-Tap pickup and destination shortcuts for faster bookings.
+            <Pressable
+              style={[s.tabPill, activeTab === 'wallet' && s.tabPillActive]}
+              onPress={() => setActiveTab('wallet')}
+            >
+              <Icon
+                name="wallet"
+                size={14}
+                color={activeTab === 'wallet' ? '#00D084' : '#94A3B8'}
+              />
+              <Text style={[s.tabText, activeTab === 'wallet' && s.tabTextActive]}>
+                Wallet & Pay
               </Text>
+            </Pressable>
 
-              {savedPlaces.map((place) => (
-                <View key={place.id} style={s.placeCard}>
-                  <View style={s.placeIconBox}>
-                    <Text style={s.placeEmoji}>{place.icon === 'home' ? '🏠' : '🏢'}</Text>
-                  </View>
-                  <View style={s.placeDetails}>
-                    <Text style={s.placeTitle}>{place.title}</Text>
-                    <Text style={s.placeAddress}>{place.address}</Text>
-                  </View>
-                  <Pressable
-                    style={s.placeEditBtn}
-                    onPress={() => {
-                      if (Platform.OS === 'web') {
-                        const next = window.prompt(`Edit address for ${place.title}`, place.address);
-                        if (next) {
-                          setSavedPlaces((prev) =>
-                            prev.map((p) => (p.id === place.id ? { ...p, address: next } : p)),
-                          );
-                        }
-                      }
-                    }}
-                  >
-                    <Text style={s.placeEditText}>Edit</Text>
-                  </Pressable>
-                </View>
-              ))}
-
-              <Pressable
-                style={s.addPlaceBtn}
-                onPress={() => {
-                  const newPlace: SavedPlace = {
-                    id: Date.now().toString(),
-                    title: 'Favorite Spot',
-                    address: 'MG Road Metro Station, Bangalore',
-                    latitude: 12.9756,
-                    longitude: 77.6066,
-                    icon: 'favorite',
-                  };
-                  setSavedPlaces((prev) => [...prev, newPlace]);
-                }}
-              >
-                <Text style={s.addPlaceIcon}>＋</Text>
-                <Text style={s.addPlaceText}>Add New Favorite Place</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* TAB 3: DRIVER KYC & BANK ACCOUNTS */}
-          {activeTab === 'driver_kyc' && role === 'DRIVER' && (
-            <View style={s.sectionContent}>
-              <Text style={s.sectionHeaderTitle}>Driver KYC & Vehicle Documents</Text>
-              <Text style={s.sectionHeaderSub}>
-                Government verified transport credentials and automated bank settlement setup.
+            <Pressable
+              style={[s.tabPill, activeTab === 'settings' && s.tabPillActive]}
+              onPress={() => setActiveTab('settings')}
+            >
+              <Icon
+                name="settings"
+                size={14}
+                color={activeTab === 'settings' ? '#00D084' : '#94A3B8'}
+              />
+              <Text style={[s.tabText, activeTab === 'settings' && s.tabTextActive]}>
+                Settings
               </Text>
+            </Pressable>
+          </ScrollView>
 
-              {/* Verified Documents Card */}
-              <View style={s.docCard}>
-                <View style={s.docRow}>
-                  <Text style={s.docIcon}>🪪</Text>
-                  <View style={s.docInfo}>
-                    <Text style={s.docTitle}>Commercial Driving License</Text>
-                    <Text style={s.docNumber}>
-                      {driverProfile?.licenseNumber || 'DL-KA042021008892'}
-                    </Text>
-                  </View>
-                  <View style={s.verifiedTag}>
-                    <Text style={s.verifiedTagText}>VERIFIED</Text>
-                  </View>
-                </View>
+          {/* Main Tab Viewport */}
+          <ScrollView style={s.contentScroll} showsVerticalScrollIndicator={false}>
+            {/* 1. Account Details */}
+            {activeTab === 'account' && (
+              <View style={s.section}>
+                <Text style={s.sectionTitle}>Personal Details</Text>
+                <View style={s.formCard}>
+                  <Text style={s.inputLabel}>FULL NAME</Text>
+                  <TextInput
+                    style={s.textInput}
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Enter your name"
+                    placeholderTextColor="#64748B"
+                  />
 
-                <View style={s.docDivider} />
+                  <Text style={s.inputLabel}>EMAIL ADDRESS</Text>
+                  <TextInput
+                    style={[s.textInput, s.textInputDisabled]}
+                    value={user?.email || ''}
+                    editable={false}
+                  />
 
-                <View style={s.docRow}>
-                  <Text style={s.docIcon}>🚕</Text>
-                  <View style={s.docInfo}>
-                    <Text style={s.docTitle}>Vehicle Registration (RC)</Text>
-                    <Text style={s.docNumber}>KA 04 MP 8821 • White Toyota Innova</Text>
-                  </View>
-                  <View style={s.verifiedTag}>
-                    <Text style={s.verifiedTagText}>ACTIVE</Text>
-                  </View>
+                  <Text style={s.inputLabel}>PHONE NUMBER</Text>
+                  <TextInput
+                    style={s.textInput}
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="+91 98765 43210"
+                    placeholderTextColor="#64748B"
+                    keyboardType="phone-pad"
+                  />
+
+                  {savedSuccess && (
+                    <View style={s.alertSuccess}>
+                      <Icon name="checkmark-circle" size={16} color="#34D399" />
+                      <Text style={s.alertSuccessText}>Profile updated successfully</Text>
+                    </View>
+                  )}
+
+                  {errorMessage ? (
+                    <View style={s.alertError}>
+                      <Icon name="alert-circle" size={16} color="#FCA5A5" />
+                      <Text style={s.alertErrorText}>{errorMessage}</Text>
+                    </View>
+                  ) : null}
+
+                  <AppButton
+                    label={saving ? 'Updating...' : 'Save Profile Changes'}
+                    onPress={handleSaveProfile}
+                    disabled={saving}
+                  />
                 </View>
               </View>
+            )}
 
-              {/* Bank Account Settlement Form */}
-              <Text style={[s.sectionHeaderTitle, { marginTop: spacing.xl }]}>
-                Automated Bank Settlement (IFSC)
-              </Text>
-
-              <View style={s.inputCard}>
-                <Text style={s.inputLabel}>ACCOUNT HOLDER NAME</Text>
-                <TextInput
-                  style={s.textInput}
-                  value={accountHolderName}
-                  onChangeText={setAccountHolderName}
-                  placeholder="Name as per Bank Passbook"
-                  placeholderTextColor="#64748B"
-                />
-
-                <Text style={s.inputLabel}>SELECT YOUR INDIAN BANK</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bankPills}>
-                  {POPULAR_BANKS.map((b: BankPreset) => (
+            {/* 2. Saved Places (Customer) */}
+            {activeTab === 'places' && (
+              <View style={s.section}>
+                <Text style={s.sectionTitle}>Favorite Locations</Text>
+                {places.map((place) => (
+                  <View key={place.id} style={s.placeCard}>
+                    <View style={s.placeIconBox}>
+                      <Icon name={place.icon} size={18} color="#00D084" />
+                    </View>
+                    <View style={s.placeDetails}>
+                      <Text style={s.placeTitle}>{place.title}</Text>
+                      <Text style={s.placeAddress}>{place.address}</Text>
+                    </View>
                     <Pressable
-                      key={b.id}
-                      style={[
-                        s.bankChip,
-                        selectedBank?.id === b.id && s.bankChipActive,
-                      ]}
+                      style={s.placeEditBtn}
                       onPress={() => {
-                        setSelectedBank(b);
-                        if (b.ifscPrefix && ifscCode.length < 4) {
-                          setIfscCode(b.ifscPrefix);
-                        }
+                        if (Platform.OS === 'web') window.alert(`Editing ${place.title}`);
                       }}
                     >
-                      <Text style={s.bankChipText}>{b.name}</Text>
+                      <Text style={s.placeEditText}>Edit</Text>
                     </Pressable>
-                  ))}
-                </ScrollView>
-
-                <Text style={s.inputLabel}>BANK ACCOUNT NUMBER</Text>
-                <TextInput
-                  style={s.textInput}
-                  value={accountNumber}
-                  onChangeText={setAccountNumber}
-                  placeholder="Enter Account Number"
-                  placeholderTextColor="#64748B"
-                  keyboardType="numeric"
-                  secureTextEntry
-                />
-
-                <Text style={s.inputLabel}>CONFIRM ACCOUNT NUMBER</Text>
-                <TextInput
-                  style={s.textInput}
-                  value={confirmAccountNumber}
-                  onChangeText={setConfirmAccountNumber}
-                  placeholder="Re-enter Account Number"
-                  placeholderTextColor="#64748B"
-                  keyboardType="numeric"
-                />
-
-                <Text style={s.inputLabel}>IFSC CODE (11 CHARACTERS)</Text>
-                <TextInput
-                  style={s.textInput}
-                  value={ifscCode}
-                  onChangeText={handleIfscChange}
-                  placeholder="e.g. HDFC0000001, SBIN0001234"
-                  placeholderTextColor="#64748B"
-                  autoCapitalize="characters"
-                  maxLength={11}
-                />
-
-                {ifscLookupLoading && (
-                  <Text style={s.ifscHint}>⏳ Validating IFSC code with RBI registry...</Text>
-                )}
-
-                {verifiedIfsc && (
-                  <View style={s.ifscVerifiedBox}>
-                    <Text style={s.ifscVerifiedTitle}>✓ Verified: {verifiedIfsc.bankName}</Text>
-                    <Text style={s.ifscVerifiedSub}>
-                      Branch: {verifiedIfsc.branchName} • {verifiedIfsc.city}
-                    </Text>
                   </View>
-                )}
+                ))}
 
-                <Text style={s.inputLabel}>DIRECT UPI ID (FOR INSTANT PAYOUTS)</Text>
-                <TextInput
-                  style={s.textInput}
-                  value={upiId}
-                  onChangeText={setUpiId}
-                  placeholder="e.g. driver@oksbi, driver@paytm"
-                  placeholderTextColor="#64748B"
-                />
-
-                <AppButton
-                  label={saving ? 'Saving Bank Details...' : 'Save Settlement Account'}
-                  onPress={handleSaveBank}
-                  disabled={saving}
-                />
-              </View>
-            </View>
-          )}
-
-          {/* TAB 4: SAFETY CENTER */}
-          {activeTab === 'safety' && (
-            <View style={s.sectionContent}>
-              <Text style={s.sectionHeaderTitle}>BlackSquad Safety Center</Text>
-              <Text style={s.sectionHeaderSub}>
-                Built-in 24x7 security features, trusted contacts, and PIN verification.
-              </Text>
-
-              {/* Big Red SOS Button */}
-              <Pressable style={s.sosButton} onPress={triggerEmergencySOS}>
-                <Text style={s.sosIcon}>🚨</Text>
-                <View style={s.sosTextGroup}>
-                  <Text style={s.sosTitle}>EMERGENCY 24x7 SOS</Text>
-                  <Text style={s.sosSub}>Tap to alert Emergency Services & share live GPS</Text>
-                </View>
-              </Pressable>
-
-              <View style={s.safetyRow}>
-                <View style={s.safetyInfo}>
-                  <Text style={s.safetyTitle}>Verify Rides with 4-Digit PIN</Text>
-                  <Text style={s.safetySub}>
-                    Drivers must enter your unique PIN before starting each trip.
-                  </Text>
-                </View>
                 <Pressable
-                  style={[s.toggleBtn, pinEnabled && s.toggleBtnActive]}
-                  onPress={() => setPinEnabled(!pinEnabled)}
-                >
-                  <Text style={s.toggleBtnText}>{pinEnabled ? 'ON' : 'OFF'}</Text>
-                </Pressable>
-              </View>
-
-              <View style={s.safetyRow}>
-                <View style={s.safetyInfo}>
-                  <Text style={s.safetyTitle}>Trusted Emergency Contact</Text>
-                  <Text style={s.safetySub}>{emergencyContact}</Text>
-                </View>
-                <Pressable
-                  style={s.placeEditBtn}
+                  style={s.addPlaceBtn}
                   onPress={() => {
-                    if (Platform.OS === 'web') {
-                      const num = window.prompt('Update emergency phone number:', emergencyContact);
-                      if (num) setEmergencyContact(num);
-                    }
+                    if (Platform.OS === 'web') window.alert('Add new custom favorite place');
                   }}
                 >
-                  <Text style={s.placeEditText}>Change</Text>
+                  <Icon name="add" size={18} color="#38BDF8" />
+                  <Text style={s.addPlaceText}>Add New Location</Text>
                 </Pressable>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* TAB 5: WALLET & PAYMENTS */}
-          {activeTab === 'wallet' && (
-            <View style={s.sectionContent}>
-              <Text style={s.sectionHeaderTitle}>BlackSquad Wallet & Payments</Text>
-              <Text style={s.sectionHeaderSub}>
-                Seamless digital payments, UPI integration, and instant settlements.
-              </Text>
+            {/* 3. Driver Documents & Indian Banking */}
+            {activeTab === 'documents' && (
+              <View style={s.section}>
+                <Text style={s.sectionTitle}>Driver Credentials</Text>
+                <View style={s.docCard}>
+                  <View style={s.docRow}>
+                    <Icon name="document-text" size={24} color="#38BDF8" />
+                    <View style={s.docInfo}>
+                      <Text style={s.docTitle}>Commercial Driving License</Text>
+                      <Text style={s.docNumber}>KA-05-2021-0089218</Text>
+                    </View>
+                    <View style={s.verifiedTag}>
+                      <Text style={s.verifiedTagText}>VERIFIED</Text>
+                    </View>
+                  </View>
 
-              <View style={s.walletCard}>
-                <Text style={s.walletLabel}>TOTAL WALLET BALANCE</Text>
-                <Text style={s.walletAmount}>₹1,450.00</Text>
-                <View style={s.walletBtnRow}>
-                  <Pressable
-                    style={s.walletActionBtn}
-                    onPress={() => {
-                      if (Platform.OS === 'web') window.alert('Top-up via UPI / Netbanking initiated.');
-                    }}
-                  >
-                    <Text style={s.walletActionText}>＋ Add Money</Text>
-                  </Pressable>
+                  <View style={s.docDivider} />
 
-                  {role === 'DRIVER' && (
-                    <Pressable
-                      style={[s.walletActionBtn, s.walletSettleBtn]}
-                      onPress={() => {
-                        if (Platform.OS === 'web') {
-                          window.alert('⚡ Instant payout of ₹1,450.00 transferred to your linked bank account!');
-                        }
-                      }}
-                    >
-                      <Text style={[s.walletActionText, { color: '#00D084' }]}>⚡ Instant Payout</Text>
-                    </Pressable>
+                  <Text style={s.sectionTitle}>Direct Indian Bank Settlement</Text>
+                  <Text style={s.inputLabel}>SELECT YOUR BANK</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bankPills}>
+                    {ALL_INDIAN_BANKS.slice(0, 10).map((b: IndianBankData) => (
+                      <Pressable
+                        key={b.code}
+                        style={[
+                          s.bankChip,
+                          ifscCode.startsWith(b.code) && s.bankChipActive,
+                        ]}
+                        onPress={() => handleIfscLookup(`${b.code}0001234`)}
+                      >
+                        <Text style={s.bankChipText}>{b.name}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+
+                  <Text style={s.inputLabel}>ACCOUNT NUMBER</Text>
+                  <TextInput
+                    style={s.textInput}
+                    value={accountNumber}
+                    onChangeText={setAccountNumber}
+                    keyboardType="number-pad"
+                  />
+
+                  <Text style={s.inputLabel}>IFSC CODE</Text>
+                  <TextInput
+                    style={s.textInput}
+                    value={ifscCode}
+                    onChangeText={handleIfscLookup}
+                    autoCapitalize="characters"
+                    maxLength={11}
+                  />
+
+                  {verifyingIfsc && <Text style={s.ifscHint}>Validating IFSC with RBI...</Text>}
+
+                  {bankInfo && (
+                    <View style={s.ifscVerifiedBox}>
+                      <Icon name="checkmark-circle" size={16} color="#34D399" />
+                      <View>
+                        <Text style={s.ifscVerifiedTitle}>{bankInfo.bankName}</Text>
+                        <Text style={s.ifscVerifiedSub}>
+                          {bankInfo.branchName}, {bankInfo.city}
+                        </Text>
+                      </View>
+                    </View>
                   )}
                 </View>
               </View>
+            )}
 
-              <Text style={[s.sectionHeaderTitle, { marginTop: spacing.xl }]}>Payment Methods</Text>
+            {/* 4. Safety & SOS */}
+            {activeTab === 'safety' && (
+              <View style={s.section}>
+                {/* Immediate Red SOS Button */}
+                <Pressable style={s.sosButton} onPress={triggerSOS}>
+                  <Icon name="warning" size={28} color="#FFFFFF" />
+                  <View style={s.sosTextGroup}>
+                    <Text style={s.sosTitle}>EMERGENCY SOS</Text>
+                    <Text style={s.sosSub}>Tap to broadcast GPS to police & family immediately</Text>
+                  </View>
+                </Pressable>
 
-              <View style={s.paymentMethodCard}>
-                <Text style={s.paymentIcon}>📱</Text>
-                <View style={s.paymentInfo}>
-                  <Text style={s.paymentTitle}>Google Pay / PhonePe UPI</Text>
-                  <Text style={s.paymentSub}>Linked • Default payment for auto-debit</Text>
-                </View>
-                <Text style={s.defaultPill}>DEFAULT</Text>
-              </View>
-
-              <View style={s.paymentMethodCard}>
-                <Text style={s.paymentIcon}>💵</Text>
-                <View style={s.paymentInfo}>
-                  <Text style={s.paymentTitle}>Cash on Delivery</Text>
-                  <Text style={s.paymentSub}>Pay driver directly upon drop-off</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* TAB 6: SETTINGS & LEGAL */}
-          {activeTab === 'settings' && (
-            <View style={s.sectionContent}>
-              <Text style={s.sectionHeaderTitle}>App Settings & Preferences</Text>
-
-              <View style={s.settingsCard}>
-                <View style={s.settingRow}>
-                  <Text style={s.settingLabel}>AMOLED Dark Theme</Text>
+                <Text style={s.sectionTitle}>Safety Preferences</Text>
+                <View style={s.safetyRow}>
+                  <View style={s.safetyInfo}>
+                    <Text style={s.safetyTitle}>Emergency Contact Number</Text>
+                    <Text style={s.safetySub}>{emergencyContact}</Text>
+                  </View>
                   <Pressable
-                    style={[s.toggleBtn, darkMode && s.toggleBtnActive]}
-                    onPress={() => setDarkMode(!darkMode)}
+                    style={s.toggleBtn}
+                    onPress={() => {
+                      if (Platform.OS === 'web') {
+                        const next = window.prompt('Enter emergency phone number:', emergencyContact);
+                        if (next) setEmergencyContact(next);
+                      }
+                    }}
                   >
-                    <Text style={s.toggleBtnText}>{darkMode ? 'ON' : 'OFF'}</Text>
+                    <Text style={s.toggleBtnText}>EDIT</Text>
                   </Pressable>
                 </View>
 
-                <View style={s.settingDivider} />
-
-                <View style={s.settingRow}>
-                  <Text style={s.settingLabel}>Language</Text>
-                  <Text style={s.settingValue}>{selectedLanguage}</Text>
-                </View>
-
-                <View style={s.settingDivider} />
-
-                <View style={s.settingRow}>
-                  <Text style={s.settingLabel}>App Version</Text>
-                  <Text style={s.settingValue}>v0.4.0 (Pilot Release)</Text>
+                <View style={s.safetyRow}>
+                  <View style={s.safetyInfo}>
+                    <Text style={s.safetyTitle}>In-Ride Audio Safety Shield</Text>
+                    <Text style={s.safetySub}>Encrypted audio record during emergency</Text>
+                  </View>
+                  <Pressable
+                    style={[s.toggleBtn, audioRecordingEnabled && s.toggleBtnActive]}
+                    onPress={() => setAudioRecordingEnabled((v) => !v)}
+                  >
+                    <Text style={s.toggleBtnText}>{audioRecordingEnabled ? 'ON' : 'OFF'}</Text>
+                  </Pressable>
                 </View>
               </View>
+            )}
 
-              <Text style={[s.sectionHeaderTitle, { marginTop: spacing.xl }]}>Account Actions</Text>
+            {/* 5. Wallet & Payments */}
+            {activeTab === 'wallet' && (
+              <View style={s.section}>
+                <View style={s.walletCard}>
+                  <Text style={s.walletLabel}>AVAILABLE WALLET BALANCE</Text>
+                  <Text style={s.walletAmount}>{walletBalance}</Text>
+                  <View style={s.walletBtnRow}>
+                    <Pressable
+                      style={s.walletActionBtn}
+                      onPress={() => {
+                        if (Platform.OS === 'web') window.alert('Recharge balance via UPI/Card');
+                      }}
+                    >
+                      <Text style={s.walletActionText}>+ Add Money</Text>
+                    </Pressable>
+                    {role === 'DRIVER' && (
+                      <Pressable
+                        style={[s.walletActionBtn, s.walletSettleBtn]}
+                        onPress={() => {
+                          if (Platform.OS === 'web') window.alert('Instant payout initiated to bank');
+                        }}
+                      >
+                        <Text style={[s.walletActionText, { color: '#00D084' }]}>Instant Payout</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
 
-              <Pressable style={s.logoutActionBtn} onPress={onLogout}>
-                <Text style={s.logoutActionText}>🚪 Sign Out of BlackSquad</Text>
-              </Pressable>
-            </View>
-          )}
+                <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}>Payment Methods</Text>
+                <View style={s.paymentMethodCard}>
+                  <Icon name="phone-portrait" size={22} color="#00D084" />
+                  <View style={s.paymentInfo}>
+                    <Text style={s.paymentTitle}>Unified Payments Interface (UPI)</Text>
+                    <Text style={s.paymentSub}>Google Pay, PhonePe, Paytm</Text>
+                  </View>
+                  <Text style={s.defaultPill}>PRIMARY</Text>
+                </View>
 
-          <View style={{ height: 60 }} />
-        </ScrollView>
+                <View style={s.paymentMethodCard}>
+                  <Icon name="card" size={22} color="#38BDF8" />
+                  <View style={s.paymentInfo}>
+                    <Text style={s.paymentTitle}>HDFC Corporate Debit Card</Text>
+                    <Text style={s.paymentSub}>•••• •••• •••• 8821</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* 6. Settings & Logout */}
+            {activeTab === 'settings' && (
+              <View style={s.section}>
+                <Text style={s.sectionTitle}>App Preferences</Text>
+                <View style={s.settingsCard}>
+                  <View style={s.settingRow}>
+                    <Text style={s.settingLabel}>App Version</Text>
+                    <Text style={s.settingValue}>2.4.0 (Pilot Production)</Text>
+                  </View>
+                  <View style={s.settingDivider} />
+                  <View style={s.settingRow}>
+                    <Text style={s.settingLabel}>Telemetry Mode</Text>
+                    <Text style={s.settingValue}>Sub-second Live Sockets</Text>
+                  </View>
+                  <View style={s.settingDivider} />
+                  <View style={s.settingRow}>
+                    <Text style={s.settingLabel}>Security Protocol</Text>
+                    <Text style={s.settingValue}>TLS 1.3 + JWT Bearer</Text>
+                  </View>
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  style={s.logoutActionBtn}
+                  onPress={() => {
+                    onClose();
+                    onLogout();
+                  }}
+                >
+                  <Icon name="log-out" size={18} color="#EF4444" />
+                  <Text style={s.logoutActionText}>Sign Out of Workspace</Text>
+                </Pressable>
+              </View>
+            )}
+          </ScrollView>
+        </View>
       </View>
     </Modal>
   );
 }
 
-const s = StyleSheet.create<any>({
-  modalRoot: {
+const s = StyleSheet.create<{
+  overlay: ViewStyle;
+  sheetContainer: ViewStyle;
+  header: ViewStyle;
+  userBadgeGroup: ViewStyle;
+  avatarBox: ViewStyle;
+  userInfo: ViewStyle;
+  userName: TextStyle;
+  userEmail: TextStyle;
+  rolePill: ViewStyle;
+  roleText: TextStyle;
+  closeBtn: ViewStyle;
+  tabsScroll: ViewStyle;
+  tabPill: ViewStyle;
+  tabPillActive: ViewStyle;
+  tabText: TextStyle;
+  tabTextActive: TextStyle;
+  contentScroll: ViewStyle;
+  section: ViewStyle;
+  sectionTitle: TextStyle;
+  formCard: ViewStyle;
+  inputLabel: TextStyle;
+  textInput: TextStyle;
+  textInputDisabled: TextStyle;
+  alertSuccess: ViewStyle;
+  alertSuccessText: TextStyle;
+  alertError: ViewStyle;
+  alertErrorText: TextStyle;
+  placeCard: ViewStyle;
+  placeIconBox: ViewStyle;
+  placeDetails: ViewStyle;
+  placeTitle: TextStyle;
+  placeAddress: TextStyle;
+  placeEditBtn: ViewStyle;
+  placeEditText: TextStyle;
+  addPlaceBtn: ViewStyle;
+  addPlaceText: TextStyle;
+  docCard: ViewStyle;
+  docRow: ViewStyle;
+  docInfo: ViewStyle;
+  docTitle: TextStyle;
+  docNumber: TextStyle;
+  verifiedTag: ViewStyle;
+  verifiedTagText: TextStyle;
+  docDivider: ViewStyle;
+  bankPills: ViewStyle;
+  bankChip: ViewStyle;
+  bankChipActive: ViewStyle;
+  bankChipText: TextStyle;
+  ifscHint: TextStyle;
+  ifscVerifiedBox: ViewStyle;
+  ifscVerifiedTitle: TextStyle;
+  ifscVerifiedSub: TextStyle;
+  sosButton: ViewStyle;
+  sosTextGroup: ViewStyle;
+  sosTitle: TextStyle;
+  sosSub: TextStyle;
+  safetyRow: ViewStyle;
+  safetyInfo: ViewStyle;
+  safetyTitle: TextStyle;
+  safetySub: TextStyle;
+  toggleBtn: ViewStyle;
+  toggleBtnActive: ViewStyle;
+  toggleBtnText: TextStyle;
+  walletCard: ViewStyle;
+  walletLabel: TextStyle;
+  walletAmount: TextStyle;
+  walletBtnRow: ViewStyle;
+  walletActionBtn: ViewStyle;
+  walletSettleBtn: ViewStyle;
+  walletActionText: TextStyle;
+  paymentMethodCard: ViewStyle;
+  paymentInfo: ViewStyle;
+  paymentTitle: TextStyle;
+  paymentSub: TextStyle;
+  defaultPill: TextStyle;
+  settingsCard: ViewStyle;
+  settingRow: ViewStyle;
+  settingLabel: TextStyle;
+  settingValue: TextStyle;
+  settingDivider: ViewStyle;
+  logoutActionBtn: ViewStyle;
+  logoutActionText: TextStyle;
+}>({
+  overlay: {
     flex: 1,
-    backgroundColor: '#070C18',
+    backgroundColor: 'rgba(7, 12, 24, 0.85)',
+    justifyContent: 'flex-end',
   },
-  appBar: {
+  sheetContainer: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  userBadgeGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'ios' ? 48 : spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0A0F1D',
+    gap: 12,
   },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  avatarBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backBtnIcon: {
+  userInfo: {
+    gap: 2,
+  },
+  userName: {
     color: '#F8FAFC',
     fontSize: 16,
-    fontWeight: '800',
-  },
-  appBarTitle: {
-    color: '#F8FAFC',
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  scrollContainer: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  heroCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    marginTop: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  heroTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-  },
-  avatarWrapper: {
-    position: 'relative',
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#2563EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#38BDF8',
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 22,
     fontWeight: '900',
   },
-  verifiedBadgeIcon: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#00D084',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#0F172A',
-  },
-  verifiedCheck: {
-    color: '#070C18',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  heroInfo: {
-    flex: 1,
-  },
-  heroName: {
-    color: '#F8FAFC',
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  heroEmail: {
+  userEmail: {
     color: '#94A3B8',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  heroBadgesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
-    gap: 4,
-  },
-  ratingStar: {
-    color: '#FACC15',
     fontSize: 12,
-  },
-  ratingScore: {
-    color: '#F8FAFC',
-    fontSize: 12,
-    fontWeight: '800',
   },
   rolePill: {
+    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  roleText: {
+    color: '#00D084',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#1E293B',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
-  },
-  rolePillText: {
-    color: '#38BDF8',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  heroDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginVertical: spacing.md,
-  },
-  memberFooter: {
-    alignItems: 'flex-start',
-  },
-  memberSinceText: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  quickHubGrid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  quickHubCard: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    borderRadius: radius.md,
-    padding: spacing.md,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
   },
-  quickHubActive: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#1E293B',
+  tabsScroll: {
+    marginBottom: 16,
   },
-  quickHubIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  quickHubLabel: {
-    color: '#F8FAFC',
-    fontWeight: '800',
-    fontSize: 12,
-  },
-  quickHubSub: {
-    color: '#94A3B8',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  tabScrollContainer: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  tabList: {
-    gap: spacing.sm,
-  },
-  navTabPill: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+  tabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1E293B',
+    marginRight: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.06)',
   },
-  navTabPillActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#38BDF8',
+  tabPillActive: {
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    borderColor: '#00D084',
   },
-  navTabText: {
-    color: '#94A3B8',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  navTabTextActive: {
-    color: '#FFFFFF',
-  },
-  sectionContent: {
-    marginTop: spacing.md,
-  },
-  sectionHeaderTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  sectionHeaderSub: {
+  tabText: {
     color: '#94A3B8',
     fontSize: 12,
-    marginTop: 2,
-    marginBottom: spacing.md,
+    fontWeight: '800',
   },
-  inputCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    gap: spacing.sm,
+  tabTextActive: {
+    color: '#00D084',
+  },
+  contentScroll: {
+    maxHeight: 500,
+  },
+  section: {
+    gap: 12,
+    paddingBottom: 24,
+  },
+  sectionTitle: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  formCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
   },
   inputLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '800',
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '900',
     letterSpacing: 1,
-    marginTop: spacing.xs,
+    marginTop: 4,
   },
   textInput: {
-    backgroundColor: '#1E293B',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     color: '#F8FAFC',
-    fontSize: 14,
+    fontSize: 13,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   textInputDisabled: {
     opacity: 0.6,
-    backgroundColor: '#162032',
   },
   alertSuccess: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: '#10B981',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 4,
   },
   alertSuccessText: {
     color: '#34D399',
+    fontSize: 12,
     fontWeight: '700',
-    fontSize: 13,
   },
   alertError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: '#EF4444',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginVertical: spacing.sm,
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 4,
   },
   alertErrorText: {
     color: '#FCA5A5',
+    fontSize: 12,
     fontWeight: '700',
-    fontSize: 13,
   },
   placeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    marginBottom: spacing.sm,
-    gap: spacing.md,
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
   },
   placeIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1E293B',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  placeEmoji: {
-    fontSize: 18,
   },
   placeDetails: {
     flex: 1,
@@ -1071,60 +792,51 @@ const s = StyleSheet.create<any>({
   placeTitle: {
     color: '#F8FAFC',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
   },
   placeAddress: {
     color: '#94A3B8',
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   placeEditBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.sm,
-    backgroundColor: '#1E293B',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#0F172A',
   },
   placeEditText: {
     color: '#38BDF8',
+    fontSize: 11,
     fontWeight: '700',
-    fontSize: 12,
   },
   addPlaceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: '#2563EB',
+    gap: 8,
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#38BDF8',
     borderStyle: 'dashed',
-    marginTop: spacing.xs,
-    gap: spacing.sm,
-  },
-  addPlaceIcon: {
-    color: '#38BDF8',
-    fontSize: 18,
-    fontWeight: '900',
   },
   addPlaceText: {
     color: '#38BDF8',
-    fontWeight: '800',
     fontSize: 13,
+    fontWeight: '800',
   },
   docCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#1E293B',
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
   },
   docRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-  },
-  docIcon: {
-    fontSize: 24,
+    gap: 12,
   },
   docInfo: {
     flex: 1,
@@ -1136,85 +848,76 @@ const s = StyleSheet.create<any>({
   },
   docNumber: {
     color: '#F8FAFC',
+    fontSize: 13,
     fontWeight: '800',
-    fontSize: 14,
     marginTop: 2,
   },
   verifiedTag: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   verifiedTagText: {
-    color: '#34D399',
-    fontWeight: '800',
-    fontSize: 10,
+    color: '#00D084',
+    fontSize: 9,
+    fontWeight: '900',
   },
   docDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginVertical: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginVertical: 4,
   },
   bankPills: {
     marginVertical: 4,
   },
   bankChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginRight: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    marginRight: spacing.sm,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   bankChipActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#38BDF8',
+    borderColor: '#00D084',
+    backgroundColor: 'rgba(0, 208, 132, 0.12)',
   },
   bankChipText: {
     color: '#F8FAFC',
+    fontSize: 11,
     fontWeight: '700',
-    fontSize: 12,
   },
   ifscHint: {
     color: '#38BDF8',
-    fontSize: 12,
-    marginVertical: 4,
+    fontSize: 11,
   },
   ifscVerifiedBox: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: '#10B981',
-    marginVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    padding: 10,
+    borderRadius: 8,
   },
   ifscVerifiedTitle: {
     color: '#34D399',
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
   },
   ifscVerifiedSub: {
     color: '#94A3B8',
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 10,
+    marginTop: 1,
   },
   sosButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     backgroundColor: '#DC2626',
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-  },
-  sosIcon: {
-    fontSize: 32,
+    borderRadius: 14,
+    padding: 14,
   },
   sosTextGroup: {
     flex: 1,
@@ -1222,7 +925,7 @@ const s = StyleSheet.create<any>({
   sosTitle: {
     color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 16,
+    fontSize: 14,
     letterSpacing: 0.5,
   },
   sosSub: {
@@ -1232,72 +935,66 @@ const s = StyleSheet.create<any>({
   },
   safetyRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0F172A',
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    marginBottom: spacing.sm,
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 12,
   },
   safetyInfo: {
     flex: 1,
-    paddingRight: spacing.md,
   },
   safetyTitle: {
     color: '#F8FAFC',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
   },
   safetySub: {
     color: '#94A3B8',
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   toggleBtn: {
-    backgroundColor: '#334155',
+    backgroundColor: '#0F172A',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: radius.sm,
+    borderRadius: 8,
   },
   toggleBtnActive: {
     backgroundColor: '#00D084',
   },
   toggleBtnText: {
-    color: '#070C18',
+    color: '#F8FAFC',
+    fontSize: 11,
     fontWeight: '900',
-    fontSize: 12,
   },
   walletCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#1E293B',
+    borderRadius: 14,
+    padding: 16,
+    gap: 4,
   },
   walletLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '800',
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '900',
     letterSpacing: 1,
   },
   walletAmount: {
-    color: '#F8FAFC',
-    fontSize: 32,
+    color: '#00D084',
+    fontSize: 28,
     fontWeight: '900',
-    marginVertical: spacing.xs,
   },
   walletBtnRow: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
+    gap: 10,
+    marginTop: 10,
   },
   walletActionBtn: {
     flex: 1,
     backgroundColor: '#2563EB',
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
+    paddingVertical: 10,
+    borderRadius: 10,
     alignItems: 'center',
   },
   walletSettleBtn: {
@@ -1308,21 +1005,15 @@ const s = StyleSheet.create<any>({
   walletActionText: {
     color: '#FFFFFF',
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
   },
   paymentMethodCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    marginBottom: spacing.sm,
-    gap: spacing.md,
-  },
-  paymentIcon: {
-    fontSize: 24,
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
   },
   paymentInfo: {
     flex: 1,
@@ -1330,62 +1021,64 @@ const s = StyleSheet.create<any>({
   paymentTitle: {
     color: '#F8FAFC',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
   },
   paymentSub: {
     color: '#94A3B8',
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   defaultPill: {
-    backgroundColor: '#1E293B',
-    color: '#38BDF8',
-    fontSize: 10,
-    fontWeight: '800',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    color: '#00D084',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
   },
   settingsCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#1E293B',
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
   },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
   },
   settingLabel: {
-    color: '#F8FAFC',
-    fontSize: 14,
+    color: '#94A3B8',
+    fontSize: 12,
     fontWeight: '700',
   },
   settingValue: {
-    color: '#38BDF8',
-    fontWeight: '700',
-    fontSize: 13,
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '800',
   },
   settingDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginVertical: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginVertical: 4,
   },
   logoutActionBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderWidth: 1,
     borderColor: '#EF4444',
-    padding: spacing.lg,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    marginTop: spacing.xs,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 12,
   },
   logoutActionText: {
     color: '#FCA5A5',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
   },
 });

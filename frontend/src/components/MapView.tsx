@@ -1,7 +1,14 @@
 import React, { useEffect, useRef } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import * as maplibregl from 'maplibre-gl';
+import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import * as maplibreModule from 'maplibre-gl';
 import { NativeMapView } from './NativeMapView';
+
+const maplibregl: any = (maplibreModule as any).default || maplibreModule;
+
+export interface LocationCoordinate {
+  latitude: number;
+  longitude: number;
+}
 
 export interface MapMarker {
   id: string;
@@ -15,30 +22,31 @@ export interface MapMarker {
 }
 
 export interface RoutePolyline {
-  coordinates: Array<[number, number]>; // [longitude, latitude]
+  coordinates: [number, number][];
   color?: string;
 }
 
-export interface MapViewProps {
-  center?: { latitude: number; longitude: number };
+interface MapViewProps {
+  center?: LocationCoordinate;
   zoom?: number;
-  styleMode?: 'light' | 'dark' | 'voyager';
+  styleMode?: 'light' | 'dark';
   markers?: MapMarker[];
   route?: RoutePolyline;
   interactive?: boolean;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }
 
-const STYLES: Record<string, maplibregl.StyleSpecification> = {
+const STYLES = {
   light: {
     version: 8,
     sources: {
       carto: {
         type: 'raster',
         tiles: [
-          'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-          'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-          'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
         ],
         tileSize: 256,
         attribution: 'OpenStreetMap CARTO',
@@ -52,25 +60,10 @@ const STYLES: Record<string, maplibregl.StyleSpecification> = {
       carto: {
         type: 'raster',
         tiles: [
-          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        ],
-        tileSize: 256,
-        attribution: 'OpenStreetMap CARTO',
-      },
-    },
-    layers: [{ id: 'carto', type: 'raster', source: 'carto', minzoom: 0, maxzoom: 19 }],
-  },
-  voyager: {
-    version: 8,
-    sources: {
-      carto: {
-        type: 'raster',
-        tiles: [
           'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
           'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
           'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
         ],
         tileSize: 256,
         attribution: 'OpenStreetMap CARTO',
@@ -90,8 +83,8 @@ export function MapView({
   style,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markerInstancesRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const mapRef = useRef<any>(null);
+  const markerInstancesRef = useRef<Map<string, any>>(new Map());
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !containerRef.current) return;
@@ -214,14 +207,13 @@ export function MapView({
 
       Object.assign(element.style, {
         backgroundColor: marker.color || (isVehicle ? '#0F172A' : '#2563EB'),
-        width: isVehicle ? '38px' : '32px',
-        height: isVehicle ? '38px' : '32px',
-        borderRadius: isVehicle ? '19px' : '16px',
+        width: isVehicle ? '36px' : '22px',
+        height: isVehicle ? '36px' : '22px',
+        borderRadius: isVehicle ? '18px' : '11px',
         border: '2px solid #FFFFFF',
         boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
         color: '#FFFFFF',
         fontWeight: 'bold',
-        fontSize: isVehicle ? '18px' : '13px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -229,7 +221,11 @@ export function MapView({
         transition: 'transform 0.3s ease',
       });
 
-      element.innerText = marker.badgeText || (isVehicle ? '🚗' : '•');
+      if (isVehicle) {
+        element.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00D084" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>`;
+      } else {
+        element.innerHTML = `<div style="width:6px;height:6px;border-radius:3px;background:#fff"></div>`;
+      }
 
       const next = new maplibregl.Marker({
         element,

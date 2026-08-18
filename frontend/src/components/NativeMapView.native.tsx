@@ -1,5 +1,7 @@
+import React from 'react';
 import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Icon } from './ui/Icon';
 import type { MapMarker, RoutePolyline } from './MapView';
 
 const CARTO_STYLE = {
@@ -46,13 +48,17 @@ export function NativeMapView({ center, zoom, markers, interactive, style }: Pro
           <Marker key={marker.id} id={marker.id} lngLat={[marker.longitude, marker.latitude]}>
             <View
               style={[
-                styles.marker,
-                isVehicle && styles.vehicleMarker,
+                styles.markerBase,
+                isVehicle ? styles.vehicleMarker : styles.pointMarker,
                 { backgroundColor: marker.color || (isVehicle ? '#0F172A' : '#2563EB') },
-                marker.heading !== undefined && { transform: [{ rotate: `${marker.heading}deg` }] },
+                marker.heading !== undefined && isVehicle && { transform: [{ rotate: `${marker.heading}deg` }] },
               ]}
             >
-              <Text style={styles.markerText}>{marker.badgeText || (isVehicle ? '🚗' : '•')}</Text>
+              {isVehicle ? (
+                <Icon name="navigate" size={16} color="#00D084" />
+              ) : (
+                <View style={styles.centerDot} />
+              )}
             </View>
           </Marker>
         );
@@ -63,26 +69,33 @@ export function NativeMapView({ center, zoom, markers, interactive, style }: Pro
 
 const styles = StyleSheet.create({
   map: { flex: 1 },
-  marker: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+  markerBase: {
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    elevation: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
   },
   vehicleMarker: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2.5,
-    borderColor: '#FFFFFF',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.9)',
   },
-  markerText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  pointMarker: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  centerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+  },
 });
