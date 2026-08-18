@@ -11,21 +11,16 @@ dist/
 build/
 .expo/
 .metro-health-check*
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/build/
+frontend/ios/build/
 
 # Logs and caches
 *.log
 npm-debug.log*
 .eslintcache
 .DS_Store
-
-# Native local files
-*.keystore
-*.jks
-*.p8
-*.p12
-*.mobileprovision
-frontend/android/
-frontend/ios/
 
 # Editors
 .idea/
