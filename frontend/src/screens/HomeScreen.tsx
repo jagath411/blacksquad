@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Platform,
@@ -19,7 +20,6 @@ import { ProfileModal } from '../components/ProfileModal';
 import { DriverDetailModal } from '../components/DriverDetailModal';
 import { NotificationBanner, type NotificationItem } from '../components/NotificationBanner';
 import { Icon } from '../components/ui/Icon';
-import { darkColors, lightColors, radius, spacing, typography } from '../theme';
 import type { BookingData, BookingStatus, DriverLiveLocation, RootStackParamList, UserRole } from '../types';
 import {
   createFleetSocket,
@@ -31,8 +31,12 @@ import {
   setDriverDutyStatus,
   type FleetSocket,
 } from '../services/socket';
-import { startDriverTracking, type TrackerStatus } from '../services/driverTracker';
-import { useFleet, type FleetDriver } from '../hooks/useFleet';
+import {
+  getCurrentDeviceLocation,
+  startDriverTracking,
+  type TrackerStatus,
+} from '../services/driverTracker';
+import { useFleet } from '../hooks/useFleet';
 import { clearAllStorage } from '../services/tokenStore';
 import {
   acceptBooking,
@@ -91,14 +95,23 @@ const RIDE_TIERS: RideTier[] = [
 export function HomeScreen({ route, navigation }: Props) {
   const role: UserRole = route.params.role;
   const [profileVisible, setProfileVisible] = useState(false);
-  const [pickup, setPickup] = useState('BLR Tech Park, Bellandur');
+  const [pickup, setPickup] = useState('My Current Location');
   const [destination, setDestination] = useState('');
   const [selectedTier, setSelectedTier] = useState('uberx');
   const [bookingModal, setBookingModal] = useState(false);
   const [activeBooking, setActiveBooking] = useState<BookingData | null>(null);
   const [notification, setNotification] = useState<NotificationItem | null>(null);
 
-  // Live Tracking States
+  // Device GPS Location State
+  const [deviceLocation, setDeviceLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    heading?: number;
+    speed?: number;
+  } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+
+  // Live Driver Tracking States
   const [driverLiveLoc, setDriverLiveLoc] = useState<DriverLiveLocation | null>(null);
   const [incomingBookingReq, setIncomingBookingReq] = useState<BookingData | null>(null);
   const [incomingTimer, setIncomingTimer] = useState(15);
@@ -110,18 +123,42 @@ export function HomeScreen({ route, navigation }: Props) {
 
   // Map & Camera
   const [mapCenter, setMapCenter] = useState({ latitude: 12.9716, longitude: 77.5946 });
-  const [mapZoom, setMapZoom] = useState(13);
+  const [mapZoom, setMapZoom] = useState(14);
 
   // Driver duty & Fleet
   const [isDriverOnline, setIsDriverOnline] = useState(false);
   const [trackerStatus, setTrackerStatus] = useState<TrackerStatus>('offline');
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
-  const { fleet } = useFleet();
+  const { drivers } = useFleet();
 
   const socketRef = useRef<FleetSocket | null>(null);
   const trackerCleanupRef = useRef<(() => void) | null>(null);
 
-  // Initialize Socket and fetch Active Booking
+  // 1. Initial Device GPS Location Fetch
+  const fetchCurrentLocation = async (centerMap = true) => {
+    setIsLocating(true);
+    try {
+      const loc = await getCurrentDeviceLocation();
+      if (loc) {
+        setDeviceLocation(loc);
+        if (centerMap) {
+          setMapCenter({ latitude: loc.latitude, longitude: loc.longitude });
+          setMapZoom(15);
+        }
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.log('Location acquisition notice:', err);
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCurrentLocation(true);
+  }, []);
+
+  // 2. Initialize Socket and Active Booking
   useEffect(() => {
     let isMounted = true;
 
@@ -131,7 +168,6 @@ export function HomeScreen({ route, navigation }: Props) {
         if (!isMounted) return;
         socketRef.current = socket;
 
-        // Fetch any existing active booking
         const existing = await getActiveBooking();
         if (isMounted && existing) {
           setActiveBooking(existing);
@@ -144,13 +180,11 @@ export function HomeScreen({ route, navigation }: Props) {
           }
         }
 
-        // Listen for Real-Time Live Driver Coordinates
         const unsubscribeLocation = onBookingLocationUpdate(socket, (loc) => {
           setDriverLiveLoc(loc);
           setMapCenter({ latitude: loc.latitude, longitude: loc.longitude });
         });
 
-        // Listen for Real-Time Booking Status Changes
         const unsubscribeStatus = onBookingStatusChange(socket, (payload) => {
           if (payload.booking) {
             setActiveBooking(payload.booking);
@@ -159,7 +193,7 @@ export function HomeScreen({ route, navigation }: Props) {
             setNotification({
               id: Date.now().toString(),
               title: 'Driver Accepted Your Ride',
-              body: 'Your driver is en route to pickup.',
+              body: 'Your driver partner is en route to your pickup point.',
             });
           } else if (payload.status === 'DRIVER_ARRIVING') {
             setNotification({
@@ -171,19 +205,18 @@ export function HomeScreen({ route, navigation }: Props) {
             setNotification({
               id: Date.now().toString(),
               title: 'Trip Started',
-              body: 'Sit back and relax. Enjoy your ride!',
+              body: 'Ride OTP verified. Have a safe journey!',
             });
           } else if (payload.status === 'TRIP_COMPLETED') {
             setNotification({
               id: Date.now().toString(),
               title: 'Trip Completed',
-              body: 'Thank you for riding with BlackSquad.',
+              body: 'You have arrived safely at your destination.',
             });
             setShowRatingModal(true);
           }
         });
 
-        // Listen for Incoming Requests for Online Drivers
         const unsubscribeRequests = onNewBookingRequest(socket, (req) => {
           if (role === 'DRIVER' && isDriverOnline) {
             setIncomingBookingReq(req);
@@ -198,7 +231,7 @@ export function HomeScreen({ route, navigation }: Props) {
         };
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.log('Socket initialization error:', err);
+        console.log('Socket initialization notice:', err);
       }
     }
 
@@ -210,7 +243,7 @@ export function HomeScreen({ route, navigation }: Props) {
     };
   }, [role, isDriverOnline]);
 
-  // Driver Request Countdown Timer
+  // 3. Driver Incoming Request Countdown Timer
   useEffect(() => {
     if (!incomingBookingReq) return;
     const interval = setInterval(() => {
@@ -225,7 +258,7 @@ export function HomeScreen({ route, navigation }: Props) {
     return () => clearInterval(interval);
   }, [incomingBookingReq]);
 
-  // Periodic fallback check for active booking
+  // 4. Periodic Sync for Active Booking
   useEffect(() => {
     const interval = setInterval(() => {
       getActiveBooking()
@@ -265,13 +298,16 @@ export function HomeScreen({ route, navigation }: Props) {
     }
 
     const selectedTierObj = RIDE_TIERS.find((t) => t.id === selectedTier) || RIDE_TIERS[0];
+    const pickupCoords: [number, number] = deviceLocation
+      ? [deviceLocation.longitude, deviceLocation.latitude]
+      : [77.5946, 12.9716];
 
     try {
       const newBooking = await createBooking({
-        pickupAddress: pickup,
-        pickupCoordinates: [77.5946, 12.9716],
+        pickupAddress: pickup === 'My Current Location' ? 'Current GPS Location' : pickup,
+        pickupCoordinates: pickupCoords,
         dropAddress: destination,
-        dropCoordinates: [77.6389, 12.9141],
+        dropCoordinates: [pickupCoords[0] + 0.035, pickupCoords[1] - 0.025],
         fare: selectedTierObj.fareNumber,
         serviceTier: selectedTierObj.name,
       });
@@ -284,7 +320,7 @@ export function HomeScreen({ route, navigation }: Props) {
       }
     } catch (e: any) {
       if (Platform.OS === 'web') window.alert(e.message || 'Failed to book ride');
-      else Alert.alert('Booking Error', e.message || 'Could not request ride');
+      else Alert.alert('Booking Notice', e.message || 'Could not request ride at this moment.');
     }
   };
 
@@ -300,18 +336,42 @@ export function HomeScreen({ route, navigation }: Props) {
       if (socketRef.current) {
         setDriverDutyStatus(socketRef.current, 'OFFLINE');
       }
+      setNotification({
+        id: Date.now().toString(),
+        title: 'Duty Offline',
+        body: 'You are now offline and will not receive passenger ride requests.',
+      });
     } else {
       try {
         if (socketRef.current) {
           setDriverDutyStatus(socketRef.current, 'AVAILABLE');
-          const cleanup = await startDriverTracking(socketRef.current, (st) =>
-            setTrackerStatus(st),
+          const cleanup = await startDriverTracking(
+            socketRef.current,
+            (st) => setTrackerStatus(st),
+            (loc) => {
+              setDeviceLocation(loc);
+              setDriverLiveLoc((prev) => ({
+                ...(prev || {}),
+                driverId: 'self',
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+                heading: loc.heading,
+                speed: loc.speed,
+                updatedAt: new Date().toISOString(),
+              } as DriverLiveLocation));
+            }
           );
           trackerCleanupRef.current = cleanup;
           setIsDriverOnline(true);
+          setNotification({
+            id: Date.now().toString(),
+            title: 'Duty Online (Available)',
+            body: 'GPS Live Tracking active. Ready for passenger dispatches.',
+          });
         }
       } catch (err: any) {
         if (Platform.OS === 'web') window.alert(err.message || 'Failed to start GPS tracking');
+        else Alert.alert('Location Permission Required', err.message || 'Please enable GPS location in settings.');
       }
     }
   };
@@ -358,6 +418,7 @@ export function HomeScreen({ route, navigation }: Props) {
       setOtpInput('');
     } catch (e: any) {
       if (Platform.OS === 'web') window.alert(e.message || 'Invalid Ride Start PIN');
+      else Alert.alert('Verification Failed', 'Incorrect 4-digit ride start PIN.');
     }
   };
 
@@ -379,7 +440,7 @@ export function HomeScreen({ route, navigation }: Props) {
     if (!activeBooking) return;
     try {
       await updateBookingStatus(activeBooking._id, 'CANCELLED', {
-        cancellationReason: 'Rider requested cancellation',
+        cancellationReason: 'User requested cancellation',
       });
       setActiveBooking(null);
       setBookingModal(false);
@@ -392,8 +453,26 @@ export function HomeScreen({ route, navigation }: Props) {
   const markers: MapMarker[] = [];
   let routePolyline: RoutePolyline | undefined;
 
+  // A. Self Device Location Marker
+  if (deviceLocation) {
+    markers.push({
+      id: 'self-location',
+      latitude: deviceLocation.latitude,
+      longitude: deviceLocation.longitude,
+      heading: deviceLocation.heading || 0,
+      isVehicle: role === 'DRIVER',
+      title:
+        role === 'DRIVER'
+          ? isDriverOnline
+            ? 'You (Online & Available)'
+            : 'You (Offline)'
+          : 'Your Current Location',
+      color: role === 'DRIVER' ? (isDriverOnline ? '#00D084' : '#64748B') : '#00D084',
+    });
+  }
+
+  // B. Active Booking Markers & Route
   if (activeBooking) {
-    // Pickup Pin
     if (activeBooking.pickupLocation?.coordinates) {
       markers.push({
         id: 'pickup',
@@ -404,7 +483,6 @@ export function HomeScreen({ route, navigation }: Props) {
       });
     }
 
-    // Drop Pin
     if (activeBooking.dropLocation?.coordinates) {
       markers.push({
         id: 'drop',
@@ -415,23 +493,21 @@ export function HomeScreen({ route, navigation }: Props) {
       });
     }
 
-    // Driver Live Location
     const dLat = driverLiveLoc?.latitude || activeBooking.driverLocation?.latitude;
     const dLon = driverLiveLoc?.longitude || activeBooking.driverLocation?.longitude;
     const dHeading = driverLiveLoc?.heading || activeBooking.driverLocation?.heading || 0;
 
     if (dLat && dLon) {
       markers.push({
-        id: 'driver',
+        id: 'driver-assigned',
         latitude: dLat,
         longitude: dLon,
-        title: 'Driver Live Location',
+        title: 'Assigned Driver Partner',
         color: '#0F172A',
         heading: dHeading,
         isVehicle: true,
       });
 
-      // Draw polyline connecting Driver -> Target
       if (activeBooking.pickupLocation?.coordinates && activeBooking.dropLocation?.coordinates) {
         if (activeBooking.status === 'TRIP_STARTED') {
           routePolyline = {
@@ -453,44 +529,34 @@ export function HomeScreen({ route, navigation }: Props) {
         }
       }
     }
-  } else if (role === 'OWNER') {
-    fleet.forEach((d: FleetDriver) => {
+  }
+
+  // C. Owner Fleet Overview Markers
+  if (role === 'OWNER' && drivers && drivers.length > 0) {
+    drivers.forEach((d) => {
       markers.push({
-        id: d.driverId,
-        latitude: d.latitude,
-        longitude: d.longitude,
-        title: `${d.driverName || 'Driver'}`,
-        color: d.connection === 'online' ? '#00D084' : '#64748B',
+        id: `fleet-${d.id}`,
+        longitude: d.lng,
+        latitude: d.lat,
+        title: `${d.name} (${d.state})`,
         isVehicle: true,
+        color: d.color,
       });
     });
   }
 
-  // Profile modal instance
-  const profileModalElement = (
-    <ProfileModal
-      visible={profileVisible}
-      role={role}
-      onClose={() => setProfileVisible(false)}
-      onLogout={handleLogout}
-    />
-  );
-
   // ==========================================
-  // 1. RIDER / CUSTOMER WORKSPACE
+  // RENDER: 1. RIDER / CUSTOMER WORKSPACE
   // ==========================================
   if (role === 'CUSTOMER') {
     return (
-      <View style={s.customerRoot}>
-        {notification && (
-          <NotificationBanner
-            notification={notification}
-            onDismiss={() => setNotification(null)}
-          />
-        )}
+      <View style={s.container}>
+        <NotificationBanner
+          notification={notification}
+          onDismiss={() => setNotification(null)}
+        />
 
-        {/* Map View */}
-        <View style={s.mapSurface}>
+        <View style={s.mapWrapper}>
           <MapView
             center={mapCenter}
             zoom={mapZoom}
@@ -499,7 +565,6 @@ export function HomeScreen({ route, navigation }: Props) {
             style={s.mapFrame}
           />
 
-          {/* Top Floating Bar */}
           <View style={s.mapTopRow}>
             <View style={s.brandBadge}>
               <Icon name="flash" size={14} color="#00D084" />
@@ -515,7 +580,19 @@ export function HomeScreen({ route, navigation }: Props) {
             </Pressable>
           </View>
 
-          {/* Live ETA Floating Pill during active ride */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="My GPS Location"
+            style={s.recenterFab}
+            onPress={() => fetchCurrentLocation(true)}
+          >
+            {isLocating ? (
+              <ActivityIndicator size="small" color="#00D084" />
+            ) : (
+              <Icon name="locate" size={20} color="#00D084" />
+            )}
+          </Pressable>
+
           {activeBooking && (
             <View style={s.floatingEtaPill}>
               <Icon name="navigate" size={14} color="#00D084" />
@@ -534,12 +611,10 @@ export function HomeScreen({ route, navigation }: Props) {
           )}
         </View>
 
-        {/* Bottom Sheet: Active Tracking vs Booking Creator */}
         {activeBooking ? (
           <View style={s.activeRideSheet}>
             <View style={s.sheetHandle} />
 
-            {/* Driver & Vehicle Header Card */}
             <View style={s.driverCard}>
               <View style={s.driverAvatarBox}>
                 <Icon name="person" size={22} color="#FFFFFF" />
@@ -549,7 +624,7 @@ export function HomeScreen({ route, navigation }: Props) {
                   {typeof activeBooking.driverId === 'object' &&
                   activeBooking.driverId?.userId?.name
                     ? activeBooking.driverId.userId.name
-                    : 'Assigned Driver'}
+                    : 'Assigned Driver Partner'}
                 </Text>
                 <Text style={s.driverVehicle}>
                   {activeBooking.serviceTier || 'Express'} •{' '}
@@ -564,7 +639,6 @@ export function HomeScreen({ route, navigation }: Props) {
               </View>
             </View>
 
-            {/* Route Status Progress Indicator */}
             <View style={s.tripStatusBox}>
               <View style={s.statusStepRow}>
                 <View
@@ -601,7 +675,7 @@ export function HomeScreen({ route, navigation }: Props) {
                   {activeBooking.status === 'DRIVER_ACCEPTED'
                     ? 'Driver Dispatched'
                     : activeBooking.status === 'DRIVER_ARRIVING'
-                    ? 'At Pickup Spot'
+                    ? 'At Pickup Point'
                     : 'Driver En Route'}
                 </Text>
                 <Text style={s.stepLabel}>
@@ -610,13 +684,12 @@ export function HomeScreen({ route, navigation }: Props) {
               </View>
             </View>
 
-            {/* Action Buttons */}
             <View style={s.sheetActions}>
               <Pressable
                 style={s.callBtn}
                 onPress={() => {
                   if (Platform.OS === 'web') window.alert('Calling driver: +91 98765 43210');
-                  else Alert.alert('Contact Driver', 'Dialing +91 98765 43210');
+                  else Alert.alert('Contact Driver', 'Connecting to driver partner...');
                 }}
               >
                 <Icon name="call" size={16} color="#FFFFFF" />
@@ -645,7 +718,6 @@ export function HomeScreen({ route, navigation }: Props) {
           <View style={s.bookingSheet}>
             <View style={s.sheetHandle} />
 
-            {/* Search destination trigger bar */}
             {!bookingModal ? (
               <Pressable style={s.searchBar} onPress={() => setBookingModal(true)}>
                 <Icon name="search" size={18} color="#00D084" />
@@ -663,7 +735,6 @@ export function HomeScreen({ route, navigation }: Props) {
                   </Pressable>
                 </View>
 
-                {/* Pickup & Destination Inputs */}
                 <View style={s.inputsContainer}>
                   <View style={s.inputRow}>
                     <View style={s.pickupPointDot} />
@@ -689,7 +760,6 @@ export function HomeScreen({ route, navigation }: Props) {
                   </View>
                 </View>
 
-                {/* Vehicle Selection Tiers */}
                 <Text style={s.tiersHeading}>RECOMMENDED RIDES</Text>
                 <View style={s.tiersList}>
                   {RIDE_TIERS.map((tier) => {
@@ -700,7 +770,7 @@ export function HomeScreen({ route, navigation }: Props) {
                         style={[s.tierCard, isSelected && s.tierCardActive]}
                         onPress={() => setSelectedTier(tier.id)}
                       >
-                        <View style={[s.tierIconBox, isSelected && s.tierIconBoxActive]}>
+                        <View style={s.tierIconBox}>
                           <Icon
                             name={tier.icon}
                             family={tier.iconFamily}
@@ -710,64 +780,56 @@ export function HomeScreen({ route, navigation }: Props) {
                         </View>
                         <View style={s.tierInfo}>
                           <Text style={s.tierName}>{tier.name}</Text>
-                          <Text style={s.tierMeta}>
-                            {tier.eta} • {tier.desc}
-                          </Text>
+                          <Text style={s.tierDesc}>{tier.desc}</Text>
                         </View>
-                        <Text style={s.tierPrice}>{tier.price}</Text>
+                        <View style={s.tierPricing}>
+                          <Text style={s.tierPrice}>{tier.price}</Text>
+                          <Text style={s.tierEta}>{tier.eta}</Text>
+                        </View>
                       </Pressable>
                     );
                   })}
                 </View>
 
-                {/* Confirm Booking CTA */}
-                <View style={s.requestBtnBox}>
-                  <AppButton
-                    label={`Confirm ${
-                      RIDE_TIERS.find((t) => t.id === selectedTier)?.name || 'Express'
-                    }`}
-                    onPress={handleRequestRide}
-                  />
+                <View style={s.bookBtnContainer}>
+                  <AppButton label="Confirm & Request Ride" onPress={handleRequestRide} />
                 </View>
               </ScrollView>
             )}
           </View>
         )}
 
-        {/* Rating & Review Post-Trip Modal */}
         <Modal visible={showRatingModal} transparent animationType="fade">
           <View style={s.modalOverlay}>
             <View style={s.ratingCard}>
-              <View style={s.ratingIconBox}>
+              <View style={s.ratingHeader}>
                 <Icon name="checkmark-circle" size={40} color="#00D084" />
+                <Text style={s.ratingTitle}>Rate Your Driver Partner</Text>
+                <Text style={s.ratingSub}>How was your ride experience today?</Text>
               </View>
-              <Text style={s.ratingTitle}>Trip Complete</Text>
-              <Text style={s.ratingSub}>How was your experience with BlackSquad?</Text>
 
-              {/* Vector Star Rating */}
-              <View style={s.starRow}>
+              <View style={s.starsRow}>
                 {[1, 2, 3, 4, 5].map((star) => (
-                  <Pressable key={star} onPress={() => setUserRating(star)}>
+                  <Pressable key={star} onPress={() => setUserRating(star)} style={s.starBtn}>
                     <Icon
                       name={star <= userRating ? 'star' : 'star-outline'}
-                      size={32}
-                      color={star <= userRating ? '#FACC15' : '#334155'}
+                      size={28}
+                      color="#F59E0B"
                     />
                   </Pressable>
                 ))}
               </View>
 
-              {/* Tip Selection */}
               <Text style={s.tipHeading}>ADD A DRIVER TIP</Text>
-              <View style={s.tipRow}>
-                {[0, 20, 50, 100].map((amount) => (
+              <View style={s.tipsRow}>
+                {[0, 30, 50, 100].map((amount) => (
                   <Pressable
                     key={amount}
-                    style={[s.tipPill, tipAmount === amount && s.tipPillActive]}
+                    style={[s.tipBtn, tipAmount === amount && s.tipBtnActive]}
                     onPress={() => setTipAmount(amount)}
                   >
                     <Text style={[s.tipText, tipAmount === amount && s.tipTextActive]}>
-                      {amount === 0 ? 'No tip' : `₹${amount}`}
+                      {amount === 0 ? 'No Tip' : `₹${amount}`}
                     </Text>
                   </Pressable>
                 ))}
@@ -778,19 +840,28 @@ export function HomeScreen({ route, navigation }: Props) {
           </View>
         </Modal>
 
-        {profileModalElement}
+        <ProfileModal
+          visible={profileVisible}
+          onClose={() => setProfileVisible(false)}
+          onLogout={handleLogout}
+          role={role}
+        />
       </View>
     );
   }
 
   // ==========================================
-  // 2. DRIVER PARTNER WORKSPACE
+  // RENDER: 2. DRIVER PARTNER WORKSPACE
   // ==========================================
   if (role === 'DRIVER') {
     return (
-      <View style={s.customerRoot}>
-        {/* Map Surface */}
-        <View style={s.mapSurface}>
+      <View style={s.container}>
+        <NotificationBanner
+          notification={notification}
+          onDismiss={() => setNotification(null)}
+        />
+
+        <View style={s.mapWrapper}>
           <MapView
             center={mapCenter}
             zoom={mapZoom}
@@ -799,18 +870,10 @@ export function HomeScreen({ route, navigation }: Props) {
             style={s.mapFrame}
           />
 
-          {/* Top Floating Driver Bar */}
           <View style={s.mapTopRow}>
-            <View style={s.driverDutyPill}>
-              <View
-                style={[
-                  s.statusDot,
-                  { backgroundColor: isDriverOnline ? '#00D084' : '#EF4444' },
-                ]}
-              />
-              <Text style={s.driverDutyText}>
-                {isDriverOnline ? 'ONLINE • RADAR ON' : 'OFFLINE • DUTY OFF'}
-              </Text>
+            <View style={s.brandBadge}>
+              <Icon name="flash" size={14} color="#00D084" />
+              <Text style={s.brandBadgeText}>DRIVER PORTAL</Text>
             </View>
 
             <Pressable
@@ -822,143 +885,49 @@ export function HomeScreen({ route, navigation }: Props) {
             </Pressable>
           </View>
 
-          {/* Floating Duty Toggle Button */}
-          <View style={s.driverFloatingDutyBox}>
-            <Pressable
-              style={[s.dutyActionBtn, isDriverOnline && s.dutyActionBtnOnline]}
-              onPress={handleToggleDuty}
-            >
-              <Icon
-                name={isDriverOnline ? 'power' : 'radio'}
-                size={18}
-                color={isDriverOnline ? '#FFFFFF' : '#070C18'}
-              />
-              <Text
-                style={[s.dutyActionBtnText, isDriverOnline && s.dutyActionBtnTextOnline]}
-              >
-                {isDriverOnline ? 'GO OFFLINE' : 'GO ONLINE TO RECEIVE TRIPS'}
-              </Text>
-            </Pressable>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="My GPS Location"
+            style={s.recenterFab}
+            onPress={() => fetchCurrentLocation(true)}
+          >
+            {isLocating ? (
+              <ActivityIndicator size="small" color="#00D084" />
+            ) : (
+              <Icon name="locate" size={20} color="#00D084" />
+            )}
+          </Pressable>
         </View>
 
-        {/* Active Trip vs Radar Status Bottom Sheet */}
-        <View style={s.driverBottomPanel}>
-          <View style={s.sheetHandle} />
-
-          {activeBooking ? (
-            <View style={s.driverActiveTripContainer}>
-              <View style={s.activeTripHeader}>
-                <View>
-                  <Text style={s.activeTripKicker}>CURRENT DISPATCH</Text>
-                  <Text style={s.activeTripStatusTitle}>
-                    {activeBooking.status === 'DRIVER_ACCEPTED'
-                      ? 'Heading to Pickup'
-                      : activeBooking.status === 'DRIVER_ARRIVING'
-                      ? 'Arrived at Pickup'
-                      : activeBooking.status === 'TRIP_STARTED'
-                      ? 'Driving to Dropoff'
-                      : 'Active Trip'}
-                  </Text>
-                </View>
-                <View style={s.activeTripFareBadge}>
-                  <Text style={s.activeTripFareVal}>₹{activeBooking.fare}</Text>
-                </View>
-              </View>
-
-              {/* Addresses */}
-              <View style={s.driverAddressesBox}>
-                <View style={s.addressItem}>
-                  <Icon name="location" size={14} color="#00D084" />
-                  <Text style={s.addressText} numberOfLines={1}>
-                    {activeBooking.pickupAddress}
-                  </Text>
-                </View>
-                <View style={s.addressDivider} />
-                <View style={s.addressItem}>
-                  <Icon name="pin" size={14} color="#EF4444" />
-                  <Text style={s.addressText} numberOfLines={1}>
-                    {activeBooking.dropAddress}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Status Advancement Buttons */}
-              <View style={s.driverActionRow}>
-                {activeBooking.status === 'DRIVER_ACCEPTED' && (
-                  <AppButton
-                    label="I Have Arrived at Pickup"
-                    onPress={() => handleDriverStatusUpdate('DRIVER_ARRIVING')}
-                  />
-                )}
-                {activeBooking.status === 'DRIVER_ARRIVING' && (
-                  <AppButton
-                    label="Enter 4-Digit Rider PIN"
-                    onPress={() => setShowOtpModal(true)}
-                  />
-                )}
-                {activeBooking.status === 'TRIP_STARTED' && (
-                  <AppButton
-                    label="Complete & Settle Trip"
-                    onPress={() => handleDriverStatusUpdate('TRIP_COMPLETED')}
-                  />
-                )}
-              </View>
-            </View>
-          ) : (
-            <View style={s.driverIdleContainer}>
-              <View style={s.driverIdleIconBox}>
-                <Icon
-                  name={isDriverOnline ? 'radar' : 'cloud-offline'}
-                  family={isDriverOnline ? 'material' : 'ionicons'}
-                  size={32}
-                  color={isDriverOnline ? '#00D084' : '#64748B'}
-                />
-              </View>
-              <Text style={s.driverIdleTitle}>
-                {isDriverOnline ? 'Radar Active & Waiting for Trips' : 'You are Currently Offline'}
-              </Text>
-              <Text style={s.driverIdleSub}>
-                {isDriverOnline
-                  ? 'Keep this app open. New rider requests within 5km will notify automatically.'
-                  : 'Tap GO ONLINE above to start broadcasting your location to riders.'}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Incoming Trip Request Modal */}
-        <Modal visible={Boolean(incomingBookingReq)} transparent animationType="slide">
-          <View style={s.incomingModalOverlay}>
+        {incomingBookingReq && (
+          <View style={s.incomingOverlay}>
             <View style={s.incomingCard}>
-              <View style={s.incomingHeaderRow}>
+              <View style={s.incomingTop}>
                 <View style={s.incomingBadge}>
-                  <Icon name="flash" size={14} color="#38BDF8" />
-                  <Text style={s.incomingBadgeText}>NEW RIDE REQUEST</Text>
+                  <Text style={s.incomingBadgeText}>NEW RIDE DISPATCH</Text>
                 </View>
-                <View style={s.timerBadge}>
-                  <Text style={s.timerVal}>{incomingTimer}s</Text>
+                <Text style={s.incomingTimerText}>{incomingTimer}s</Text>
+              </View>
+
+              <Text style={s.incomingFare}>₹{incomingBookingReq.fare}</Text>
+              <Text style={s.incomingTier}>{incomingBookingReq.serviceTier || 'BlackSquad Express'}</Text>
+
+              <View style={s.incomingLocations}>
+                <View style={s.locRow}>
+                  <View style={s.pickupPointDot} />
+                  <Text style={s.locText} numberOfLines={1}>
+                    {incomingBookingReq.pickupAddress}
+                  </Text>
+                </View>
+                <View style={s.locRow}>
+                  <View style={s.dropPointSquare} />
+                  <Text style={s.locText} numberOfLines={1}>
+                    {incomingBookingReq.dropAddress}
+                  </Text>
                 </View>
               </View>
 
-              <Text style={s.incomingFare}>₹{incomingBookingReq?.fare || 350}</Text>
-              <Text style={s.incomingTier}>
-                {incomingBookingReq?.serviceTier || 'Express'} • 4.8 km estimated
-              </Text>
-
-              <View style={s.incomingAddrBox}>
-                <View style={s.addressItem}>
-                  <Icon name="location" size={14} color="#00D084" />
-                  <Text style={s.incomingAddrText}>{incomingBookingReq?.pickupAddress}</Text>
-                </View>
-                <View style={s.addressDivider} />
-                <View style={s.addressItem}>
-                  <Icon name="pin" size={14} color="#EF4444" />
-                  <Text style={s.incomingAddrText}>{incomingBookingReq?.dropAddress}</Text>
-                </View>
-              </View>
-
-              <View style={s.incomingBtnRow}>
+              <View style={s.incomingActions}>
                 <Pressable
                   style={s.declineBtn}
                   onPress={() => setIncomingBookingReq(null)}
@@ -967,159 +936,372 @@ export function HomeScreen({ route, navigation }: Props) {
                 </Pressable>
                 <Pressable
                   style={s.acceptBtn}
-                  onPress={() => incomingBookingReq && handleAcceptRide(incomingBookingReq._id)}
+                  onPress={() => handleAcceptRide(incomingBookingReq._id)}
                 >
-                  <Text style={s.acceptBtnText}>ACCEPT DISPATCH</Text>
+                  <Text style={s.acceptBtnText}>ACCEPT RIDE</Text>
                 </Pressable>
               </View>
             </View>
           </View>
-        </Modal>
+        )}
 
-        {/* OTP PIN Entry Modal */}
-        <Modal visible={showOtpModal} transparent animationType="fade">
+        <View style={s.driverControlSheet}>
+          <View style={s.sheetHandle} />
+
+          {activeBooking ? (
+            <View style={s.activeTripContent}>
+              <View style={s.tripHeader}>
+                <View>
+                  <Text style={s.tripKicker}>ACTIVE PASSENGER TRIP</Text>
+                  <Text style={s.tripFare}>₹{activeBooking.fare}</Text>
+                </View>
+                <View style={s.statusPill}>
+                  <Text style={s.statusPillText}>
+                    {activeBooking.status === 'DRIVER_ACCEPTED'
+                      ? 'Heading to Pickup'
+                      : activeBooking.status === 'DRIVER_ARRIVING'
+                      ? 'At Pickup Spot'
+                      : activeBooking.status === 'TRIP_STARTED'
+                      ? 'Trip in Progress'
+                      : activeBooking.status}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={s.tripLocations}>
+                <View style={s.locRow}>
+                  <View style={s.pickupPointDot} />
+                  <Text style={s.locText}>Pickup: {activeBooking.pickupAddress}</Text>
+                </View>
+                <View style={s.locRow}>
+                  <View style={s.dropPointSquare} />
+                  <Text style={s.locText}>Drop: {activeBooking.dropAddress}</Text>
+                </View>
+              </View>
+
+              {activeBooking.status === 'DRIVER_ACCEPTED' && (
+                <Pressable
+                  style={s.actionPrimaryBtn}
+                  onPress={() => handleDriverStatusUpdate('DRIVER_ARRIVING')}
+                >
+                  <Text style={s.actionPrimaryText}>I HAVE ARRIVED AT PICKUP</Text>
+                </Pressable>
+              )}
+
+              {activeBooking.status === 'DRIVER_ARRIVING' && (
+                <Pressable
+                  style={s.actionPrimaryBtn}
+                  onPress={() => setShowOtpModal(true)}
+                >
+                  <Text style={s.actionPrimaryText}>VERIFY 4-DIGIT PIN & START TRIP</Text>
+                </Pressable>
+              )}
+
+              {activeBooking.status === 'TRIP_STARTED' && (
+                <Pressable
+                  style={[s.actionPrimaryBtn, { backgroundColor: '#10B981' }]}
+                  onPress={() => handleDriverStatusUpdate('TRIP_COMPLETED')}
+                >
+                  <Text style={s.actionPrimaryText}>COMPLETE TRIP & COLLECT FARE</Text>
+                </Pressable>
+              )}
+            </View>
+          ) : (
+            <View style={s.dutyContainer}>
+              <View style={s.dutyHeader}>
+                <View>
+                  <Text style={s.dutyTitle}>
+                    {isDriverOnline ? 'You are ONLINE' : 'You are OFFLINE'}
+                  </Text>
+                  <Text style={s.dutySub}>
+                    {isDriverOnline
+                      ? 'Live GPS broadcasting • Ready for dispatches'
+                      : 'Go online to start receiving passenger rides'}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    s.dutyStatusDot,
+                    { backgroundColor: isDriverOnline ? '#00D084' : '#64748B' },
+                  ]}
+                />
+              </View>
+
+              {isDriverOnline && deviceLocation && (
+                <View style={s.telemetryCard}>
+                  <View style={s.telemetryItem}>
+                    <Text style={s.telemetryLabel}>GPS SPEED</Text>
+                    <Text style={s.telemetryValue}>
+                      {Math.round(deviceLocation.speed || 0)} km/h
+                    </Text>
+                  </View>
+                  <View style={s.telemetryDivider} />
+                  <View style={s.telemetryItem}>
+                    <Text style={s.telemetryLabel}>HEADING</Text>
+                    <Text style={s.telemetryValue}>
+                      {Math.round(deviceLocation.heading || 0)}°
+                    </Text>
+                  </View>
+                  <View style={s.telemetryDivider} />
+                  <View style={s.telemetryItem}>
+                    <Text style={s.telemetryLabel}>TRACKER</Text>
+                    <Text style={[s.telemetryValue, { color: '#00D084' }]}>LIVE</Text>
+                  </View>
+                </View>
+              )}
+
+              <Pressable
+                style={[
+                  s.toggleDutyBtn,
+                  isDriverOnline ? s.toggleDutyBtnOffline : s.toggleDutyBtnOnline,
+                ]}
+                onPress={handleToggleDuty}
+              >
+                <Icon
+                  name={isDriverOnline ? 'power' : 'radio'}
+                  size={20}
+                  color="#FFFFFF"
+                />
+                <Text style={s.toggleDutyBtnText}>
+                  {isDriverOnline ? 'GO OFFLINE' : 'GO ONLINE & ACCEPT RIDES'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+
+        <Modal visible={showOtpModal} transparent animationType="slide">
           <View style={s.modalOverlay}>
-            <View style={s.otpCard}>
-              <Text style={s.otpTitle}>Enter 4-Digit Rider PIN</Text>
-              <Text style={s.otpSub}>
-                Ask the passenger for their 4-digit verification code to start the trip.
-              </Text>
+            <View style={s.otpModalCard}>
+              <View style={s.otpHeader}>
+                <Icon name="key" size={32} color="#00D084" />
+                <Text style={s.otpModalTitle}>Enter Rider PIN</Text>
+                <Text style={s.otpModalSub}>
+                  Ask passenger for their 4-digit ride start PIN
+                </Text>
+              </View>
 
               <TextInput
-                style={s.otpInput}
+                style={s.otpInputBox}
                 value={otpInput}
                 onChangeText={setOtpInput}
-                placeholder="••••"
+                placeholder="• • • •"
                 placeholderTextColor="#64748B"
                 keyboardType="number-pad"
                 maxLength={4}
                 autoFocus
               />
 
-              <AppButton label="Verify & Start Journey" onPress={handleVerifyOtpAndStart} />
-              <Pressable style={s.otpCancelBtn} onPress={() => setShowOtpModal(false)}>
-                <Text style={s.otpCancelText}>Cancel</Text>
-              </Pressable>
+              <View style={s.otpActions}>
+                <Pressable
+                  style={s.otpCancelBtn}
+                  onPress={() => setShowOtpModal(false)}
+                >
+                  <Text style={s.otpCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={s.otpSubmitBtn}
+                  onPress={handleVerifyOtpAndStart}
+                >
+                  <Text style={s.otpSubmitText}>Verify & Start Trip</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         </Modal>
 
-        {profileModalElement}
+        <ProfileModal
+          visible={profileVisible}
+          onClose={() => setProfileVisible(false)}
+          onLogout={handleLogout}
+          role={role}
+        />
       </View>
     );
   }
 
   // ==========================================
-  // 3. FLEET OPERATIONS OWNER WORKSPACE
+  // RENDER: 3. FLEET OPERATIONS OWNER WORKSPACE
   // ==========================================
   return (
-    <ScrollView style={s.ownerRoot} contentContainerStyle={s.ownerContent}>
-      {/* Header */}
-      <View style={s.ownerHeader}>
-        <View>
-          <Text style={s.ownerKicker}>FLEET RADAR COMMAND</Text>
-          <Text style={s.ownerTitle}>Operations Dashboard</Text>
+    <View style={s.container}>
+      <NotificationBanner
+        notification={notification}
+        onDismiss={() => setNotification(null)}
+      />
+
+      <View style={s.mapWrapper}>
+        <MapView
+          center={mapCenter}
+          zoom={mapZoom}
+          markers={markers}
+          style={s.mapFrame}
+        />
+
+        <View style={s.mapTopRow}>
+          <View style={s.brandBadge}>
+            <Icon name="business" size={14} color="#F59E0B" />
+            <Text style={s.brandBadgeText}>FLEET OPERATIONS</Text>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            style={s.profileAvatarBtn}
+            onPress={() => setProfileVisible(true)}
+          >
+            <Icon name="person" size={16} color="#FFFFFF" />
+          </Pressable>
         </View>
+
         <Pressable
           accessibilityRole="button"
-          style={s.avatarBtnLight}
-          onPress={() => setProfileVisible(true)}
+          accessibilityLabel="My GPS Location"
+          style={s.recenterFab}
+          onPress={() => fetchCurrentLocation(true)}
         >
-          <Icon name="person" size={16} color="#0F172A" />
+          {isLocating ? (
+            <ActivityIndicator size="small" color="#00D084" />
+          ) : (
+            <Icon name="locate" size={20} color="#00D084" />
+          )}
         </Pressable>
       </View>
 
-      {/* KPI Stats */}
-      <View style={s.ownerStatsGrid}>
-        <View style={s.statCard}>
-          <Text style={s.statVal}>{fleet.length}</Text>
-          <Text style={s.statLabel}>Total Vehicles</Text>
-        </View>
-        <View style={s.statCard}>
-          <Text style={[s.statVal, { color: '#00D084' }]}>
-            {fleet.filter((f: FleetDriver) => f.connection === 'online').length}
+      <View style={s.ownerSheet}>
+        <View style={s.sheetHandle} />
+
+        <View style={s.ownerHeader}>
+          <Text style={s.ownerTitle}>Active Vehicle Fleet</Text>
+          <Text style={s.ownerSub}>
+            {drivers ? `${drivers.length} total vehicles linked` : 'Loading fleet radar...'}
           </Text>
-          <Text style={s.statLabel}>Online Now</Text>
         </View>
-        <View style={s.statCard}>
-          <Text style={[s.statVal, { color: '#38BDF8' }]}>100%</Text>
-          <Text style={s.statLabel}>Fleet Safety</Text>
-        </View>
+
+        <ScrollView style={s.fleetScroll} showsVerticalScrollIndicator={false}>
+          {drivers && drivers.length > 0 ? (
+            drivers.map((driver) => (
+              <Pressable
+                key={driver.id}
+                style={s.fleetCard}
+                onPress={() => {
+                  setSelectedDriver(driver);
+                  setMapCenter({
+                    latitude: driver.lat,
+                    longitude: driver.lng,
+                  });
+                }}
+              >
+                <View
+                  style={[
+                    s.fleetAvatar,
+                    {
+                      backgroundColor: `${driver.color}22`,
+                    },
+                  ]}
+                >
+                  <Icon
+                    name="car-sport"
+                    size={20}
+                    color={driver.color}
+                  />
+                </View>
+
+                <View style={s.fleetMeta}>
+                  <Text style={s.fleetName}>{driver.name}</Text>
+                  <Text style={s.fleetVehicle}>
+                    {driver.vehicle}
+                  </Text>
+                </View>
+
+                <View style={s.fleetStatusGroup}>
+                  <View
+                    style={[
+                      s.statusPill,
+                      {
+                        backgroundColor: `${driver.color}22`,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.statusPillText,
+                        {
+                          color: driver.color,
+                        },
+                      ]}
+                    >
+                      {driver.state}
+                    </Text>
+                  </View>
+                </View>
+              </Pressable>
+            ))
+          ) : (
+            <View style={s.emptyFleet}>
+              <Icon name="cube" size={32} color="#64748B" />
+              <Text style={s.emptyFleetText}>No drivers currently online in fleet radar</Text>
+            </View>
+          )}
+        </ScrollView>
       </View>
 
-      {/* Map Section */}
-      <View style={s.fleetMapSection}>
-        <Text style={s.sectionHeading}>Live Vehicle Radar</Text>
-        <View style={s.ownerMapFrame}>
-          <MapView center={mapCenter} zoom={12} markers={markers} style={s.mapFrame} />
-        </View>
-      </View>
+      <DriverDetailModal
+        visible={Boolean(selectedDriver)}
+        driver={selectedDriver}
+        onClose={() => setSelectedDriver(null)}
+      />
 
-      {/* Fleet Driver List */}
-      <View style={s.driverListSection}>
-        <Text style={s.sectionHeading}>Active Fleet Drivers</Text>
-        {fleet.length === 0 ? (
-          <View style={s.emptyFleetCard}>
-            <Icon name="car" size={24} color="#94A3B8" />
-            <Text style={s.emptyFleetText}>No vehicles currently broadcasting GPS</Text>
-          </View>
-        ) : (
-          fleet.map((driver: FleetDriver) => (
-            <Pressable
-              key={driver.driverId}
-              style={s.driverRowCard}
-              onPress={() => {
-                setSelectedDriver(driver);
-                setMapCenter({ latitude: driver.latitude, longitude: driver.longitude });
-              }}
-            >
-              <View
-                style={[
-                  s.statusDot,
-                  {
-                    backgroundColor:
-                      driver.connection === 'online' ? '#00D084' : '#64748B',
-                  },
-                ]}
-              />
-              <View style={s.driverInfo}>
-                <Text style={s.ownerDriverName}>{driver.driverName || 'Driver Partner'}</Text>
-                <Text style={s.ownerDriverSub}>
-                  {driver.speed ? `${Math.round(driver.speed)} km/h` : 'Stationary'} •{' '}
-                  {driver.connection === 'online' ? 'Radar Broadcasting' : 'Offline'}
-                </Text>
-              </View>
-              <Icon name="chevron-forward" size={16} color="#94A3B8" />
-            </Pressable>
-          ))
-        )}
-      </View>
-
-      {selectedDriver && (
-        <DriverDetailModal
-          visible={Boolean(selectedDriver)}
-          driver={selectedDriver}
-          onClose={() => setSelectedDriver(null)}
-        />
-      )}
-
-      {profileModalElement}
-    </ScrollView>
+      <ProfileModal
+        visible={profileVisible}
+        onClose={() => setProfileVisible(false)}
+        onLogout={handleLogout}
+        role={role}
+      />
+    </View>
   );
 }
 
 const s = StyleSheet.create<{
-  customerRoot: ViewStyle;
-  mapSurface: ViewStyle;
+  container: ViewStyle;
+  mapWrapper: ViewStyle;
   mapFrame: ViewStyle;
   mapTopRow: ViewStyle;
   brandBadge: ViewStyle;
   brandBadgeText: TextStyle;
   profileAvatarBtn: ViewStyle;
+  recenterFab: ViewStyle;
   floatingEtaPill: ViewStyle;
   floatingEtaText: TextStyle;
+  bookingSheet: ViewStyle;
   activeRideSheet: ViewStyle;
+  driverControlSheet: ViewStyle;
+  ownerSheet: ViewStyle;
   sheetHandle: ViewStyle;
+  searchBar: ViewStyle;
+  searchPlaceholder: TextStyle;
+  searchNowBtn: ViewStyle;
+  searchNowText: TextStyle;
+  bookingFormScroll: ViewStyle;
+  bookingFormHeader: ViewStyle;
+  sheetTitle: TextStyle;
+  inputsContainer: ViewStyle;
+  inputRow: ViewStyle;
+  pickupPointDot: ViewStyle;
+  dropPointSquare: ViewStyle;
+  inputDivider: ViewStyle;
+  addressInput: TextStyle;
+  tiersHeading: TextStyle;
+  tiersList: ViewStyle;
+  tierCard: ViewStyle;
+  tierCardActive: ViewStyle;
+  tierIconBox: ViewStyle;
+  tierInfo: ViewStyle;
+  tierName: TextStyle;
+  tierDesc: TextStyle;
+  tierPricing: ViewStyle;
+  tierPrice: TextStyle;
+  tierEta: TextStyle;
+  bookBtnContainer: ViewStyle;
   driverCard: ViewStyle;
   driverAvatarBox: ViewStyle;
   driverMeta: ViewStyle;
@@ -1139,311 +1321,220 @@ const s = StyleSheet.create<{
   callBtnText: TextStyle;
   cancelBtn: ViewStyle;
   cancelBtnText: TextStyle;
-  bookingSheet: ViewStyle;
-  searchBar: ViewStyle;
-  searchPlaceholder: TextStyle;
-  searchNowBtn: ViewStyle;
-  searchNowText: TextStyle;
-  bookingFormScroll: ViewStyle;
-  bookingFormHeader: ViewStyle;
-  sheetTitle: TextStyle;
-  inputsContainer: ViewStyle;
-  inputRow: ViewStyle;
-  pickupPointDot: ViewStyle;
-  dropPointSquare: ViewStyle;
-  inputDivider: ViewStyle;
-  addressInput: TextStyle;
-  tiersHeading: TextStyle;
-  tiersList: ViewStyle;
-  tierCard: ViewStyle;
-  tierCardActive: ViewStyle;
-  tierIconBox: ViewStyle;
-  tierIconBoxActive: ViewStyle;
-  tierInfo: ViewStyle;
-  tierName: TextStyle;
-  tierMeta: TextStyle;
-  tierPrice: TextStyle;
-  requestBtnBox: ViewStyle;
-  modalOverlay: ViewStyle;
-  ratingCard: ViewStyle;
-  ratingIconBox: ViewStyle;
-  ratingTitle: TextStyle;
-  ratingSub: TextStyle;
-  starRow: ViewStyle;
-  tipHeading: TextStyle;
-  tipRow: ViewStyle;
-  tipPill: ViewStyle;
-  tipPillActive: ViewStyle;
-  tipText: TextStyle;
-  tipTextActive: TextStyle;
-  driverDutyPill: ViewStyle;
-  driverDutyText: TextStyle;
-  driverFloatingDutyBox: ViewStyle;
-  dutyActionBtn: ViewStyle;
-  dutyActionBtnOnline: ViewStyle;
-  dutyActionBtnText: TextStyle;
-  dutyActionBtnTextOnline: TextStyle;
-  driverBottomPanel: ViewStyle;
-  driverActiveTripContainer: ViewStyle;
-  activeTripHeader: ViewStyle;
-  activeTripKicker: TextStyle;
-  activeTripStatusTitle: TextStyle;
-  activeTripFareBadge: ViewStyle;
-  activeTripFareVal: TextStyle;
-  driverAddressesBox: ViewStyle;
-  addressItem: ViewStyle;
-  addressDivider: ViewStyle;
-  addressText: TextStyle;
-  driverActionRow: ViewStyle;
-  driverIdleContainer: ViewStyle;
-  driverIdleIconBox: ViewStyle;
-  driverIdleTitle: TextStyle;
-  driverIdleSub: TextStyle;
-  incomingModalOverlay: ViewStyle;
+  dutyContainer: ViewStyle;
+  dutyHeader: ViewStyle;
+  dutyTitle: TextStyle;
+  dutySub: TextStyle;
+  dutyStatusDot: ViewStyle;
+  telemetryCard: ViewStyle;
+  telemetryItem: ViewStyle;
+  telemetryLabel: TextStyle;
+  telemetryValue: TextStyle;
+  telemetryDivider: ViewStyle;
+  toggleDutyBtn: ViewStyle;
+  toggleDutyBtnOnline: ViewStyle;
+  toggleDutyBtnOffline: ViewStyle;
+  toggleDutyBtnText: TextStyle;
+  incomingOverlay: ViewStyle;
   incomingCard: ViewStyle;
-  incomingHeaderRow: ViewStyle;
+  incomingTop: ViewStyle;
   incomingBadge: ViewStyle;
   incomingBadgeText: TextStyle;
-  timerBadge: ViewStyle;
-  timerVal: TextStyle;
+  incomingTimerText: TextStyle;
   incomingFare: TextStyle;
   incomingTier: TextStyle;
-  incomingAddrBox: ViewStyle;
-  incomingAddrText: TextStyle;
-  incomingBtnRow: ViewStyle;
+  incomingLocations: ViewStyle;
+  locRow: ViewStyle;
+  locText: TextStyle;
+  incomingActions: ViewStyle;
   declineBtn: ViewStyle;
   declineBtnText: TextStyle;
   acceptBtn: ViewStyle;
   acceptBtnText: TextStyle;
-  otpCard: ViewStyle;
-  otpTitle: TextStyle;
-  otpSub: TextStyle;
-  otpInput: TextStyle;
+  activeTripContent: ViewStyle;
+  tripHeader: ViewStyle;
+  tripKicker: TextStyle;
+  tripFare: TextStyle;
+  statusPill: ViewStyle;
+  statusPillText: TextStyle;
+  tripLocations: ViewStyle;
+  actionPrimaryBtn: ViewStyle;
+  actionPrimaryText: TextStyle;
+  modalOverlay: ViewStyle;
+  otpModalCard: ViewStyle;
+  otpHeader: ViewStyle;
+  otpModalTitle: TextStyle;
+  otpModalSub: TextStyle;
+  otpInputBox: TextStyle;
+  otpActions: ViewStyle;
   otpCancelBtn: ViewStyle;
   otpCancelText: TextStyle;
-  ownerRoot: ViewStyle;
-  ownerContent: ViewStyle;
+  otpSubmitBtn: ViewStyle;
+  otpSubmitText: TextStyle;
+  ratingCard: ViewStyle;
+  ratingHeader: ViewStyle;
+  ratingTitle: TextStyle;
+  ratingSub: TextStyle;
+  starsRow: ViewStyle;
+  starBtn: ViewStyle;
+  tipHeading: TextStyle;
+  tipsRow: ViewStyle;
+  tipBtn: ViewStyle;
+  tipBtnActive: ViewStyle;
+  tipText: TextStyle;
+  tipTextActive: TextStyle;
   ownerHeader: ViewStyle;
-  ownerKicker: TextStyle;
   ownerTitle: TextStyle;
-  avatarBtnLight: ViewStyle;
-  ownerStatsGrid: ViewStyle;
-  statCard: ViewStyle;
-  statVal: TextStyle;
-  statLabel: TextStyle;
-  fleetMapSection: ViewStyle;
-  sectionHeading: TextStyle;
-  ownerMapFrame: ViewStyle;
-  driverListSection: ViewStyle;
-  emptyFleetCard: ViewStyle;
+  ownerSub: TextStyle;
+  fleetScroll: ViewStyle;
+  fleetCard: ViewStyle;
+  fleetAvatar: ViewStyle;
+  fleetMeta: ViewStyle;
+  fleetName: TextStyle;
+  fleetVehicle: TextStyle;
+  fleetStatusGroup: ViewStyle;
+  emptyFleet: ViewStyle;
   emptyFleetText: TextStyle;
-  driverRowCard: ViewStyle;
-  driverInfo: ViewStyle;
-  ownerDriverName: TextStyle;
-  ownerDriverSub: TextStyle;
 }>({
-  customerRoot: { flex: 1, backgroundColor: '#070C18' },
-  mapSurface: { flex: 1, position: 'relative' },
-  mapFrame: { width: '100%', height: '100%' },
+  container: {
+    flex: 1,
+    backgroundColor: '#07100D',
+  },
+  mapWrapper: {
+    flex: 1,
+    position: 'relative',
+  },
+  mapFrame: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
   mapTopRow: {
     position: 'absolute',
-    top: 50,
+    top: Platform.OS === 'ios' ? 52 : 36,
     left: 16,
     right: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    zIndex: 10,
+    justifyContent: 'space-between',
+    zIndex: 20,
   },
   brandBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0F172A',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    elevation: 4,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   brandBadgeText: {
-    color: '#F8FAFC',
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '900',
-    fontSize: 12,
     letterSpacing: 1,
   },
   profileAvatarBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  recenterFab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    elevation: 4,
+    borderColor: 'rgba(0, 208, 132, 0.4)',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    zIndex: 15,
   },
   floatingEtaPill: {
     position: 'absolute',
-    bottom: 16,
+    top: Platform.OS === 'ios' ? 104 : 88,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#0F172A',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#00D084',
-    elevation: 6,
+    borderColor: 'rgba(0, 208, 132, 0.3)',
+    zIndex: 15,
   },
   floatingEtaText: {
-    color: '#F8FAFC',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  activeRideSheet: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  driverCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
-    padding: 12,
-    gap: 12,
-  },
-  driverAvatarBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  driverMeta: {
-    flex: 1,
-  },
-  driverName: {
-    color: '#F8FAFC',
-    fontWeight: '900',
-    fontSize: 15,
-  },
-  driverVehicle: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  otpBadge: {
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
-    borderWidth: 1,
-    borderColor: '#00D084',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  otpLabel: {
-    color: '#00D084',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  otpCode: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '900',
-    marginTop: 1,
-  },
-  tripStatusBox: {
-    marginVertical: 14,
-    paddingHorizontal: 8,
-  },
-  statusStepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  statusLine: {
-    flex: 1,
-    height: 2,
-    marginHorizontal: 8,
-  },
-  statusLabelsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  stepLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  sheetActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
-  },
-  callBtn: {
-    flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563EB',
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-  },
-  callBtnText: {
     color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '800',
-    fontSize: 14,
-  },
-  cancelBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderWidth: 1,
-    borderColor: '#EF4444',
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
-  },
-  cancelBtnText: {
-    color: '#FCA5A5',
-    fontWeight: '800',
-    fontSize: 13,
   },
   bookingSheet: {
     backgroundColor: '#0F172A',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 16,
-    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    borderTopWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+  },
+  activeRideSheet: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  driverControlSheet: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  ownerSheet: {
+    height: '42%',
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#334155',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   searchBar: {
     flexDirection: 'row',
@@ -1453,25 +1544,23 @@ const s = StyleSheet.create<{
     paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   searchPlaceholder: {
     flex: 1,
     color: '#94A3B8',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   searchNowBtn: {
     backgroundColor: '#00D084',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   searchNowText: {
-    color: '#070C18',
+    color: '#07100D',
+    fontSize: 10,
     fontWeight: '900',
-    fontSize: 11,
     letterSpacing: 0.5,
   },
   bookingFormScroll: {
@@ -1479,21 +1568,20 @@ const s = StyleSheet.create<{
   },
   bookingFormHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   sheetTitle: {
-    color: '#F8FAFC',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '900',
   },
   inputsContainer: {
     backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
   },
   inputRow: {
     flexDirection: 'row',
@@ -1509,543 +1597,631 @@ const s = StyleSheet.create<{
   dropPointSquare: {
     width: 8,
     height: 8,
+    borderRadius: 2,
     backgroundColor: '#EF4444',
   },
   inputDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginVertical: 10,
     marginLeft: 18,
   },
   addressInput: {
     flex: 1,
-    color: '#F8FAFC',
-    fontSize: 13,
-    fontWeight: '700',
-    paddingVertical: 4,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    padding: 0,
   },
   tiersHeading: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 10,
-    fontWeight: '900',
     letterSpacing: 1.5,
-    marginTop: 14,
-    marginBottom: 8,
+    fontWeight: '800',
+    marginBottom: 10,
   },
   tiersList: {
-    gap: 8,
+    gap: 10,
+    marginBottom: 16,
   },
   tierCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1E293B',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'transparent',
     gap: 12,
   },
   tierCardActive: {
-    backgroundColor: '#1A293E',
     borderColor: '#00D084',
+    backgroundColor: '#132A22',
   },
   tierIconBox: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#0F172A',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tierIconBoxActive: {
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
   },
   tierInfo: {
     flex: 1,
   },
   tierName: {
-    color: '#F8FAFC',
-    fontWeight: '800',
+    color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '800',
   },
-  tierMeta: {
+  tierDesc: {
     color: '#94A3B8',
     fontSize: 11,
     marginTop: 2,
+  },
+  tierPricing: {
+    alignItems: 'flex-end',
   },
   tierPrice: {
-    color: '#00D084',
-    fontWeight: '900',
+    color: '#FFFFFF',
     fontSize: 15,
-  },
-  requestBtnBox: {
-    marginTop: 14,
-    marginBottom: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(7, 12, 24, 0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  ratingCard: {
-    width: '100%',
-    maxWidth: 360,
-    backgroundColor: '#0F172A',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  ratingIconBox: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  ratingTitle: {
-    color: '#F8FAFC',
-    fontSize: 20,
     fontWeight: '900',
   },
-  ratingSub: {
-    color: '#94A3B8',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 16,
-  },
-  starRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 18,
-  },
-  tipHeading: {
-    color: '#64748B',
+  tierEta: {
+    color: '#00D084',
     fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1.5,
-    marginBottom: 8,
+    fontWeight: '700',
+    marginTop: 2,
   },
-  tipRow: {
+  bookBtnContainer: {
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  driverCard: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#1E293B',
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 14,
   },
-  tipPill: {
-    paddingHorizontal: 12,
+  driverAvatarBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverMeta: {
+    flex: 1,
+  },
+  driverName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  driverVehicle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  otpBadge: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#1E293B',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  tipPillActive: {
-    backgroundColor: '#00D084',
     borderColor: '#00D084',
   },
-  tipText: {
-    color: '#F8FAFC',
-    fontWeight: '700',
-    fontSize: 12,
+  otpLabel: {
+    color: '#00D084',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  tipTextActive: {
-    color: '#070C18',
+  otpCode: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '900',
-  },
-  driverDutyPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  driverDutyText: {
-    color: '#F8FAFC',
-    fontWeight: '900',
-    fontSize: 11,
     letterSpacing: 1,
   },
-  driverFloatingDutyBox: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
+  tripStatusBox: {
+    backgroundColor: '#1E293B',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
   },
-  dutyActionBtn: {
+  statusStepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  statusLine: {
+    flex: 1,
+    height: 2,
+    marginHorizontal: 8,
+  },
+  statusLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  stepLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  callBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#00D084',
-    borderRadius: 14,
-    paddingVertical: 14,
-    gap: 8,
-    elevation: 6,
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
   },
-  dutyActionBtnOnline: {
-    backgroundColor: '#EF4444',
-  },
-  dutyActionBtnText: {
-    color: '#070C18',
-    fontWeight: '900',
-    fontSize: 13,
-    letterSpacing: 0.5,
-  },
-  dutyActionBtnTextOnline: {
+  callBtnText: {
     color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
-  driverBottomPanel: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  driverActiveTripContainer: {
-    gap: 12,
-  },
-  activeTripHeader: {
+  cancelBtn: {
+    flex: 1,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  cancelBtnText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  dutyContainer: {
+    gap: 14,
+  },
+  dutyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  dutyTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  dutySub: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  dutyStatusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  telemetryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 12,
+  },
+  telemetryItem: {
+    flex: 1,
     alignItems: 'center',
   },
-  activeTripKicker: {
-    color: '#38BDF8',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+  telemetryLabel: {
+    color: '#64748B',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
-  activeTripStatusTitle: {
-    color: '#F8FAFC',
-    fontSize: 18,
+  telemetryValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '900',
     marginTop: 2,
   },
-  activeTripFareBadge: {
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+  telemetryDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  activeTripFareVal: {
-    color: '#00D084',
-    fontWeight: '900',
-    fontSize: 16,
-  },
-  driverAddressesBox: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 10,
-    gap: 6,
-  },
-  addressItem: {
+  toggleDutyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
     gap: 8,
   },
-  addressDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginVertical: 4,
-    marginLeft: 22,
+  toggleDutyBtnOnline: {
+    backgroundColor: '#00D084',
   },
-  addressText: {
-    flex: 1,
-    color: '#F8FAFC',
-    fontSize: 12,
-    fontWeight: '700',
+  toggleDutyBtnOffline: {
+    backgroundColor: '#EF4444',
   },
-  driverActionRow: {
-    marginTop: 4,
-  },
-  driverIdleContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    gap: 6,
-  },
-  driverIdleIconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#1E293B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  driverIdleTitle: {
-    color: '#F8FAFC',
+  toggleDutyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '900',
-    fontSize: 15,
+    letterSpacing: 0.5,
   },
-  driverIdleSub: {
-    color: '#64748B',
-    fontSize: 12,
-    textAlign: 'center',
-    maxWidth: 300,
-    lineHeight: 17,
-  },
-  incomingModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(7, 12, 24, 0.85)',
-    justifyContent: 'flex-end',
-    padding: 16,
+  incomingOverlay: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 120,
+    zIndex: 30,
   },
   incomingCard: {
     backgroundColor: '#0F172A',
     borderRadius: 20,
-    padding: 20,
-    borderWidth: 1.5,
-    borderColor: '#38BDF8',
-    gap: 10,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#00D084',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 10,
   },
-  incomingHeaderRow: {
+  incomingTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   incomingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   incomingBadgeText: {
-    color: '#38BDF8',
+    color: '#00D084',
+    fontSize: 10,
     fontWeight: '900',
-    fontSize: 12,
     letterSpacing: 1,
   },
-  timerBadge: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  timerVal: {
-    color: '#FFFFFF',
+  incomingTimerText: {
+    color: '#F59E0B',
+    fontSize: 14,
     fontWeight: '900',
-    fontSize: 12,
   },
   incomingFare: {
-    color: '#00D084',
+    color: '#FFFFFF',
     fontSize: 28,
     fontWeight: '900',
   },
   incomingTier: {
     color: '#94A3B8',
     fontSize: 12,
-    marginTop: -4,
+    marginBottom: 12,
   },
-  incomingAddrBox: {
+  incomingLocations: {
     backgroundColor: '#1E293B',
     borderRadius: 12,
     padding: 10,
-    marginVertical: 4,
-    gap: 6,
+    gap: 8,
+    marginBottom: 14,
   },
-  incomingAddrText: {
+  locRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  locText: {
     flex: 1,
-    color: '#F8FAFC',
+    color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  incomingBtnRow: {
+  incomingActions: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 4,
   },
   declineBtn: {
     flex: 1,
-    backgroundColor: '#1E293B',
-    paddingVertical: 14,
-    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   declineBtnText: {
-    color: '#EF4444',
-    fontWeight: '800',
+    color: '#94A3B8',
     fontSize: 13,
+    fontWeight: '800',
   },
   acceptBtn: {
     flex: 2,
-    backgroundColor: '#00D084',
-    paddingVertical: 14,
-    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00D084',
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   acceptBtnText: {
-    color: '#070C18',
-    fontWeight: '900',
+    color: '#07100D',
     fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
-  otpCard: {
+  activeTripContent: {
+    gap: 12,
+  },
+  tripHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tripKicker: {
+    color: '#00D084',
+    fontSize: 10,
+    letterSpacing: 1.5,
+    fontWeight: '800',
+  },
+  tripFare: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  statusPill: {
+    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusPillText: {
+    color: '#00D084',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  tripLocations: {
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 10,
+    gap: 8,
+  },
+  actionPrimaryBtn: {
+    backgroundColor: '#00D084',
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  actionPrimaryText: {
+    color: '#07100D',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  otpModalCard: {
     width: '100%',
-    maxWidth: 340,
+    maxWidth: 360,
     backgroundColor: '#0F172A',
     borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
+    padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
   },
-  otpTitle: {
-    color: '#F8FAFC',
+  otpHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  otpModalTitle: {
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '900',
+    marginTop: 8,
   },
-  otpSub: {
+  otpModalSub: {
     color: '#94A3B8',
     fontSize: 12,
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: 16,
   },
-  otpInput: {
-    width: '100%',
+  otpInputBox: {
+    width: 180,
+    height: 52,
     backgroundColor: '#1E293B',
     borderRadius: 12,
-    padding: 12,
-    color: '#F8FAFC',
+    color: '#00D084',
     fontSize: 24,
     fontWeight: '900',
     textAlign: 'center',
     letterSpacing: 8,
     borderWidth: 1,
-    borderColor: '#38BDF8',
-    marginBottom: 16,
-  },
-  otpCancelBtn: {
-    marginTop: 12,
-  },
-  otpCancelText: {
-    color: '#64748B',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  ownerRoot: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  ownerContent: {
-    padding: 16,
-    paddingTop: 48,
-  },
-  ownerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    borderColor: '#00D084',
     marginBottom: 20,
   },
-  ownerKicker: {
-    color: '#2563EB',
-    fontSize: 11,
-    letterSpacing: 1.5,
-    fontWeight: '900',
-  },
-  ownerTitle: {
-    color: '#0F172A',
-    fontSize: 24,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  avatarBtnLight: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  ownerStatsGrid: {
+  otpActions: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 20,
+    width: '100%',
   },
-  statCard: {
+  otpCancelBtn: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  statVal: {
-    color: '#0F172A',
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  statLabel: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  fleetMapSection: {
-    marginBottom: 20,
-  },
-  sectionHeading: {
-    color: '#0F172A',
-    fontSize: 16,
-    fontWeight: '900',
-    marginBottom: 10,
-  },
-  ownerMapFrame: {
-    height: 220,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  driverListSection: {
-    gap: 8,
-    paddingBottom: 24,
-  },
-  emptyFleetCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 24,
     alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  emptyFleetText: {
+  otpCancelText: {
     color: '#94A3B8',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  driverRowCard: {
-    flexDirection: 'row',
+  otpSubmitBtn: {
+    flex: 2,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    backgroundColor: '#00D084',
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  driverInfo: {
+  otpSubmitText: {
+    color: '#07100D',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  ratingCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#0F172A',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  ratingHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  ratingTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: 8,
+  },
+  ratingSub: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 18,
+  },
+  starBtn: {
+    padding: 4,
+  },
+  tipHeading: {
+    color: '#64748B',
+    fontSize: 10,
+    letterSpacing: 1.5,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  tipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  tipBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  tipBtnActive: {
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    borderColor: '#00D084',
+  },
+  tipText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  tipTextActive: {
+    color: '#00D084',
+  },
+  ownerHeader: {
+    marginBottom: 12,
+  },
+  ownerTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  ownerSub: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  fleetScroll: {
     flex: 1,
   },
-  ownerDriverName: {
-    color: '#0F172A',
-    fontWeight: '800',
-    fontSize: 14,
+  fleetCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 10,
+    gap: 12,
   },
-  ownerDriverSub: {
-    color: '#64748B',
+  fleetAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fleetMeta: {
+    flex: 1,
+  },
+  fleetName: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  fleetVehicle: {
+    color: '#94A3B8',
     fontSize: 11,
     marginTop: 2,
+  },
+  fleetStatusGroup: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  emptyFleet: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 8,
+  },
+  emptyFleetText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

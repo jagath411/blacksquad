@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
+import { Camera, Map, Marker, UserLocation } from '@maplibre/maplibre-react-native';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Icon } from './ui/Icon';
 import type { MapMarker, RoutePolyline } from './MapView';
@@ -42,6 +42,7 @@ export function NativeMapView({ center, zoom, markers, interactive, style }: Pro
       touchPitch={false}
     >
       <Camera center={[center.longitude, center.latitude]} zoom={zoom} duration={500} />
+      <UserLocation animated accuracy heading minDisplacement={3} />
       {markers.map((marker) => {
         const isVehicle = marker.isVehicle;
         return (
