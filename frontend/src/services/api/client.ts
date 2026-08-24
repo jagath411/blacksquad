@@ -1,6 +1,21 @@
 import { getAccessToken } from '../tokenStore';
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://65.2.202.84:5000/api').replace(/\/$/, '');
+function getBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    const { protocol, hostname, port } = window.location;
+    // When served directly on port 5000 or via reverse proxy
+    if (port === '5000' || hostname === '65.2.202.84' && port === '') {
+      return `${protocol}//${hostname}:5000/api`;
+    }
+    // If browser is on HTTPS, never use cleartext HTTP to prevent Mixed Content blocking
+    if (protocol === 'https:' && (!process.env.EXPO_PUBLIC_API_BASE_URL || process.env.EXPO_PUBLIC_API_BASE_URL.startsWith('http://'))) {
+      return 'https://comply-plywood-crept.ngrok-free.dev/api';
+    }
+  }
+  return (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://65.2.202.84:5000/api').replace(/\/$/, '');
+}
+
+const API_BASE_URL = getBaseUrl();
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {

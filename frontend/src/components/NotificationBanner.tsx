@@ -7,7 +7,7 @@ export interface NotificationItem {
   id: string;
   title: string;
   body: string;
-  type?: 'info' | 'success' | 'warning';
+  type?: 'info' | 'success' | 'warning' | 'error';
 }
 
 interface NotificationBannerProps {
@@ -20,24 +20,41 @@ export function NotificationBanner({ notification, onDismiss }: NotificationBann
     if (!notification) return;
     const timer = setTimeout(() => {
       onDismiss();
-    }, 4500);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [notification, onDismiss]);
 
   if (!notification) return null;
 
+  const type = notification.type || 'info';
+  const colorMap = {
+    success: '#10B981',
+    error: '#EF4444',
+    warning: '#F59E0B',
+    info: '#3B82F6',
+  };
+  const iconMap = {
+    success: 'checkmark-circle',
+    error: 'alert-circle',
+    warning: 'warning',
+    info: 'notifications',
+  };
+
+  const primaryColor = colorMap[type];
+  const iconName = iconMap[type];
+
   return (
     <View style={styles.container}>
-      <View style={styles.banner}>
-        <View style={styles.iconBox}>
-          <Icon name="notifications" size={18} color="#00D084" />
+      <View style={[styles.banner, { borderColor: primaryColor }]}>
+        <View style={[styles.iconBox, { backgroundColor: `${primaryColor}22` }]}>
+          <Icon name={iconName} size={18} color={primaryColor} />
         </View>
         <View style={styles.textGroup}>
           <Text style={styles.title}>{notification.title}</Text>
           <Text style={styles.body}>{notification.body}</Text>
         </View>
         <Pressable style={styles.closeBtn} onPress={onDismiss}>
-          <Icon name="close" size={16} color="#64748B" />
+          <Icon name="close" size={16} color="#94A3B8" />
         </Pressable>
       </View>
     </View>

@@ -45,6 +45,7 @@ import {
   rateBooking,
   updateBookingStatus,
 } from '../services/bookingService';
+import { formatUnifiedError } from '../utils/errorHandler';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -319,8 +320,13 @@ export function HomeScreen({ route, navigation }: Props) {
         joinBookingRoom(socketRef.current, newBooking._id);
       }
     } catch (e: any) {
-      if (Platform.OS === 'web') window.alert(e.message || 'Failed to book ride');
-      else Alert.alert('Booking Notice', e.message || 'Could not request ride at this moment.');
+      const err = formatUnifiedError(e);
+      setNotification({
+        id: Date.now().toString(),
+        title: err.title,
+        body: err.message,
+        type: 'error',
+      });
     }
   };
 
@@ -340,6 +346,7 @@ export function HomeScreen({ route, navigation }: Props) {
         id: Date.now().toString(),
         title: 'Duty Offline',
         body: 'You are now offline and will not receive passenger ride requests.',
+        type: 'info',
       });
     } else {
       try {
@@ -365,13 +372,19 @@ export function HomeScreen({ route, navigation }: Props) {
           setIsDriverOnline(true);
           setNotification({
             id: Date.now().toString(),
-            title: 'Duty Online (Available)',
-            body: 'GPS Live Tracking active. Ready for passenger dispatches.',
+            title: 'Duty Online',
+            body: 'Live GPS broadcast active. Ready for passenger dispatches.',
+            type: 'success',
           });
         }
       } catch (err: any) {
-        if (Platform.OS === 'web') window.alert(err.message || 'Failed to start GPS tracking');
-        else Alert.alert('Location Permission Required', err.message || 'Please enable GPS location in settings.');
+        const errorInfo = formatUnifiedError(err);
+        setNotification({
+          id: Date.now().toString(),
+          title: errorInfo.title,
+          body: errorInfo.message,
+          type: 'error',
+        });
       }
     }
   };
@@ -385,8 +398,20 @@ export function HomeScreen({ route, navigation }: Props) {
       if (socketRef.current) {
         joinBookingRoom(socketRef.current, bookingId);
       }
+      setNotification({
+        id: Date.now().toString(),
+        title: 'Ride Accepted',
+        body: 'Navigate to pickup location and request the 4-digit ride start PIN.',
+        type: 'success',
+      });
     } catch (e: any) {
-      if (Platform.OS === 'web') window.alert(e.message || 'Failed to accept ride');
+      const err = formatUnifiedError(e);
+      setNotification({
+        id: Date.now().toString(),
+        title: err.title,
+        body: err.message,
+        type: 'error',
+      });
     }
   };
 
@@ -402,7 +427,13 @@ export function HomeScreen({ route, navigation }: Props) {
       const updated = await updateBookingStatus(activeBooking._id, status);
       setActiveBooking(updated);
     } catch (e: any) {
-      if (Platform.OS === 'web') window.alert(e.message || 'Failed to update status');
+      const err = formatUnifiedError(e);
+      setNotification({
+        id: Date.now().toString(),
+        title: err.title,
+        body: err.message,
+        type: 'error',
+      });
     }
   };
 
@@ -416,9 +447,20 @@ export function HomeScreen({ route, navigation }: Props) {
       setActiveBooking(updated);
       setShowOtpModal(false);
       setOtpInput('');
+      setNotification({
+        id: Date.now().toString(),
+        title: 'Trip Started! 🚗',
+        body: 'Drive safely to passenger drop-off location.',
+        type: 'success',
+      });
     } catch (e: any) {
-      if (Platform.OS === 'web') window.alert(e.message || 'Invalid Ride Start PIN');
-      else Alert.alert('Verification Failed', 'Incorrect 4-digit ride start PIN.');
+      const err = formatUnifiedError(e);
+      setNotification({
+        id: Date.now().toString(),
+        title: 'PIN Verification Failed',
+        body: err.message || 'Incorrect 4-digit ride start PIN.',
+        type: 'error',
+      });
     }
   };
 
@@ -444,8 +486,20 @@ export function HomeScreen({ route, navigation }: Props) {
       });
       setActiveBooking(null);
       setBookingModal(false);
+      setNotification({
+        id: Date.now().toString(),
+        title: 'Booking Cancelled',
+        body: 'Your ride request has been cancelled.',
+        type: 'info',
+      });
     } catch (e: any) {
-      if (Platform.OS === 'web') window.alert(e.message || 'Failed to cancel booking');
+      const err = formatUnifiedError(e);
+      setNotification({
+        id: Date.now().toString(),
+        title: err.title,
+        body: err.message,
+        type: 'error',
+      });
     }
   };
 

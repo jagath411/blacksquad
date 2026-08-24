@@ -18,10 +18,10 @@ import { AppButton } from '../components/AppButton';
 import { Input } from '../components/ui/Input';
 import { Icon } from '../components/ui/Icon';
 import { colors } from '../constants/theme';
-import { ApiError } from '../services/api/client';
 import { getHealth } from '../services/api/health';
 import { googleLogin, login, register } from '../services/authService';
 import type { RootStackParamList } from '../types';
+import { formatUnifiedError, type FormattedError } from '../utils/errorHandler';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -45,7 +45,7 @@ export function LoginScreen({ navigation, route }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<FormattedError | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -65,8 +65,10 @@ export function LoginScreen({ navigation, route }: Props) {
       await getHealth();
       setApi('Server Online (65.2.202.84:5000)');
       setApiOnline(true);
-      setError('');
-    } catch {
+      if (error?.title === 'Connection Unavailable' || error?.title === 'Server Temporarily Unavailable') {
+        setError(null);
+      }
+    } catch (healthErr) {
       setApi('Server offline / Reconnecting');
       setApiOnline(false);
     } finally {
@@ -85,11 +87,7 @@ export function LoginScreen({ navigation, route }: Props) {
 
     if (googleResponse.type !== 'success') {
       if (googleResponse.type === 'error') {
-        const errorMsg =
-          googleResponse.error?.message ||
-          googleResponse.params?.error_description ||
-          'Google authentication was cancelled or blocked.';
-        setError(`Google Sign-in: ${errorMsg}`);
+        setError(formatUnifiedError(googleResponse.error || googleResponse.params?.error_description));
       }
       setGoogleLoading(false);
       return;
@@ -101,24 +99,23 @@ export function LoginScreen({ navigation, route }: Props) {
       googleResponse.authentication?.accessToken;
 
     if (!idToken) {
-      setError('Unable to retrieve identity credentials from Google.');
+      setError({
+        title: 'Identity Verification Failed',
+        message: 'Google did not return credentials. Please try signing in with email.',
+      });
       setGoogleLoading(false);
       return;
     }
 
     setGoogleLoading(true);
-    setError('');
+    setError(null);
 
     googleLogin(idToken, route.params.role)
-      .then(() => {
-        navigation.navigate('Home', { role: route.params.role });
+      .then((user) => {
+        navigation.navigate('Home', { role: user.role || route.params.role });
       })
       .catch((err) => {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Google authentication failed. Please check network connection.'
-        );
+        setError(formatUnifiedError(err, 'login'));
       })
       .finally(() => setGoogleLoading(false));
   }, [googleResponse, navigation, route.params.role]);
@@ -128,40 +125,40 @@ export function LoginScreen({ navigation, route }: Props) {
 
   const submit = async () => {
     if (!validForm) {
-      setError(
-        createMode
-          ? 'Enter your name, a valid email, and an 8-character password.'
-          : 'Enter a valid email and an 8-character password.'
-      );
+      setError({
+        title: 'Missing Required Fields',
+        message: createMode
+          ? 'Enter your full name, a valid email, and an 8-character password.'
+          : 'Enter your email address and an 8-character password.',
+      });
       return;
     }
-    setError('');
+    setError(null);
     setLoading(true);
     try {
-      if (createMode) await register(name.trim(), email.trim(), password, route.params.role);
-      else await login(email.trim(), password);
-      navigation.navigate('Home', { role: route.params.role });
+      if (createMode) {
+        const user = await register(name.trim(), email.trim(), password, route.params.role);
+        navigation.navigate('Home', { role: user.role || route.params.role });
+      } else {
+        const user = await login(email.trim(), password);
+        navigation.navigate('Home', { role: user.role || route.params.role });
+      }
     } catch (cause) {
-      const status = cause instanceof ApiError ? cause.status : 0;
-      const message = cause instanceof Error ? cause.message.toLowerCase() : '';
-      setError(
-        status === 401 || message.includes('invalid email')
-          ? 'Incorrect email or password. Create an account first if you are new.'
-          : status === 409 || message.includes('already registered')
-          ? 'This email is already registered. Switch to Sign in.'
-          : status === 400
-          ? 'Please check the highlighted details and try again.'
-          : cause instanceof Error
-          ? cause.message
-          : 'Unable to complete request. Please verify server connection.'
-      );
+      setError(formatUnifiedError(cause, 'login'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleGooglePress = () => {
-    setError('');
+    setError(null);
+    if (!googleRequest) {
+      setError({
+        title: 'Google Sign-in Preparing',
+        message: 'Google authentication window is initializing. Please tap again in a moment.',
+      });
+      return;
+    }
     setGoogleLoading(true);
     promptGoogle()
       .then((res) => {
@@ -171,7 +168,7 @@ export function LoginScreen({ navigation, route }: Props) {
       })
       .catch((err) => {
         setGoogleLoading(false);
-        setError(`Unable to launch Google sign-in: ${err?.message || 'Authentication blocked'}`);
+        setError(formatUnifiedError(err));
       });
   };
 
@@ -231,8 +228,8 @@ export function LoginScreen({ navigation, route }: Props) {
           <Input
             label="Full name"
             value={name}
-            onChangeText={setName}
-            placeholder="Your name"
+            onChangeText={(t) => { setName(t); setError(null); }}
+            placeholder="John Doe"
             autoCapitalize="words"
             tone="dark"
           />
@@ -240,7 +237,7 @@ export function LoginScreen({ navigation, route }: Props) {
         <Input
           label="Email address"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(t) => { setEmail(t); setError(null); }}
           placeholder="name@example.com"
           autoCapitalize="none"
           keyboardType="email-address"
@@ -250,7 +247,7 @@ export function LoginScreen({ navigation, route }: Props) {
         <Input
           label="Password"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(t) => { setPassword(t); setError(null); }}
           placeholder="At least 8 characters"
           secureTextEntry
           autoComplete={createMode ? 'new-password' : 'current-password'}
@@ -266,11 +263,14 @@ export function LoginScreen({ navigation, route }: Props) {
 
         {error ? (
           <View accessible accessibilityRole="alert" style={s.errorBox}>
-            <Icon name="alert-circle" size={18} color="#F87171" />
+            <Icon name="alert-circle" size={20} color="#F87171" />
             <View style={s.errorContent}>
-              <Text style={s.errorTitle}>Authentication Notice</Text>
-              <Text style={s.errorText}>{error}</Text>
+              <Text style={s.errorTitle}>{error.title}</Text>
+              <Text style={s.errorText}>{error.message}</Text>
             </View>
+            <Pressable onPress={() => setError(null)} hitSlop={8} style={{ padding: 4 }}>
+              <Icon name="close" size={16} color="#94A3B8" />
+            </Pressable>
           </View>
         ) : null}
 
@@ -278,7 +278,7 @@ export function LoginScreen({ navigation, route }: Props) {
           accessibilityRole="button"
           onPress={() => {
             setCreateMode((value) => !value);
-            setError('');
+            setError(null);
           }}
           style={s.switchPressable}
         >

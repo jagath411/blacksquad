@@ -14,9 +14,10 @@ export const createApp = (): Application => {
   app.use(helmet({ crossOriginOpenerPolicy: false, contentSecurityPolicy: false }));
   app.use(
     cors({
-      origin: env.CORS_ORIGIN === '*' ? '*' : env.CORS_ORIGIN.split(','),
+      origin: '*',
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'ngrok-skip-browser-warning', 'Origin', 'X-Requested-With'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
     }),
   );
 
