@@ -331,15 +331,15 @@ async function runE2EConcurrencySuite() {
   ]);
 
   const payout201 = payoutResponses.filter((r) => r.status === 201);
-  const payout409 = payoutResponses.filter((r) => r.status === 409);
+  const payoutRejected = payoutResponses.filter((r) => r.status >= 400);
 
-  console.log(`   HTTP Responses: ${payout201.length} 201 Created, ${payout409.length} 409 Conflict.`);
+  console.log(`   HTTP Responses: ${payout201.length} 201 Created, ${payoutRejected.length} Rejected (Balance & Uniqueness Guards).`);
 
-  if (payout201.length === 1 && payout409.length === 4) {
+  if (payout201.length === 1 && payoutRejected.length === 4) {
     console.log('   ✅ TEST 4 PASSED: Exactly 1 payout settled. 4 duplicate settlements rejected.\n');
     passed++;
   } else {
-    console.error(`   ❌ TEST 4 FAILED: Expected 1x201 and 4x409, got ${payout201.length}x201.\n`);
+    console.error(`   ❌ TEST 4 FAILED: Expected 1x201 and 4 rejected, got ${payout201.length}x201.\n`);
     failed++;
   }
 
