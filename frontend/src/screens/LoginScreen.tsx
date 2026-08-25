@@ -411,21 +411,6 @@ export function LoginScreen({ navigation, route }: Props) {
                 />
               </View>
 
-              {!!devOtp && (
-                <Pressable
-                  style={({ pressed }) => [s.devOtpBox, pressed && { opacity: 0.8 }]}
-                  onPress={() => handleAutoFillAndVerify(devOtp)}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={s.devOtpLabel}>🔧 Quick Dev OTP:</Text>
-                    <Text style={s.devOtpCode}>{devOtp}</Text>
-                  </View>
-                  <View style={s.autoFillBadge}>
-                    <Text style={s.autoFillBadgeText}>⚡ Tap to Fill & Sign In</Text>
-                  </View>
-                </Pressable>
-              )}
-
               <AppButton
                 label={verifyingOtp ? 'Verifying OTP...' : 'Verify & Sign In'}
                 loading={verifyingOtp}

@@ -8,6 +8,7 @@ import { DriverModel } from '../models/Driver';
 import { UserModel } from '../models/User';
 import { VehicleModel } from '../models/Vehicle';
 import { locationState } from '../services/location.service';
+import { smsService } from '../services/sms.service';
 import type { AuthenticatedRequest } from '../types/auth';
 
 const onboardDriverSchema = z.object({
@@ -205,11 +206,8 @@ router.post('/', requireAuth, requireRole('OWNER'), async (req, res, next) => {
     user.phoneOtpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h validity for welcome
     await user.save();
 
-    // eslint-disable-next-line no-console
-    console.log(`\n🚗 [SMS DRIVER INVITE] To: ${cleanedPhone}`);
-    console.log(`   Message: Welcome to BlackSquad Fleet, ${user.name}!`);
-    console.log(`   Login with phone number: ${cleanedPhone}`);
-    console.log(`   One-Time Access OTP: ${welcomeOtp}\n`);
+    // Dispatch real onboarding SMS to driver's phone
+    const smsResult = await smsService.sendDriverInviteSms(cleanedPhone, user.name, welcomeOtp);
 
     const populatedDriver = await DriverModel.findById(driver._id)
       .populate('userId', 'name email phoneNumber')
@@ -222,7 +220,7 @@ router.post('/', requireAuth, requireRole('OWNER'), async (req, res, next) => {
       driver: populatedDriver,
       smsDispatched: {
         to: cleanedPhone,
-        welcomeOtp,
+        provider: smsResult.provider,
       },
     });
   } catch (error) {

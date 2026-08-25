@@ -24,6 +24,14 @@ const envSchema = z.object({
   GOOGLE_WEB_CLIENT_ID: z.string().optional(),
   GOOGLE_ANDROID_CLIENT_ID: z.string().optional(),
   GOOGLE_IOS_CLIENT_ID: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(),
+  FAST2SMS_API_KEY: z.string().optional(),
+  MSG91_AUTH_KEY: z.string().optional(),
+  MSG91_TEMPLATE_ID: z.string().optional(),
+  CUSTOM_SMS_WEBHOOK_URL: z.string().optional(),
+  SHOW_DEV_OTP: z.string().default('false'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

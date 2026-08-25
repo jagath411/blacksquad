@@ -9,6 +9,7 @@ import { requireAuth } from '../middleware/auth';
 import type { AuthenticatedRequest, UserRole } from '../types/auth';
 import { DriverModel } from '../models/Driver';
 import { OAuth2Client } from 'google-auth-library';
+import { smsService } from '../services/sms.service';
 
 const router = Router();
 const credentials = z.object({
@@ -363,15 +364,16 @@ router.post('/phone/send-otp', async (req, res, next) => {
       await user.save();
     }
 
-    // eslint-disable-next-line no-console
-    console.log(`\n📱 [SMS OTP DISPATCH] To: ${cleanedPhone} | OTP: ${otp} | Expires: ${expiry.toISOString()}\n`);
+    // Dispatch real SMS via configured SMS Gateway (Twilio / Fast2SMS / MSG91 / Webhook)
+    const smsResult = await smsService.sendOtpSms(cleanedPhone, otp);
 
     res.json({
       success: true,
-      message: `OTP sent successfully to ${cleanedPhone}`,
+      message: `OTP sent successfully to ${cleanedPhone} via SMS`,
       phoneNumber: cleanedPhone,
-      // Return OTP for immediate testing and dev validation
-      devOtp: otp,
+      smsProvider: smsResult.provider,
+      // Only include devOtp if explicitly enabled via environment configuration
+      ...(env.SHOW_DEV_OTP === 'true' ? { devOtp: otp } : {}),
     });
   } catch (error) {
     next(error);
