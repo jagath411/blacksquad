@@ -369,11 +369,19 @@ router.post('/phone/send-otp', async (req, res, next) => {
 
     res.json({
       success: true,
-      message: `OTP sent successfully to ${cleanedPhone} via SMS`,
+      message: smsResult.isLiveGateway
+        ? `OTP code sent to ${cleanedPhone} via ${smsResult.provider} SMS network.`
+        : `OTP code dispatched to ${cleanedPhone}. (Simulator mode: SMS key not configured in .env)`,
       phoneNumber: cleanedPhone,
       smsProvider: smsResult.provider,
-      // Only include devOtp if explicitly enabled via environment configuration
-      ...(env.SHOW_DEV_OTP === 'true' ? { devOtp: otp } : {}),
+      isLiveGateway: smsResult.isLiveGateway,
+      // Provide OTP and preview if running under simulated gateway or dev mode so user is never blocked
+      ...(!smsResult.isLiveGateway || env.SHOW_DEV_OTP === 'true'
+        ? {
+            devOtp: otp,
+            smsPreview: `[BlackSquad SMS] Your verification code is ${otp}. Valid for 10 minutes.`,
+          }
+        : {}),
     });
   } catch (error) {
     next(error);

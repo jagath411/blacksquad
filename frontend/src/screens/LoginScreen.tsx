@@ -67,6 +67,8 @@ export function LoginScreen({ navigation, route }: Props) {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [devOtp, setDevOtp] = useState('');
+  const [smsProvider, setSmsProvider] = useState('');
+  const [isLiveGateway, setIsLiveGateway] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
@@ -174,6 +176,8 @@ export function LoginScreen({ navigation, route }: Props) {
       setPhone(formatted);
       setPhoneStep('otp');
       setResendTimer(30);
+      setSmsProvider(res.smsProvider || '');
+      setIsLiveGateway(Boolean(res.isLiveGateway));
       if (res.devOtp) {
         setDevOtp(res.devOtp);
       }
@@ -390,6 +394,37 @@ export function LoginScreen({ navigation, route }: Props) {
                 </Pressable>
               </View>
 
+              {/* Live vs Simulator SMS Status Banner */}
+              {isLiveGateway ? (
+                <View style={s.liveGatewayBadge}>
+                  <Icon name="checkmark-circle" size={15} color="#00D084" />
+                  <Text style={s.liveGatewayText}>
+                    Live SMS sent to your phone carrier via {smsProvider || 'telecom gateway'}.
+                  </Text>
+                </View>
+              ) : devOtp ? (
+                <View style={s.smsSimulatorCard}>
+                  <View style={s.smsSimulatorHeader}>
+                    <Icon name="chatbubble-ellipses" size={15} color="#38BDF8" />
+                    <Text style={s.smsSimulatorTitle}>CARRIER SMS PREVIEW</Text>
+                    <View style={s.simTag}>
+                      <Text style={s.simTagText}>SIMULATED</Text>
+                    </View>
+                  </View>
+                  <Text style={s.smsSimulatorBody}>
+                    "Your BlackSquad verification code is{' '}
+                    <Text style={s.smsCodeHighlight}>{devOtp}</Text>. Valid for 10 min."
+                  </Text>
+                  <Pressable
+                    style={({ pressed }) => [s.smsAutoFillBtn, pressed && { opacity: 0.8 }]}
+                    onPress={() => handleAutoFillAndVerify(devOtp)}
+                  >
+                    <Icon name="flash" size={13} color="#07100D" />
+                    <Text style={s.smsAutoFillText}>⚡ Auto-Fill & Sign In ({devOtp})</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
               <View style={s.otpInputWrap}>
                 <Text style={s.inputLabel}>6-Digit OTP Code</Text>
                 <TextInput
@@ -573,13 +608,19 @@ const s = StyleSheet.create<{
   phoneSentNumber: TextStyle;
   editPhoneBtn: ViewStyle;
   editPhoneText: TextStyle;
+  liveGatewayBadge: ViewStyle;
+  liveGatewayText: TextStyle;
+  smsSimulatorCard: ViewStyle;
+  smsSimulatorHeader: ViewStyle;
+  smsSimulatorTitle: TextStyle;
+  simTag: ViewStyle;
+  simTagText: TextStyle;
+  smsSimulatorBody: TextStyle;
+  smsCodeHighlight: TextStyle;
+  smsAutoFillBtn: ViewStyle;
+  smsAutoFillText: TextStyle;
   otpInputWrap: ViewStyle;
   otpLargeInput: TextStyle;
-  devOtpBox: ViewStyle;
-  devOtpLabel: TextStyle;
-  devOtpCode: TextStyle;
-  autoFillBadge: ViewStyle;
-  autoFillBadgeText: TextStyle;
   resendRow: ViewStyle;
   resendTimerText: TextStyle;
   resendLinkText: TextStyle;
@@ -769,6 +810,82 @@ const s = StyleSheet.create<{
     fontSize: 11,
     fontWeight: '700',
   },
+  liveGatewayBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0, 208, 132, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 208, 132, 0.3)',
+  },
+  liveGatewayText: {
+    color: '#00D084',
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
+  },
+  smsSimulatorCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    gap: 8,
+  },
+  smsSimulatorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  smsSimulatorTitle: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    flex: 1,
+  },
+  simTag: {
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  simTagText: {
+    color: '#7DD3FC',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  smsSimulatorBody: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  smsCodeHighlight: {
+    color: '#38BDF8',
+    fontWeight: '900',
+    fontSize: 15,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  smsAutoFillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#00D084',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 2,
+    cursor: 'pointer' as any,
+  },
+  smsAutoFillText: {
+    color: '#07100D',
+    fontSize: 12,
+    fontWeight: '900',
+  },
   otpInputWrap: {
     gap: 6,
   },
@@ -785,41 +902,6 @@ const s = StyleSheet.create<{
     borderWidth: 1.5,
     borderColor: 'rgba(0, 208, 132, 0.4)',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  devOtpBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(234, 179, 8, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(234, 179, 8, 0.4)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    cursor: 'pointer' as any,
-  },
-  devOtpLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#FACC15',
-  },
-  devOtpCode: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#FEF08A',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    letterSpacing: 2,
-  },
-  autoFillBadge: {
-    backgroundColor: '#CA8A04',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  autoFillBadgeText: {
-    color: '#07100D',
-    fontSize: 10,
-    fontWeight: '900',
   },
   resendRow: {
     alignItems: 'center',

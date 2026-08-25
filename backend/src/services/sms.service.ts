@@ -9,6 +9,7 @@ import { env } from '../config/env';
 export interface SendSmsResult {
   success: boolean;
   provider: string;
+  isLiveGateway: boolean;
   messageId?: string;
   error?: string;
 }
@@ -65,7 +66,7 @@ class SmsService {
         const data: any = await response.json();
         if (response.ok) {
           console.log(`📡 [TWILIO SMS SENT] To: ${e164} | SID: ${data.sid}`);
-          return { success: true, provider: 'TWILIO', messageId: data.sid };
+          return { success: true, provider: 'TWILIO', isLiveGateway: true, messageId: data.sid };
         } else {
           console.error(`❌ [TWILIO SMS ERROR] ${data.message || response.statusText}`);
         }
@@ -93,7 +94,7 @@ class SmsService {
         const data: any = await response.json();
         if (data.return) {
           console.log(`📡 [FAST2SMS SENT] To: ${raw10} | ReqID: ${data.request_id}`);
-          return { success: true, provider: 'FAST2SMS', messageId: data.request_id };
+          return { success: true, provider: 'FAST2SMS', isLiveGateway: true, messageId: data.request_id };
         } else {
           console.error(`❌ [FAST2SMS ERROR] ${data.message || 'Dispatch failed'}`);
         }
@@ -121,7 +122,7 @@ class SmsService {
         const data: any = await response.json();
         if (data.type === 'success') {
           console.log(`📡 [MSG91 SMS SENT] To: 91${raw10} | ReqID: ${data.request_id}`);
-          return { success: true, provider: 'MSG91', messageId: data.request_id };
+          return { success: true, provider: 'MSG91', isLiveGateway: true, messageId: data.request_id };
         }
       } catch (err: any) {
         console.error(`❌ [MSG91 DISPATCH FAILED] ${err.message}`);
@@ -138,7 +139,7 @@ class SmsService {
         });
         if (response.ok) {
           console.log(`📡 [WEBHOOK SMS SENT] To: ${e164}`);
-          return { success: true, provider: 'CUSTOM_WEBHOOK' };
+          return { success: true, provider: 'CUSTOM_WEBHOOK', isLiveGateway: true };
         }
       } catch (err: any) {
         console.error(`❌ [WEBHOOK SMS FAILED] ${err.message}`);
@@ -157,6 +158,7 @@ class SmsService {
     return {
       success: true,
       provider: 'MOCK_GATEWAY',
+      isLiveGateway: false,
       messageId: `MOCK-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     };
   }

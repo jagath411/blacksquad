@@ -47,14 +47,27 @@ export async function updateUserProfile(data: { name?: string; phoneNumber?: str
 export async function sendPhoneOtp(
   phoneNumber: string,
   role?: UserRole
-): Promise<{ success: boolean; message: string; phoneNumber: string; devOtp?: string }> {
-  return apiRequest<{ success: boolean; message: string; phoneNumber: string; devOtp?: string }>(
-    '/auth/phone/send-otp',
-    {
-      method: 'POST',
-      body: JSON.stringify({ phoneNumber, role }),
-    }
-  );
+): Promise<{
+  success: boolean;
+  message: string;
+  phoneNumber: string;
+  smsProvider?: string;
+  isLiveGateway?: boolean;
+  smsPreview?: string;
+  devOtp?: string;
+}> {
+  return apiRequest<{
+    success: boolean;
+    message: string;
+    phoneNumber: string;
+    smsProvider?: string;
+    isLiveGateway?: boolean;
+    smsPreview?: string;
+    devOtp?: string;
+  }>('/auth/phone/send-otp', {
+    method: 'POST',
+    body: JSON.stringify({ phoneNumber, role }),
+  });
 }
 
 export async function verifyPhoneOtp(
