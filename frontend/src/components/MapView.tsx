@@ -128,18 +128,20 @@ export function MapView({
     });
   }, [center.latitude, center.longitude, zoom]);
 
-  // Route Polyline Layer
+  // Route Polyline Layer with Dual Casing & Auto-Bounds
   useEffect(() => {
     const map = mapRef.current;
     if (!map || Platform.OS !== 'web') return;
 
     const sourceId = 'route-source';
-    const layerId = 'route-layer';
+    const casingLayerId = 'route-layer-casing';
+    const mainLayerId = 'route-layer';
 
     const updateRoute = () => {
       if (!map.isStyleLoaded()) return;
 
-      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getLayer(mainLayerId)) map.removeLayer(mainLayerId);
+      if (map.getLayer(casingLayerId)) map.removeLayer(casingLayerId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
 
       if (route && route.coordinates && route.coordinates.length > 1) {
@@ -155,8 +157,9 @@ export function MapView({
           },
         });
 
+        // 1. Outer Dark Casing / Shadow Layer
         map.addLayer({
-          id: layerId,
+          id: casingLayerId,
           type: 'line',
           source: sourceId,
           layout: {
@@ -164,11 +167,42 @@ export function MapView({
             'line-cap': 'round',
           },
           paint: {
-            'line-color': route.color || '#2563EB',
-            'line-width': 5,
-            'line-opacity': 0.85,
+            'line-color': '#020617',
+            'line-width': 8,
+            'line-opacity': 0.7,
           },
         });
+
+        // 2. Inner Vibrant Polyline Layer
+        map.addLayer({
+          id: mainLayerId,
+          type: 'line',
+          source: sourceId,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': route.color || '#00D084',
+            'line-width': 5,
+            'line-opacity': 0.95,
+          },
+        });
+
+        // 3. Smooth Camera Fit to Route
+        try {
+          const bounds = new maplibregl.LngLatBounds(route.coordinates[0], route.coordinates[0]);
+          for (let i = 1; i < route.coordinates.length; i++) {
+            bounds.extend(route.coordinates[i]);
+          }
+          map.fitBounds(bounds, {
+            padding: { top: 100, bottom: 260, left: 40, right: 40 },
+            duration: 900,
+            maxZoom: 16,
+          });
+        } catch {
+          // Keep current camera if bounds cannot be computed
+        }
       }
     };
 

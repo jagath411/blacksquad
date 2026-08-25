@@ -49,6 +49,7 @@ import {
   updateBookingStatus,
 } from '../services/bookingService';
 import { geocodeAddress } from '../services/geocodingService';
+import { getRoadRoute, type RoadRouteResult } from '../services/routingService';
 import { formatUnifiedError } from '../utils/errorHandler';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -108,6 +109,7 @@ export function HomeScreen({ route, navigation }: Props) {
   const [notification, setNotification] = useState<NotificationItem | null>(null);
   const [analyticsVisible, setAnalyticsVisible] = useState(false);
   const [tripHistoryVisible, setTripHistoryVisible] = useState(false);
+  const [roadRoute, setRoadRoute] = useState<RoadRouteResult | null>(null);
 
   // Device GPS Location State
   const [deviceLocation, setDeviceLocation] = useState<{
@@ -281,6 +283,74 @@ export function HomeScreen({ route, navigation }: Props) {
     }, 6000);
     return () => clearInterval(interval);
   }, [activeBooking]);
+
+  // 5. Live Road Route & Polyline Engine (OSRM)
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function updateRoadRoute() {
+      if (!activeBooking) {
+        setRoadRoute(null);
+        return;
+      }
+
+      const dLat = driverLiveLoc?.latitude || activeBooking.driverLocation?.latitude;
+      const dLon = driverLiveLoc?.longitude || activeBooking.driverLocation?.longitude;
+
+      let origin: [number, number] | null = null;
+      let destinationCoords: [number, number] | null = null;
+
+      if (activeBooking.status === 'TRIP_STARTED') {
+        // Route from current driver position to final destination
+        if (dLat && dLon && activeBooking.dropLocation?.coordinates) {
+          origin = [dLon, dLat];
+          destinationCoords = activeBooking.dropLocation.coordinates;
+        } else if (activeBooking.pickupLocation?.coordinates && activeBooking.dropLocation?.coordinates) {
+          origin = activeBooking.pickupLocation.coordinates;
+          destinationCoords = activeBooking.dropLocation.coordinates;
+        }
+      } else if (activeBooking.status === 'DRIVER_ACCEPTED' || activeBooking.status === 'DRIVER_ARRIVING') {
+        // Route from driver position to pickup point
+        if (dLat && dLon && activeBooking.pickupLocation?.coordinates) {
+          origin = [dLon, dLat];
+          destinationCoords = activeBooking.pickupLocation.coordinates;
+        } else if (activeBooking.pickupLocation?.coordinates && activeBooking.dropLocation?.coordinates) {
+          origin = activeBooking.pickupLocation.coordinates;
+          destinationCoords = activeBooking.dropLocation.coordinates;
+        }
+      } else if (activeBooking.pickupLocation?.coordinates && activeBooking.dropLocation?.coordinates) {
+        origin = activeBooking.pickupLocation.coordinates;
+        destinationCoords = activeBooking.dropLocation.coordinates;
+      }
+
+      if (origin && destinationCoords) {
+        try {
+          const result = await getRoadRoute(origin, destinationCoords);
+          if (!isCancelled) {
+            setRoadRoute(result);
+          }
+        } catch {
+          // Keep previous or fallback
+        }
+      } else {
+        setRoadRoute(null);
+      }
+    }
+
+    updateRoadRoute();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    activeBooking?.status,
+    activeBooking?.pickupLocation?.coordinates,
+    activeBooking?.dropLocation?.coordinates,
+    driverLiveLoc?.latitude,
+    driverLiveLoc?.longitude,
+    activeBooking?.driverLocation?.latitude,
+    activeBooking?.driverLocation?.longitude,
+  ]);
 
   const handleLogout = async () => {
     if (socketRef.current && activeBooking) {
@@ -579,7 +649,12 @@ export function HomeScreen({ route, navigation }: Props) {
         isVehicle: true,
       });
 
-      if (activeBooking.pickupLocation?.coordinates && activeBooking.dropLocation?.coordinates) {
+      if (roadRoute && roadRoute.coordinates && roadRoute.coordinates.length > 1) {
+        routePolyline = {
+          coordinates: roadRoute.coordinates,
+          color: activeBooking.status === 'TRIP_STARTED' ? '#38BDF8' : '#00D084',
+        };
+      } else if (activeBooking.pickupLocation?.coordinates && activeBooking.dropLocation?.coordinates) {
         if (activeBooking.status === 'TRIP_STARTED') {
           routePolyline = {
             coordinates: [
@@ -599,6 +674,11 @@ export function HomeScreen({ route, navigation }: Props) {
           };
         }
       }
+    } else if (roadRoute && roadRoute.coordinates && roadRoute.coordinates.length > 1) {
+      routePolyline = {
+        coordinates: roadRoute.coordinates,
+        color: '#00D084',
+      };
     }
   }
 
@@ -676,17 +756,26 @@ export function HomeScreen({ route, navigation }: Props) {
           {activeBooking && (
             <View style={s.floatingEtaPill}>
               <Icon name="navigate" size={14} color="#00D084" />
-              <Text style={s.floatingEtaText}>
-                {activeBooking.status === 'REQUESTED'
-                  ? 'Finding nearest verified driver...'
-                  : activeBooking.status === 'DRIVER_ACCEPTED'
-                  ? `Driver en route • ${driverLiveLoc?.etaMinutes || 4} mins ETA`
-                  : activeBooking.status === 'DRIVER_ARRIVING'
-                  ? 'Driver has arrived at pickup point'
-                  : activeBooking.status === 'TRIP_STARTED'
-                  ? `En route to destination • ₹${activeBooking.fare}`
-                  : 'Trip in progress'}
-              </Text>
+              <View style={s.floatingEtaContent}>
+                <Text style={s.floatingEtaText}>
+                  {activeBooking.status === 'REQUESTED'
+                    ? 'Finding nearest verified driver...'
+                    : activeBooking.status === 'DRIVER_ACCEPTED'
+                    ? `Driver arriving ${roadRoute ? `• ${roadRoute.distanceKm} km (${roadRoute.durationMins}m)` : `• ${driverLiveLoc?.etaMinutes || 4} mins`}`
+                    : activeBooking.status === 'DRIVER_ARRIVING'
+                    ? 'Driver has arrived at pickup point'
+                    : activeBooking.status === 'TRIP_STARTED'
+                    ? `Driving to dropoff ${roadRoute ? `• ${roadRoute.distanceKm} km (${roadRoute.durationMins}m)` : `• ₹${activeBooking.fare}`}`
+                    : 'Trip in progress'}
+                </Text>
+                {roadRoute && (
+                  <Text style={s.floatingEtaSub} numberOfLines={1}>
+                    {roadRoute.steps && roadRoute.steps.length > 0 && activeBooking.status === 'TRIP_STARTED'
+                      ? roadRoute.steps[0].instruction
+                      : roadRoute.summary}
+                  </Text>
+                )}
+              </View>
             </View>
           )}
         </View>
@@ -1001,18 +1090,29 @@ export function HomeScreen({ route, navigation }: Props) {
             </View>
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="My GPS Location"
-            style={s.recenterFab}
-            onPress={() => fetchCurrentLocation(true)}
-          >
-            {isLocating ? (
-              <ActivityIndicator size="small" color="#00D084" />
-            ) : (
-              <Icon name="locate" size={20} color="#00D084" />
-            )}
-          </Pressable>
+          {activeBooking && (
+            <View style={s.floatingEtaPill}>
+              <Icon name="navigate" size={14} color="#00D084" />
+              <View style={s.floatingEtaContent}>
+                <Text style={s.floatingEtaText}>
+                  {activeBooking.status === 'DRIVER_ACCEPTED'
+                    ? `Heading to Pickup ${roadRoute ? `• ${roadRoute.distanceKm} km (${roadRoute.durationMins}m)` : ''}`
+                    : activeBooking.status === 'DRIVER_ARRIVING'
+                    ? 'At Pickup Spot • Awaiting Passenger'
+                    : activeBooking.status === 'TRIP_STARTED'
+                    ? `Navigating to Dropoff ${roadRoute ? `• ${roadRoute.distanceKm} km (${roadRoute.durationMins}m)` : ''}`
+                    : 'Active Trip Navigation'}
+                </Text>
+                {roadRoute && (
+                  <Text style={s.floatingEtaSub} numberOfLines={1}>
+                    {roadRoute.steps && roadRoute.steps.length > 0
+                      ? roadRoute.steps[0].instruction
+                      : roadRoute.summary}
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
         </View>
 
         {incomingBookingReq && (
@@ -1439,7 +1539,9 @@ const s = StyleSheet.create<{
   profileAvatarBtn: ViewStyle;
   recenterFab: ViewStyle;
   floatingEtaPill: ViewStyle;
+  floatingEtaContent: ViewStyle;
   floatingEtaText: TextStyle;
+  floatingEtaSub: TextStyle;
   bookingSheet: ViewStyle;
   activeRideSheet: ViewStyle;
   driverControlSheet: ViewStyle;
@@ -1659,10 +1761,19 @@ const s = StyleSheet.create<{
     borderColor: 'rgba(0, 208, 132, 0.3)',
     zIndex: 15,
   },
+  floatingEtaContent: {
+    gap: 2,
+  },
   floatingEtaText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
+  },
+  floatingEtaSub: {
+    color: '#00D084',
+    fontSize: 11,
+    fontWeight: '600',
+    maxWidth: 240,
   },
   bookingSheet: {
     backgroundColor: '#0F172A',
