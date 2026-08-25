@@ -254,6 +254,15 @@ export function LoginScreen({ navigation, route }: Props) {
           tone="dark"
         />
 
+        {!createMode && (
+          <Pressable
+            style={s.forgotPasswordBtn}
+            onPress={() => navigation.navigate('ForgotPassword')}
+          >
+            <Text style={s.forgotPasswordText}>Forgot Password?</Text>
+          </Pressable>
+        )}
+
         <AppButton
           label={createMode ? 'Create account' : 'Sign in to workspace'}
           loading={loading}
@@ -317,6 +326,8 @@ const s = StyleSheet.create<{
   switchPressable: ViewStyle;
   switch: TextStyle;
   note: TextStyle;
+  forgotPasswordBtn: ViewStyle;
+  forgotPasswordText: TextStyle;
 }>({
   header: {
     alignItems: 'center',
@@ -454,5 +465,17 @@ const s = StyleSheet.create<{
     lineHeight: 16,
     textAlign: 'center',
     marginTop: 4,
+  },
+  forgotPasswordBtn: {
+    alignSelf: 'flex-end',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    marginTop: -4,
+    marginBottom: 2,
+  },
+  forgotPasswordText: {
+    color: '#00D084',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

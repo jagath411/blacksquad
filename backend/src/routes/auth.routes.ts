@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { env } from '../config/env';
@@ -205,6 +206,85 @@ router.post('/push-token', requireAuth, async (req: AuthenticatedRequest, res, n
     const { pushToken } = tokenSchema.parse(req.body);
     await UserModel.findByIdAndUpdate(req.user!.id, { $set: { pushToken } });
     res.json({ success: true, message: 'Push token registered successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Forgot Password ───────────────────────────────────────────────────────────
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const schema = z.object({ email: z.string().email() });
+    const { email } = schema.parse(req.body);
+
+    const user = await UserModel.findOne({ email: email.toLowerCase(), isActive: true }).select('+resetToken +resetTokenExpiry');
+    if (!user) {
+      // Return 200 even if user not found (security: don't reveal account existence)
+      res.json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
+      return;
+    }
+
+    // Generate a cryptographically secure random token
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    user.resetToken = hashedToken;
+    user.resetTokenExpiry = expiry;
+    await user.save();
+
+    // Build reset link (deep link for mobile, web link for browser)
+    const resetLink = `http://65.2.202.84:5000/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
+
+    // Log to console (production would use nodemailer/SendGrid/etc.)
+    // eslint-disable-next-line no-console
+    console.log('\n🔐 PASSWORD RESET REQUEST');
+    console.log(`   User: ${user.name} <${user.email}>`);
+    console.log(`   Token: ${rawToken}`);
+    console.log(`   Reset Link: ${resetLink}`);
+    console.log(`   Expires: ${expiry.toISOString()}\n`);
+
+    res.json({
+      success: true,
+      message: 'If that email is registered, a reset link has been sent.',
+      // In dev mode, expose token so frontend can test without SMTP
+      ...(process.env.NODE_ENV !== 'production' ? { devResetToken: rawToken, devResetLink: resetLink } : {}),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Reset Password ────────────────────────────────────────────────────────────
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const schema = z.object({
+      email: z.string().email(),
+      token: z.string().min(10),
+      newPassword: z.string().min(8).max(128),
+    });
+    const { email, token, newPassword } = schema.parse(req.body);
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await UserModel.findOne({
+      email: email.toLowerCase(),
+      resetToken: hashedToken,
+      resetTokenExpiry: { $gt: new Date() },
+      isActive: true,
+    }).select('+resetToken +resetTokenExpiry +passwordHash');
+
+    if (!user) {
+      res.status(400).json({ success: false, message: 'Invalid or expired reset token. Please request a new password reset.' });
+      return;
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Password has been reset successfully. You can now log in with your new password.' });
   } catch (error) {
     next(error);
   }

@@ -9,6 +9,8 @@ export interface UserDocument extends Document {
   passwordHash: string;
   role: UserRole;
   isActive: boolean;
+  resetToken?: string;
+  resetTokenExpiry?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +24,8 @@ const userSchema = new Schema<UserDocument>(
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ['OWNER', 'DRIVER', 'CUSTOMER'], default: 'CUSTOMER', index: true },
     isActive: { type: Boolean, default: true, index: true },
+    resetToken: { type: String, select: false },
+    resetTokenExpiry: { type: Date },
   },
   { timestamps: true },
 );

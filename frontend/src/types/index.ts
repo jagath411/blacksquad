@@ -5,6 +5,8 @@ export type RootStackParamList = {
   Role: undefined;
   Login: { role: UserRole };
   Home: { role: UserRole };
+  ForgotPassword: undefined;
+  ResetPassword: { email: string; token?: string };
 };
 
 export interface HealthResponse {

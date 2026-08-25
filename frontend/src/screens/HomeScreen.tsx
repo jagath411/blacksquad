@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -19,6 +20,7 @@ import { MapView, type MapMarker, type RoutePolyline } from '../components/MapVi
 import { ProfileModal } from '../components/ProfileModal';
 import { DriverDetailModal } from '../components/DriverDetailModal';
 import { FleetAnalyticsModal } from '../components/FleetAnalyticsModal';
+import { TripHistoryModal } from '../components/TripHistoryModal';
 import { NotificationBanner, type NotificationItem } from '../components/NotificationBanner';
 import { Icon } from '../components/ui/Icon';
 import type { BookingData, BookingStatus, DriverLiveLocation, RootStackParamList, UserRole } from '../types';
@@ -46,6 +48,7 @@ import {
   rateBooking,
   updateBookingStatus,
 } from '../services/bookingService';
+import { geocodeAddress } from '../services/geocodingService';
 import { formatUnifiedError } from '../utils/errorHandler';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -104,6 +107,7 @@ export function HomeScreen({ route, navigation }: Props) {
   const [activeBooking, setActiveBooking] = useState<BookingData | null>(null);
   const [notification, setNotification] = useState<NotificationItem | null>(null);
   const [analyticsVisible, setAnalyticsVisible] = useState(false);
+  const [tripHistoryVisible, setTripHistoryVisible] = useState(false);
 
   // Device GPS Location State
   const [deviceLocation, setDeviceLocation] = useState<{
@@ -305,12 +309,23 @@ export function HomeScreen({ route, navigation }: Props) {
       ? [deviceLocation.longitude, deviceLocation.latitude]
       : [77.5946, 12.9716];
 
+    // Real Geocoded Drop Coordinates
+    let dropCoords: [number, number] = [pickupCoords[0] + 0.035, pickupCoords[1] - 0.025];
+    try {
+      const geo = await geocodeAddress(destination, deviceLocation);
+      if (geo) {
+        dropCoords = [geo.longitude, geo.latitude];
+      }
+    } catch {
+      // Keep fallback
+    }
+
     try {
       const newBooking = await createBooking({
         pickupAddress: pickup === 'My Current Location' ? 'Current GPS Location' : pickup,
         pickupCoordinates: pickupCoords,
         dropAddress: destination,
-        dropCoordinates: [pickupCoords[0] + 0.035, pickupCoords[1] - 0.025],
+        dropCoordinates: dropCoords,
         fare: selectedTierObj.fareNumber,
         serviceTier: selectedTierObj.name,
       });
@@ -627,13 +642,22 @@ export function HomeScreen({ route, navigation }: Props) {
               <Text style={s.brandBadgeText}>BLACKSQUAD</Text>
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              style={s.profileAvatarBtn}
-              onPress={() => setProfileVisible(true)}
-            >
-              <Icon name="person" size={16} color="#FFFFFF" />
-            </Pressable>
+            <View style={s.headerBtnGroup}>
+              <Pressable
+                accessibilityRole="button"
+                style={s.profileAvatarBtn}
+                onPress={() => setTripHistoryVisible(true)}
+              >
+                <Icon name="time" size={16} color="#FFFFFF" />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={s.profileAvatarBtn}
+                onPress={() => setProfileVisible(true)}
+              >
+                <Icon name="person" size={16} color="#FFFFFF" />
+              </Pressable>
+            </View>
           </View>
 
           <Pressable
@@ -744,8 +768,29 @@ export function HomeScreen({ route, navigation }: Props) {
               <Pressable
                 style={s.callBtn}
                 onPress={() => {
-                  if (Platform.OS === 'web') window.alert('Calling driver: +91 98765 43210');
-                  else Alert.alert('Contact Driver', 'Connecting to driver partner...');
+                  const driverPhone =
+                    typeof activeBooking.driverId === 'object' &&
+                    activeBooking.driverId?.userId?.phoneNumber
+                      ? activeBooking.driverId.userId.phoneNumber
+                      : '+91 98765 43210';
+                  const driverName =
+                    typeof activeBooking.driverId === 'object' &&
+                    activeBooking.driverId?.userId?.name
+                      ? activeBooking.driverId.userId.name
+                      : 'Driver Partner';
+
+                  if (Platform.OS === 'web') {
+                    const confirmed = window.confirm(
+                      `Call ${driverName} at ${driverPhone}?`
+                    );
+                    if (confirmed) {
+                      window.open(`tel:${driverPhone}`, '_self');
+                    }
+                  } else {
+                    Linking.openURL(`tel:${driverPhone}`).catch(() => {
+                      Alert.alert('Contact Driver', `Call ${driverName} at: ${driverPhone}`);
+                    });
+                  }
                 }}
               >
                 <Icon name="call" size={16} color="#FFFFFF" />
@@ -902,6 +947,12 @@ export function HomeScreen({ route, navigation }: Props) {
           onLogout={handleLogout}
           role={role}
         />
+
+        <TripHistoryModal
+          visible={tripHistoryVisible}
+          role={role}
+          onClose={() => setTripHistoryVisible(false)}
+        />
       </View>
     );
   }
@@ -932,13 +983,22 @@ export function HomeScreen({ route, navigation }: Props) {
               <Text style={s.brandBadgeText}>DRIVER PORTAL</Text>
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              style={s.profileAvatarBtn}
-              onPress={() => setProfileVisible(true)}
-            >
-              <Icon name="person" size={16} color="#FFFFFF" />
-            </Pressable>
+            <View style={s.headerBtnGroup}>
+              <Pressable
+                accessibilityRole="button"
+                style={s.profileAvatarBtn}
+                onPress={() => setTripHistoryVisible(true)}
+              >
+                <Icon name="time" size={16} color="#FFFFFF" />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={s.profileAvatarBtn}
+                onPress={() => setProfileVisible(true)}
+              >
+                <Icon name="person" size={16} color="#FFFFFF" />
+              </Pressable>
+            </View>
           </View>
 
           <Pressable
@@ -1172,6 +1232,12 @@ export function HomeScreen({ route, navigation }: Props) {
           onLogout={handleLogout}
           role={role}
         />
+
+        <TripHistoryModal
+          visible={tripHistoryVisible}
+          role={role}
+          onClose={() => setTripHistoryVisible(false)}
+        />
       </View>
     );
   }
@@ -1352,6 +1418,12 @@ export function HomeScreen({ route, navigation }: Props) {
         onLogout={handleLogout}
         role={role}
       />
+
+      <TripHistoryModal
+        visible={tripHistoryVisible}
+        role={role}
+        onClose={() => setTripHistoryVisible(false)}
+      />
     </View>
   );
 }
@@ -1363,6 +1435,7 @@ const s = StyleSheet.create<{
   mapTopRow: ViewStyle;
   brandBadge: ViewStyle;
   brandBadgeText: TextStyle;
+  headerBtnGroup: ViewStyle;
   profileAvatarBtn: ViewStyle;
   recenterFab: ViewStyle;
   floatingEtaPill: ViewStyle;
@@ -1536,6 +1609,11 @@ const s = StyleSheet.create<{
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1,
+  },
+  headerBtnGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   profileAvatarBtn: {
     width: 38,

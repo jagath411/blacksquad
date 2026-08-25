@@ -10,6 +10,8 @@ import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { RoleScreen } from './src/screens/RoleScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
+import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import type { RootStackParamList } from './src/types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -43,6 +45,8 @@ export default function App() {
         <Stack.Screen name="Role" component={RoleScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
