@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "seed": "npx tsx src/scripts/seed.ts",
+    "test:concurrency": "tsx src/tests/concurrency.test.ts",
+    "test": "npm run test:concurrency",
     "build": "rimraf dist && tsc",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
