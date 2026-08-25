@@ -3,6 +3,8 @@
  * Validates real HTTP network requests under high concurrency load against Express & MongoDB.
  */
 
+process.env.NODE_ENV = 'test';
+
 import http from 'http';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';

@@ -171,6 +171,7 @@ const startServer = async (): Promise<http.Server> => {
   return server;
 };
 
-if (process.env.NODE_ENV !== 'test') {
+const isMain = typeof require !== 'undefined' && require.main === module || (process.argv[1] ? process.argv[1].endsWith('server.ts') : false);
+if (isMain && process.env.NODE_ENV !== 'test') {
   void startServer();
 }
