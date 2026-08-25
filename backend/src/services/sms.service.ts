@@ -75,10 +75,11 @@ class SmsService {
       }
     }
 
-    // 2. Fast2SMS (Indian SMS Gateway)
+    // 2. Fast2SMS (Indian SMS Gateway - Free Tier & Pilot Ready)
     if (env.FAST2SMS_API_KEY) {
       try {
-        const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+        // Attempt 1: Standard OTP route
+        let response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
           method: 'POST',
           headers: {
             authorization: env.FAST2SMS_API_KEY,
@@ -86,17 +87,38 @@ class SmsService {
           },
           body: JSON.stringify({
             route: 'otp',
-            variables_values: otpCode || message,
+            variables_values: otpCode || '000000',
             numbers: raw10,
           }),
         });
 
-        const data: any = await response.json();
+        let data: any = await response.json();
         if (data.return) {
-          console.log(`📡 [FAST2SMS SENT] To: ${raw10} | ReqID: ${data.request_id}`);
+          console.log(`📡 [FAST2SMS SENT (OTP ROUTE)] To: ${raw10} | ReqID: ${data.request_id}`);
+          return { success: true, provider: 'FAST2SMS', isLiveGateway: true, messageId: data.request_id };
+        }
+
+        // Attempt 2: Quick SMS route fallback
+        response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+          method: 'POST',
+          headers: {
+            authorization: env.FAST2SMS_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            route: 'q',
+            message: message,
+            language: 'english',
+            numbers: raw10,
+          }),
+        });
+
+        data = await response.json();
+        if (data.return) {
+          console.log(`📡 [FAST2SMS SENT (QUICK ROUTE)] To: ${raw10} | ReqID: ${data.request_id}`);
           return { success: true, provider: 'FAST2SMS', isLiveGateway: true, messageId: data.request_id };
         } else {
-          console.error(`❌ [FAST2SMS ERROR] ${data.message || 'Dispatch failed'}`);
+          console.error(`❌ [FAST2SMS ERROR] ${Array.isArray(data.message) ? data.message.join(', ') : data.message || 'Dispatch failed'}`);
         }
       } catch (err: any) {
         console.error(`❌ [FAST2SMS DISPATCH FAILED] ${err.message}`);
