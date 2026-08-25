@@ -143,6 +143,22 @@ export async function clearSessionUser(): Promise<void> {
   await removeItemSafe(USER_KEY);
 }
 
+const ROLE_KEY = 'blacksquad.activeRole';
+
+export async function saveActiveRole(role: UserRole): Promise<void> {
+  await setItemSafe(ROLE_KEY, role);
+}
+
+export async function getActiveRole(): Promise<UserRole | null> {
+  const r = await getItemSafe(ROLE_KEY);
+  if (r === 'CUSTOMER' || r === 'DRIVER' || r === 'OWNER') return r;
+  return null;
+}
+
 export async function clearAllStorage(): Promise<void> {
-  await Promise.all([clearAccessToken(), clearSessionUser()]);
+  await Promise.all([
+    clearAccessToken(),
+    clearSessionUser(),
+    removeItemSafe(ROLE_KEY),
+  ]);
 }

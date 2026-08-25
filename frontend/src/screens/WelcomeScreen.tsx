@@ -1,15 +1,64 @@
-import React from 'react';
-import { Image, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { Icon } from '../components/ui/Icon';
 import { colors } from '../constants/theme';
+import { getAccessToken, getSessionUser, saveSessionUser, clearAllStorage } from '../services/tokenStore';
+import { getCurrentUser } from '../services/authService';
 import type { RootStackParamList } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
 export function WelcomeScreen({ navigation }: Props) {
+  const [isHydrating, setIsHydrating] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const hydrateSession = async () => {
+      try {
+        const token = await getAccessToken();
+        const cachedUser = await getSessionUser();
+
+        if (token && cachedUser && cachedUser.role) {
+          try {
+            // Validate token against backend to prevent stale session exploits
+            const liveUser = await getCurrentUser();
+            if (isMounted && liveUser && liveUser.role) {
+              await saveSessionUser(liveUser);
+              navigation.replace('Home', { role: liveUser.role });
+              return;
+            }
+          } catch {
+            // Token expired or revoked — clear storage cleanly
+            await clearAllStorage();
+          }
+        }
+      } catch (err) {
+        // Fallback to welcome screen
+      } finally {
+        if (isMounted) setIsHydrating(false);
+      }
+    };
+
+    void hydrateSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [navigation]);
+
+  if (isHydrating) {
+    return (
+      <View style={s.splashContainer}>
+        <Image source={require('../assets/logo.png')} style={s.splashLogo} resizeMode="contain" />
+        <Text style={s.splashTitle}>BLACKSQUAD</Text>
+        <Text style={s.splashSub}>MOBILITY OS</Text>
+        <ActivityIndicator size="small" color="#00D084" style={{ marginTop: 24 }} />
+      </View>
+    );
+  }
+
   return (
     <Screen>
       <View style={s.brand}>
@@ -63,6 +112,10 @@ export function WelcomeScreen({ navigation }: Props) {
 }
 
 const s = StyleSheet.create<{
+  splashContainer: ViewStyle;
+  splashLogo: ImageStyle;
+  splashTitle: TextStyle;
+  splashSub: TextStyle;
   brand: ViewStyle;
   logoImage: ImageStyle;
   brandTextGroup: ViewStyle;
@@ -82,6 +135,32 @@ const s = StyleSheet.create<{
   featureSub: TextStyle;
   footer: ViewStyle;
 }>({
+  splashContainer: {
+    flex: 1,
+    backgroundColor: '#07100D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  splashLogo: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  splashTitle: {
+    fontSize: 22,
+    letterSpacing: 3,
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+  splashSub: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#00D084',
+    letterSpacing: 2,
+    marginTop: 4,
+  },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
