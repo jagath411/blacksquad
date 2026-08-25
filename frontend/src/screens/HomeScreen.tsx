@@ -20,6 +20,8 @@ import { MapView, type MapMarker, type RoutePolyline } from '../components/MapVi
 import { ProfileModal } from '../components/ProfileModal';
 import { DriverDetailModal } from '../components/DriverDetailModal';
 import { FleetAnalyticsModal } from '../components/FleetAnalyticsModal';
+import { FleetExpensesModal } from '../components/FleetExpensesModal';
+import { FleetVehiclesModal } from '../components/FleetVehiclesModal';
 import { TripHistoryModal } from '../components/TripHistoryModal';
 import { AddDriverModal } from '../components/AddDriverModal';
 import { NotificationBanner, type NotificationItem } from '../components/NotificationBanner';
@@ -109,6 +111,8 @@ export function HomeScreen({ route, navigation }: Props) {
   const [activeBooking, setActiveBooking] = useState<BookingData | null>(null);
   const [notification, setNotification] = useState<NotificationItem | null>(null);
   const [analyticsVisible, setAnalyticsVisible] = useState(false);
+  const [expensesModalVisible, setExpensesModalVisible] = useState(false);
+  const [vehiclesModalVisible, setVehiclesModalVisible] = useState(false);
   const [tripHistoryVisible, setTripHistoryVisible] = useState(false);
   const [addDriverModalVisible, setAddDriverModalVisible] = useState(false);
   const [roadRoute, setRoadRoute] = useState<RoadRouteResult | null>(null);
@@ -1414,17 +1418,46 @@ export function HomeScreen({ route, navigation }: Props) {
             <Icon name="trending-up" size={18} color="#10B981" />
           </View>
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={s.analyticsBannerTitle}>Fleet Revenue & Expenses</Text>
-            <Text style={s.analyticsBannerSub}>Weekly earnings charts, fuel logs & driver payouts</Text>
+            <Text style={s.analyticsBannerTitle}>Fleet Financial Analytics</Text>
+            <Text style={s.analyticsBannerSub}>Weekly earnings charts, net profits & driver payouts</Text>
           </View>
           <Icon name="chevron-forward" size={18} color="#10B981" />
         </Pressable>
+
+        {/* Quick Management Actions Grid (Vehicles & Expenses) */}
+        <View style={s.ownerQuickGrid}>
+          <Pressable
+            style={s.ownerQuickCard}
+            onPress={() => setVehiclesModalVisible(true)}
+          >
+            <View style={[s.ownerQuickIconBox, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+              <Icon name="car-sport" size={16} color="#38BDF8" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.ownerQuickCardTitle}>Vehicle Registry</Text>
+              <Text style={s.ownerQuickCardSub}>Add & assign cars/vans</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            style={s.ownerQuickCard}
+            onPress={() => setExpensesModalVisible(true)}
+          >
+            <View style={[s.ownerQuickIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+              <Icon name="receipt" size={16} color="#F59E0B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.ownerQuickCardTitle}>Fleet Expenses</Text>
+              <Text style={s.ownerQuickCardSub}>Fuel, repairs & tolls</Text>
+            </View>
+          </Pressable>
+        </View>
 
         <View style={s.ownerHeader}>
           <View style={{ flex: 1 }}>
             <Text style={s.ownerTitle}>Active Vehicle Fleet</Text>
             <Text style={s.ownerSub}>
-              {drivers ? `${drivers.length} total vehicles linked` : 'Loading fleet radar...'}
+              {drivers ? `${drivers.length} drivers linked to radar` : 'Loading fleet radar...'}
             </Text>
           </View>
           <Pressable
@@ -1536,6 +1569,22 @@ export function HomeScreen({ route, navigation }: Props) {
         onClose={() => setTripHistoryVisible(false)}
       />
 
+      <FleetVehiclesModal
+        visible={vehiclesModalVisible}
+        onClose={() => setVehiclesModalVisible(false)}
+        onVehicleUpdated={() => {
+          // Refresh fleet data if needed
+        }}
+      />
+
+      <FleetExpensesModal
+        visible={expensesModalVisible}
+        onClose={() => setExpensesModalVisible(false)}
+        onExpenseUpdated={() => {
+          // Refresh analytics summary if needed
+        }}
+      />
+
       <AddDriverModal
         visible={addDriverModalVisible}
         onClose={() => setAddDriverModalVisible(false)}
@@ -1577,6 +1626,11 @@ const s = StyleSheet.create<{
   analyticsBannerIconBox: ViewStyle;
   analyticsBannerTitle: TextStyle;
   analyticsBannerSub: TextStyle;
+  ownerQuickGrid: ViewStyle;
+  ownerQuickCard: ViewStyle;
+  ownerQuickIconBox: ViewStyle;
+  ownerQuickCardTitle: TextStyle;
+  ownerQuickCardSub: TextStyle;
   sheetHandle: ViewStyle;
   searchBar: ViewStyle;
   searchPlaceholder: TextStyle;
@@ -2489,7 +2543,7 @@ const s = StyleSheet.create<{
     padding: 12,
     borderWidth: 1.5,
     borderColor: 'rgba(16, 185, 129, 0.4)',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   analyticsBannerIconBox: {
     width: 36,
@@ -2508,6 +2562,40 @@ const s = StyleSheet.create<{
     color: '#94A3B8',
     fontSize: 11,
     marginTop: 2,
+  },
+  ownerQuickGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  ownerQuickCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  ownerQuickIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ownerQuickCardTitle: {
+    color: '#F1F5F9',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  ownerQuickCardSub: {
+    color: '#64748B',
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 1,
   },
   ownerHeader: {
     flexDirection: 'row',
