@@ -18,6 +18,7 @@ import { AppButton } from '../components/AppButton';
 import { MapView, type MapMarker, type RoutePolyline } from '../components/MapView';
 import { ProfileModal } from '../components/ProfileModal';
 import { DriverDetailModal } from '../components/DriverDetailModal';
+import { FleetAnalyticsModal } from '../components/FleetAnalyticsModal';
 import { NotificationBanner, type NotificationItem } from '../components/NotificationBanner';
 import { Icon } from '../components/ui/Icon';
 import type { BookingData, BookingStatus, DriverLiveLocation, RootStackParamList, UserRole } from '../types';
@@ -102,6 +103,7 @@ export function HomeScreen({ route, navigation }: Props) {
   const [bookingModal, setBookingModal] = useState(false);
   const [activeBooking, setActiveBooking] = useState<BookingData | null>(null);
   const [notification, setNotification] = useState<NotificationItem | null>(null);
+  const [analyticsVisible, setAnalyticsVisible] = useState(false);
 
   // Device GPS Location State
   const [deviceLocation, setDeviceLocation] = useState<{
@@ -1198,13 +1200,24 @@ export function HomeScreen({ route, navigation }: Props) {
             <Text style={s.brandBadgeText}>FLEET OPERATIONS</Text>
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            style={s.profileAvatarBtn}
-            onPress={() => setProfileVisible(true)}
-          >
-            <Icon name="person" size={16} color="#FFFFFF" />
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              accessibilityRole="button"
+              style={[s.profileAvatarBtn, { backgroundColor: '#10B981', borderColor: '#059669', width: 'auto', paddingHorizontal: 12 }]}
+              onPress={() => setAnalyticsVisible(true)}
+            >
+              <Icon name="stats-chart" size={15} color="#07100D" />
+              <Text style={{ color: '#07100D', fontSize: 12, fontWeight: '900', marginLeft: 4 }}>Revenue</Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              style={s.profileAvatarBtn}
+              onPress={() => setProfileVisible(true)}
+            >
+              <Icon name="person" size={16} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
 
         <Pressable
@@ -1223,6 +1236,21 @@ export function HomeScreen({ route, navigation }: Props) {
 
       <View style={s.ownerSheet}>
         <View style={s.sheetHandle} />
+
+        {/* Fleet Revenue & Analytics Banner Action */}
+        <Pressable
+          style={s.ownerAnalyticsBanner}
+          onPress={() => setAnalyticsVisible(true)}
+        >
+          <View style={s.analyticsBannerIconBox}>
+            <Icon name="trending-up" size={18} color="#10B981" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={s.analyticsBannerTitle}>Fleet Revenue & Expenses</Text>
+            <Text style={s.analyticsBannerSub}>Weekly earnings charts, fuel logs & driver payouts</Text>
+          </View>
+          <Icon name="chevron-forward" size={18} color="#10B981" />
+        </Pressable>
 
         <View style={s.ownerHeader}>
           <Text style={s.ownerTitle}>Active Vehicle Fleet</Text>
@@ -1299,6 +1327,19 @@ export function HomeScreen({ route, navigation }: Props) {
         </ScrollView>
       </View>
 
+      <FleetAnalyticsModal
+        visible={analyticsVisible}
+        onClose={() => setAnalyticsVisible(false)}
+        onShowNotification={(title, body, type) =>
+          setNotification({
+            id: Date.now().toString(),
+            title,
+            body,
+            type,
+          })
+        }
+      />
+
       <DriverDetailModal
         visible={Boolean(selectedDriver)}
         driver={selectedDriver}
@@ -1330,6 +1371,10 @@ const s = StyleSheet.create<{
   activeRideSheet: ViewStyle;
   driverControlSheet: ViewStyle;
   ownerSheet: ViewStyle;
+  ownerAnalyticsBanner: ViewStyle;
+  analyticsBannerIconBox: ViewStyle;
+  analyticsBannerTitle: TextStyle;
+  analyticsBannerSub: TextStyle;
   sheetHandle: ViewStyle;
   searchBar: ViewStyle;
   searchPlaceholder: TextStyle;
@@ -2217,6 +2262,34 @@ const s = StyleSheet.create<{
   },
   tipTextActive: {
     color: '#00D084',
+  },
+  ownerAnalyticsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    marginBottom: 16,
+  },
+  analyticsBannerIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  analyticsBannerTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  analyticsBannerSub: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 2,
   },
   ownerHeader: {
     marginBottom: 12,
