@@ -12,9 +12,11 @@ import type { AuthenticatedRequest } from '../types/auth';
 
 const router = Router();
 
+const customerBookingLocks = new Map<string, Promise<unknown>>();
+
 const createBookingSchema = z.object({
-  pickupAddress: z.string().min(2),
-  dropAddress: z.string().min(2),
+  pickupAddress: z.string().min(2).max(300),
+  dropAddress: z.string().min(2).max(300),
   pickupCoordinates: z.tuple([z.number(), z.number()]), // [lng, lat]
   dropCoordinates: z.tuple([z.number(), z.number()]), // [lng, lat]
   serviceTier: z.string().default('uberx'),
@@ -28,12 +30,22 @@ router.post(
   requireAuth,
   requireRole('CUSTOMER'),
   async (req: AuthenticatedRequest, res, next) => {
+    const customerId = req.user!.id;
+    const previousLock = customerBookingLocks.get(customerId) ?? Promise.resolve();
+    let resolveLock!: () => void;
+    const currentLock = new Promise<void>((resolve) => {
+      resolveLock = resolve;
+    });
+    const chain = previousLock.then(() => currentLock);
+    customerBookingLocks.set(customerId, chain);
+    await previousLock;
+
     try {
       const data = createBookingSchema.parse(req.body);
 
       // Concurrency Guard: Check if customer already has an active ride in progress
       const activeExisting = await BookingModel.findOne({
-        customerId: req.user!.id,
+        customerId,
         status: { $in: ['REQUESTED', 'ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'TRIP_STARTED'] },
       }).lean();
 
@@ -49,7 +61,7 @@ router.post(
       const startOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
       const booking = await BookingModel.create({
-        customerId: req.user!.id,
+        customerId,
         pickupAddress: data.pickupAddress,
         dropAddress: data.dropAddress,
         pickupLocation: { type: 'Point', coordinates: data.pickupCoordinates },
@@ -77,6 +89,9 @@ router.post(
       res.status(201).json({ success: true, booking });
     } catch (error) {
       next(error);
+    } finally {
+      resolveLock();
+      if (customerBookingLocks.get(customerId) === chain) customerBookingLocks.delete(customerId);
     }
   },
 );

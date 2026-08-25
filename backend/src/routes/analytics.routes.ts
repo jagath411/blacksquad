@@ -295,21 +295,32 @@ router.post('/payouts/settle', requireAuth, async (req: AuthenticatedRequest, re
       return;
     }
 
-    const payout = await PayoutModel.create({
-      ownerId: ownerId || new mongoose.Types.ObjectId(),
-      driverId: new mongoose.Types.ObjectId(body.driverId),
-      amount: body.amount,
-      driverCommissionShare: 80,
-      periodStart: new Date(Date.now() - 7 * 86400000),
-      periodEnd: new Date(),
-      status: 'PAID',
-      paymentMethod: body.paymentMethod,
-      transactionReference: body.transactionReference.trim(),
-      bankDetails: driver.bankDetails || {},
-      settledAt: new Date(),
-    });
+    try {
+      const payout = await PayoutModel.create({
+        ownerId: ownerId || new mongoose.Types.ObjectId(),
+        driverId: new mongoose.Types.ObjectId(body.driverId),
+        amount: body.amount,
+        driverCommissionShare: 80,
+        periodStart: new Date(Date.now() - 7 * 86400000),
+        periodEnd: new Date(),
+        status: 'PAID',
+        paymentMethod: body.paymentMethod,
+        transactionReference: body.transactionReference.trim(),
+        bankDetails: driver.bankDetails || {},
+        settledAt: new Date(),
+      });
 
-    res.status(201).json({ success: true, message: 'Driver payout recorded successfully', data: payout });
+      res.status(201).json({ success: true, message: 'Driver payout recorded successfully', data: payout });
+    } catch (createErr: any) {
+      if (createErr?.code === 11000 || createErr?.name === 'MongoServerError') {
+        res.status(409).json({
+          success: false,
+          message: `Transaction reference '${body.transactionReference}' has already been processed.`,
+        });
+        return;
+      }
+      throw createErr;
+    }
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message || 'Failed to settle payout' });
   }

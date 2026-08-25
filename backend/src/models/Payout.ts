@@ -46,7 +46,13 @@ const payoutSchema = new Schema<PayoutDocument>(
       enum: ['BANK_TRANSFER', 'UPI', 'CASH'],
       default: 'UPI',
     },
-    transactionReference: { type: String, trim: true },
+    transactionReference: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     bankDetails: {
       accountHolderName: { type: String, trim: true },
       bankName: { type: String, trim: true },
