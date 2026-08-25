@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type ImageStyle,
   type TextStyle,
@@ -36,6 +37,17 @@ const ANDROID_CLIENT_ID =
 const IOS_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
   '892541607147-mrse0ua8umjjk9rdc588chb3qtauph41.apps.googleusercontent.com';
+
+function formatPhoneDisplay(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+  }
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
+  }
+  return raw;
+}
 
 export function LoginScreen({ navigation, route }: Props) {
   const role = route.params.role;
@@ -159,6 +171,7 @@ export function LoginScreen({ navigation, route }: Props) {
     setSendingOtp(true);
     try {
       const res = await sendPhoneOtp(formatted, role);
+      setPhone(formatted);
       setPhoneStep('otp');
       setResendTimer(30);
       if (res.devOtp) {
@@ -172,10 +185,10 @@ export function LoginScreen({ navigation, route }: Props) {
   };
 
   // Phone: Verify OTP Handler
-  const handleVerifyPhoneOtp = async () => {
+  const handleVerifyPhoneOtp = async (overrideOtp?: string) => {
     setError(null);
-    const trimmedOtp = otp.trim();
-    if (!trimmedOtp || trimmedOtp.length < 4) {
+    const targetOtp = (overrideOtp || otp).trim();
+    if (!targetOtp || targetOtp.length < 4) {
       setError({
         title: 'Enter Verification Code',
         message: 'Please enter the 6-digit OTP code received via SMS.',
@@ -188,13 +201,19 @@ export function LoginScreen({ navigation, route }: Props) {
 
     setVerifyingOtp(true);
     try {
-      const user = await verifyPhoneOtp(formatted, trimmedOtp, role);
+      const user = await verifyPhoneOtp(formatted, targetOtp, role);
       navigation.navigate('Home', { role: user.role || role });
     } catch (cause) {
       setError(formatUnifiedError(cause, 'login'));
     } finally {
       setVerifyingOtp(false);
     }
+  };
+
+  // Quick Auto-Fill and Sign In
+  const handleAutoFillAndVerify = (code: string) => {
+    setOtp(code);
+    void handleVerifyPhoneOtp(code);
   };
 
   // Email form submit
@@ -321,18 +340,27 @@ export function LoginScreen({ navigation, route }: Props) {
         {authMethod === 'phone' ? (
           phoneStep === 'input' ? (
             <>
-              <Input
-                label="Mobile Phone Number"
-                value={phone}
-                onChangeText={(t) => {
-                  setPhone(t);
-                  setError(null);
-                }}
-                placeholder="98765 43210"
-                keyboardType="phone-pad"
-                autoCapitalize="none"
-                tone="dark"
-              />
+              <View style={s.phoneInputContainer}>
+                <Text style={s.inputLabel}>Mobile Phone Number</Text>
+                <View style={s.phoneRow}>
+                  <View style={s.countryPill}>
+                    <Text style={s.countryFlag}>🇮🇳</Text>
+                    <Text style={s.countryCode}>+91</Text>
+                  </View>
+                  <TextInput
+                    style={s.phoneTextInput}
+                    value={phone.replace(/^\+91/, '')}
+                    onChangeText={(t) => {
+                      setPhone(t);
+                      setError(null);
+                    }}
+                    placeholder="98765 43210"
+                    placeholderTextColor="#64748B"
+                    keyboardType="phone-pad"
+                    autoFocus
+                  />
+                </View>
+              </View>
 
               <AppButton
                 label={sendingOtp ? 'Sending OTP...' : 'Send OTP Code →'}
@@ -344,58 +372,73 @@ export function LoginScreen({ navigation, route }: Props) {
           ) : (
             <>
               <View style={s.phoneSentBadge}>
-                <Icon name="chatbubble" size={14} color="#00D084" />
-                <Text style={s.phoneSentText}>
-                  Code sent to <Text style={{ color: '#00D084', fontWeight: '800' }}>{phone}</Text>
-                </Text>
+                <Icon name="chatbubble" size={15} color="#00D084" />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.phoneSentLabel}>SMS Verification Code Sent To</Text>
+                  <Text style={s.phoneSentNumber}>{formatPhoneDisplay(phone)}</Text>
+                </View>
                 <Pressable
                   onPress={() => {
                     setPhoneStep('input');
                     setOtp('');
                     setError(null);
                   }}
-                  style={{ marginLeft: 'auto' }}
+                  style={s.editPhoneBtn}
                 >
-                  <Text style={s.editPhoneText}>Edit</Text>
+                  <Icon name="create-outline" size={13} color="#38BDF8" />
+                  <Text style={s.editPhoneText}>Change</Text>
                 </Pressable>
               </View>
 
-              <Input
-                label="6-Digit Verification Code"
-                value={otp}
-                onChangeText={(t) => {
-                  setOtp(t);
-                  setError(null);
-                }}
-                placeholder="• • • • • •"
-                keyboardType="number-pad"
-                autoCapitalize="none"
-                tone="dark"
-              />
+              <View style={s.otpInputWrap}>
+                <Text style={s.inputLabel}>6-Digit OTP Code</Text>
+                <TextInput
+                  style={s.otpLargeInput}
+                  value={otp}
+                  onChangeText={(t) => {
+                    const cleaned = t.replace(/\D/g, '').slice(0, 6);
+                    setOtp(cleaned);
+                    setError(null);
+                    if (cleaned.length === 6) {
+                      void handleVerifyPhoneOtp(cleaned);
+                    }
+                  }}
+                  placeholder="• • • • • •"
+                  placeholderTextColor="#475569"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  autoFocus
+                />
+              </View>
 
               {!!devOtp && (
                 <Pressable
-                  style={s.devOtpBox}
-                  onPress={() => setOtp(devOtp)}
+                  style={({ pressed }) => [s.devOtpBox, pressed && { opacity: 0.8 }]}
+                  onPress={() => handleAutoFillAndVerify(devOtp)}
                 >
-                  <Text style={s.devOtpLabel}>🔧 Dev Auto-Fill OTP:</Text>
-                  <Text style={s.devOtpCode}>{devOtp}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={s.devOtpLabel}>🔧 Quick Dev OTP:</Text>
+                    <Text style={s.devOtpCode}>{devOtp}</Text>
+                  </View>
+                  <View style={s.autoFillBadge}>
+                    <Text style={s.autoFillBadgeText}>⚡ Tap to Fill & Sign In</Text>
+                  </View>
                 </Pressable>
               )}
 
               <AppButton
                 label={verifyingOtp ? 'Verifying OTP...' : 'Verify & Sign In'}
                 loading={verifyingOtp}
-                disabled={verifyingOtp || !otp.trim()}
-                onPress={handleVerifyPhoneOtp}
+                disabled={verifyingOtp || otp.trim().length < 4}
+                onPress={() => handleVerifyPhoneOtp()}
               />
 
               <View style={s.resendRow}>
                 {resendTimer > 0 ? (
-                  <Text style={s.resendTimerText}>Resend code in {resendTimer}s</Text>
+                  <Text style={s.resendTimerText}>Resend code via SMS in {resendTimer}s</Text>
                 ) : (
                   <Pressable onPress={handleSendPhoneOtp}>
-                    <Text style={s.resendLinkText}>Resend OTP SMS</Text>
+                    <Text style={s.resendLinkText}>Resend OTP Code via SMS</Text>
                   </Pressable>
                 )}
               </View>
@@ -533,12 +576,25 @@ const s = StyleSheet.create<{
   tabBtnText: TextStyle;
   tabBtnTextActive: TextStyle;
   form: ViewStyle;
+  phoneInputContainer: ViewStyle;
+  inputLabel: TextStyle;
+  phoneRow: ViewStyle;
+  countryPill: ViewStyle;
+  countryFlag: TextStyle;
+  countryCode: TextStyle;
+  phoneTextInput: TextStyle;
   phoneSentBadge: ViewStyle;
-  phoneSentText: TextStyle;
+  phoneSentLabel: TextStyle;
+  phoneSentNumber: TextStyle;
+  editPhoneBtn: ViewStyle;
   editPhoneText: TextStyle;
+  otpInputWrap: ViewStyle;
+  otpLargeInput: TextStyle;
   devOtpBox: ViewStyle;
   devOtpLabel: TextStyle;
   devOtpCode: TextStyle;
+  autoFillBadge: ViewStyle;
+  autoFillBadgeText: TextStyle;
   resendRow: ViewStyle;
   resendTimerText: TextStyle;
   resendLinkText: TextStyle;
@@ -647,48 +703,138 @@ const s = StyleSheet.create<{
   form: {
     gap: 12,
   },
-  phoneSentBadge: {
+  phoneInputContainer: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(0, 208, 132, 0.1)',
+  },
+  countryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#1E293B',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  countryFlag: {
+    fontSize: 16,
+  },
+  countryCode: {
+    color: '#F1F5F9',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  phoneTextInput: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  phoneSentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(0, 208, 132, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0, 208, 132, 0.25)',
   },
-  phoneSentText: {
-    color: '#E2E8F0',
-    fontSize: 12,
+  phoneSentLabel: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  phoneSentNumber: {
+    color: '#00D084',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  editPhoneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   editPhoneText: {
     color: '#38BDF8',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+  },
+  otpInputWrap: {
+    gap: 6,
+  },
+  otpLargeInput: {
+    backgroundColor: '#0F172A',
+    color: '#00D084',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 8,
+    textAlign: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 208, 132, 0.4)',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   devOtpBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(234, 179, 8, 0.3)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(234, 179, 8, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(234, 179, 8, 0.4)',
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    cursor: 'pointer' as any,
   },
   devOtpLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: '#FACC15',
   },
   devOtpCode: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '900',
     color: '#FEF08A',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     letterSpacing: 2,
+  },
+  autoFillBadge: {
+    backgroundColor: '#CA8A04',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  autoFillBadgeText: {
+    color: '#07100D',
+    fontSize: 10,
+    fontWeight: '900',
   },
   resendRow: {
     alignItems: 'center',

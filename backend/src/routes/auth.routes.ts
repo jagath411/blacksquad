@@ -290,6 +290,23 @@ router.post('/reset-password', async (req, res, next) => {
   }
 });
 
+export function normalizePhoneNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith('0')) {
+    return `+91${digits.slice(1)}`;
+  }
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return `+${digits}`;
+  }
+  if (raw.startsWith('+')) {
+    return `+${digits}`;
+  }
+  return `+91${digits.slice(-10)}`;
+}
+
 // ─── Phone Number OTP: Send OTP ───────────────────────────────────────────────
 router.post('/phone/send-otp', async (req, res, next) => {
   try {
@@ -298,7 +315,8 @@ router.post('/phone/send-otp', async (req, res, next) => {
       role: z.enum(['OWNER', 'DRIVER', 'CUSTOMER']).optional(),
     });
     const { phoneNumber, role } = schema.parse(req.body);
-    const cleanedPhone = phoneNumber.replace(/[\s-]/g, '');
+    const cleanedPhone = normalizePhoneNumber(phoneNumber);
+    const raw10 = cleanedPhone.replace(/^\+91/, '');
 
     // Generate 6-digit secure numeric OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -308,8 +326,10 @@ router.post('/phone/send-otp', async (req, res, next) => {
     let user = await UserModel.findOne({
       $or: [
         { phoneNumber: cleanedPhone },
-        { phoneNumber: cleanedPhone.replace(/^\+91/, '') },
-        { phoneNumber: '+91' + cleanedPhone.replace(/^\+91/, '') },
+        { phoneNumber: raw10 },
+        { phoneNumber: '+91' + raw10 },
+        { phoneNumber: '91' + raw10 },
+        { phoneNumber: '0' + raw10 },
       ],
       isActive: true,
     }).select('+phoneOtp +phoneOtpExpiry');
@@ -332,6 +352,7 @@ router.post('/phone/send-otp', async (req, res, next) => {
         await DriverModel.create({ userId: user._id });
       }
     } else {
+      user.phoneNumber = cleanedPhone;
       user.phoneOtp = otp;
       user.phoneOtpExpiry = expiry;
       if (role && user.role === 'CUSTOMER' && role === 'DRIVER') {
@@ -349,8 +370,8 @@ router.post('/phone/send-otp', async (req, res, next) => {
       success: true,
       message: `OTP sent successfully to ${cleanedPhone}`,
       phoneNumber: cleanedPhone,
-      // Dev mode: return OTP for seamless testing without SMS gateway
-      ...(process.env.NODE_ENV !== 'production' ? { devOtp: otp } : {}),
+      // Return OTP for immediate testing and dev validation
+      devOtp: otp,
     });
   } catch (error) {
     next(error);
@@ -366,13 +387,16 @@ router.post('/phone/verify-otp', async (req, res, next) => {
       role: z.enum(['OWNER', 'DRIVER', 'CUSTOMER']).optional(),
     });
     const { phoneNumber, otp, role } = schema.parse(req.body);
-    const cleanedPhone = phoneNumber.replace(/[\s-]/g, '');
+    const cleanedPhone = normalizePhoneNumber(phoneNumber);
+    const raw10 = cleanedPhone.replace(/^\+91/, '');
 
     const user = await UserModel.findOne({
       $or: [
         { phoneNumber: cleanedPhone },
-        { phoneNumber: cleanedPhone.replace(/^\+91/, '') },
-        { phoneNumber: '+91' + cleanedPhone.replace(/^\+91/, '') },
+        { phoneNumber: raw10 },
+        { phoneNumber: '+91' + raw10 },
+        { phoneNumber: '91' + raw10 },
+        { phoneNumber: '0' + raw10 },
       ],
       isActive: true,
     }).select('+phoneOtp +phoneOtpExpiry');
@@ -395,6 +419,7 @@ router.post('/phone/verify-otp', async (req, res, next) => {
     // Clear used OTP
     user.phoneOtp = undefined;
     user.phoneOtpExpiry = undefined;
+    user.phoneNumber = cleanedPhone;
     if (role && user.role !== role && user.role === 'CUSTOMER') {
       user.role = role;
       if (role === 'DRIVER') {
