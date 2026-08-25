@@ -1,11 +1,24 @@
 import { Router } from 'express';
 import { Types } from 'mongoose';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { DriverModel } from '../models/Driver';
+import { UserModel } from '../models/User';
 import { VehicleModel } from '../models/Vehicle';
 import { locationState } from '../services/location.service';
 import type { AuthenticatedRequest } from '../types/auth';
+
+const onboardDriverSchema = z.object({
+  name: z.string().min(2).max(120),
+  phoneNumber: z.string().min(8).max(20),
+  email: z.string().email().optional(),
+  licenseNumber: z.string().min(3).max(80).optional(),
+  vehicleRegistration: z.string().min(3).max(30).optional(),
+  vehicleModel: z.string().optional(),
+  vehicleType: z.enum(['SEDAN', 'SUV', 'VAN', 'TRUCK']).default('SEDAN'),
+});
 
 const bankDetailsSchema = z
   .object({
@@ -114,4 +127,107 @@ router.patch('/:driverId/vehicle', requireAuth, requireRole('OWNER'), async (req
     next(error);
   }
 });
+
+// ─── Owner: Onboard New Driver ────────────────────────────────────────────────
+router.post('/', requireAuth, requireRole('OWNER'), async (req, res, next) => {
+  try {
+    const data = onboardDriverSchema.parse(req.body);
+    const cleanedPhone = data.phoneNumber.replace(/[\s-]/g, '');
+
+    // 1. Find or create user
+    let user = await UserModel.findOne({
+      $or: [
+        { phoneNumber: cleanedPhone },
+        { phoneNumber: cleanedPhone.replace(/^\+91/, '') },
+        { phoneNumber: '+91' + cleanedPhone.replace(/^\+91/, '') },
+        ...(data.email ? [{ email: data.email.toLowerCase() }] : []),
+      ],
+    });
+
+    if (!user) {
+      const email = data.email
+        ? data.email.toLowerCase()
+        : `driver_${cleanedPhone.replace(/\+/g, '')}@blacksquad.internal`;
+      const dummyPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+      user = await UserModel.create({
+        name: data.name.trim(),
+        email,
+        phoneNumber: cleanedPhone,
+        passwordHash: dummyPassword,
+        role: 'DRIVER',
+        isActive: true,
+      });
+    } else {
+      user.name = data.name.trim();
+      user.role = 'DRIVER';
+      if (!user.phoneNumber) user.phoneNumber = cleanedPhone;
+      await user.save();
+    }
+
+    // 2. Find or create driver profile
+    let driver = await DriverModel.findOne({ userId: user._id });
+    if (!driver) {
+      driver = await DriverModel.create({
+        userId: user._id,
+        licenseNumber: data.licenseNumber || `DL-${cleanedPhone.slice(-6)}`,
+        availabilityStatus: 'AVAILABLE',
+      });
+    } else {
+      if (data.licenseNumber) driver.licenseNumber = data.licenseNumber;
+      await driver.save();
+    }
+
+    // 3. Vehicle creation or assignment if provided
+    let vehicle = null;
+    if (data.vehicleRegistration) {
+      const reg = data.vehicleRegistration.trim().toUpperCase();
+      vehicle = await VehicleModel.findOne({ registrationNumber: reg });
+      if (!vehicle) {
+        vehicle = await VehicleModel.create({
+          registrationNumber: reg,
+          model: data.vehicleModel?.trim() || 'Fleet Vehicle',
+          vehicleType: data.vehicleType || 'SEDAN',
+          driverId: driver._id,
+          status: 'ACTIVE',
+        });
+      } else {
+        vehicle.driverId = driver._id;
+        if (data.vehicleModel) (vehicle as any).model = data.vehicleModel.trim();
+        await vehicle.save();
+      }
+      driver.vehicleId = vehicle._id as Types.ObjectId;
+      await driver.save();
+    }
+
+    // 4. Generate welcome invite OTP / credentials
+    const welcomeOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.phoneOtp = welcomeOtp;
+    user.phoneOtpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h validity for welcome
+    await user.save();
+
+    // eslint-disable-next-line no-console
+    console.log(`\n🚗 [SMS DRIVER INVITE] To: ${cleanedPhone}`);
+    console.log(`   Message: Welcome to BlackSquad Fleet, ${user.name}!`);
+    console.log(`   Login with phone number: ${cleanedPhone}`);
+    console.log(`   One-Time Access OTP: ${welcomeOtp}\n`);
+
+    const populatedDriver = await DriverModel.findById(driver._id)
+      .populate('userId', 'name email phoneNumber')
+      .populate('vehicleId')
+      .lean();
+
+    res.status(201).json({
+      success: true,
+      message: `Driver partner ${user.name} onboarded successfully. SMS invite dispatched.`,
+      driver: populatedDriver,
+      smsDispatched: {
+        to: cleanedPhone,
+        welcomeOtp,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

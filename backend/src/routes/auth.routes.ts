@@ -290,4 +290,135 @@ router.post('/reset-password', async (req, res, next) => {
   }
 });
 
+// ─── Phone Number OTP: Send OTP ───────────────────────────────────────────────
+router.post('/phone/send-otp', async (req, res, next) => {
+  try {
+    const schema = z.object({
+      phoneNumber: z.string().min(8).max(20),
+      role: z.enum(['OWNER', 'DRIVER', 'CUSTOMER']).optional(),
+    });
+    const { phoneNumber, role } = schema.parse(req.body);
+    const cleanedPhone = phoneNumber.replace(/[\s-]/g, '');
+
+    // Generate 6-digit secure numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
+    // Find existing user by phone or create new placeholder user
+    let user = await UserModel.findOne({
+      $or: [
+        { phoneNumber: cleanedPhone },
+        { phoneNumber: cleanedPhone.replace(/^\+91/, '') },
+        { phoneNumber: '+91' + cleanedPhone.replace(/^\+91/, '') },
+      ],
+      isActive: true,
+    }).select('+phoneOtp +phoneOtpExpiry');
+
+    if (!user) {
+      // Auto-create user for frictionless onboarding
+      const tempEmail = `user_${Date.now()}_${Math.floor(Math.random() * 1000)}@blacksquad.internal`;
+      const dummyPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+      user = await UserModel.create({
+        name: `User ${cleanedPhone.slice(-4)}`,
+        email: tempEmail,
+        phoneNumber: cleanedPhone,
+        passwordHash: dummyPassword,
+        role: role || 'CUSTOMER',
+        phoneOtp: otp,
+        phoneOtpExpiry: expiry,
+      });
+
+      if (user.role === 'DRIVER') {
+        await DriverModel.create({ userId: user._id });
+      }
+    } else {
+      user.phoneOtp = otp;
+      user.phoneOtpExpiry = expiry;
+      if (role && user.role === 'CUSTOMER' && role === 'DRIVER') {
+        user.role = 'DRIVER';
+        const existingDriver = await DriverModel.findOne({ userId: user._id });
+        if (!existingDriver) await DriverModel.create({ userId: user._id });
+      }
+      await user.save();
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(`\n📱 [SMS OTP DISPATCH] To: ${cleanedPhone} | OTP: ${otp} | Expires: ${expiry.toISOString()}\n`);
+
+    res.json({
+      success: true,
+      message: `OTP sent successfully to ${cleanedPhone}`,
+      phoneNumber: cleanedPhone,
+      // Dev mode: return OTP for seamless testing without SMS gateway
+      ...(process.env.NODE_ENV !== 'production' ? { devOtp: otp } : {}),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Phone Number OTP: Verify OTP & Login ─────────────────────────────────────
+router.post('/phone/verify-otp', async (req, res, next) => {
+  try {
+    const schema = z.object({
+      phoneNumber: z.string().min(8).max(20),
+      otp: z.string().min(4).max(8),
+      role: z.enum(['OWNER', 'DRIVER', 'CUSTOMER']).optional(),
+    });
+    const { phoneNumber, otp, role } = schema.parse(req.body);
+    const cleanedPhone = phoneNumber.replace(/[\s-]/g, '');
+
+    const user = await UserModel.findOne({
+      $or: [
+        { phoneNumber: cleanedPhone },
+        { phoneNumber: cleanedPhone.replace(/^\+91/, '') },
+        { phoneNumber: '+91' + cleanedPhone.replace(/^\+91/, '') },
+      ],
+      isActive: true,
+    }).select('+phoneOtp +phoneOtpExpiry');
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found with this phone number. Please request a new OTP.' });
+      return;
+    }
+
+    if (!user.phoneOtp || user.phoneOtp !== otp.trim()) {
+      res.status(401).json({ success: false, message: 'Invalid OTP. Please check the code and try again.' });
+      return;
+    }
+
+    if (!user.phoneOtpExpiry || user.phoneOtpExpiry < new Date()) {
+      res.status(401).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+      return;
+    }
+
+    // Clear used OTP
+    user.phoneOtp = undefined;
+    user.phoneOtpExpiry = undefined;
+    if (role && user.role !== role && user.role === 'CUSTOMER') {
+      user.role = role;
+      if (role === 'DRIVER') {
+        const existingDriver = await DriverModel.findOne({ userId: user._id });
+        if (!existingDriver) await DriverModel.create({ userId: user._id });
+      }
+    }
+    await user.save();
+
+    const authUser = { id: user.id, email: user.email, role: user.role };
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+      },
+      accessToken: tokenFor(authUser),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

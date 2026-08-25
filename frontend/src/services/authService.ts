@@ -43,3 +43,31 @@ export async function updateUserProfile(data: { name?: string; phoneNumber?: str
   });
   return response.user;
 }
+
+export async function sendPhoneOtp(
+  phoneNumber: string,
+  role?: UserRole
+): Promise<{ success: boolean; message: string; phoneNumber: string; devOtp?: string }> {
+  return apiRequest<{ success: boolean; message: string; phoneNumber: string; devOtp?: string }>(
+    '/auth/phone/send-otp',
+    {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber, role }),
+    }
+  );
+}
+
+export async function verifyPhoneOtp(
+  phoneNumber: string,
+  otp: string,
+  role?: UserRole
+): Promise<UserProfile> {
+  const response = await apiRequest<LoginResponse>('/auth/phone/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify({ phoneNumber, otp, role }),
+  });
+  await saveAccessToken(response.accessToken);
+  await saveSessionUser(response.user);
+  return response.user;
+}
+

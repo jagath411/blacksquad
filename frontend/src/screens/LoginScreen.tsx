@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -17,9 +18,8 @@ import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { Input } from '../components/ui/Input';
 import { Icon } from '../components/ui/Icon';
-import { colors } from '../constants/theme';
 import { getHealth } from '../services/api/health';
-import { googleLogin, login, register } from '../services/authService';
+import { googleLogin, login, register, sendPhoneOtp, verifyPhoneOtp } from '../services/authService';
 import type { RootStackParamList } from '../types';
 import { formatUnifiedError, type FormattedError } from '../utils/errorHandler';
 
@@ -38,13 +38,27 @@ const IOS_CLIENT_ID =
   '892541607147-mrse0ua8umjjk9rdc588chb3qtauph41.apps.googleusercontent.com';
 
 export function LoginScreen({ navigation, route }: Props) {
+  const role = route.params.role;
+  const [authMethod, setAuthMethod] = useState<'phone' | 'email'>('phone');
   const [createMode, setCreateMode] = useState(false);
   const [api, setApi] = useState('Connecting to server...');
   const [apiOnline, setApiOnline] = useState(false);
   const [checkingApi, setCheckingApi] = useState(false);
+
+  // Email form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Phone OTP form state
+  const [phoneStep, setPhoneStep] = useState<'input' | 'otp'>('input');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [devOtp, setDevOtp] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [resendTimer, setResendTimer] = useState(30);
+
   const [error, setError] = useState<FormattedError | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -68,7 +82,7 @@ export function LoginScreen({ navigation, route }: Props) {
       if (error?.title === 'Connection Unavailable' || error?.title === 'Server Temporarily Unavailable') {
         setError(null);
       }
-    } catch (healthErr) {
+    } catch {
       setApi('Server offline / Reconnecting');
       setApiOnline(false);
     } finally {
@@ -81,6 +95,15 @@ export function LoginScreen({ navigation, route }: Props) {
     const timer = setInterval(checkBackendHealth, 15000);
     return () => clearInterval(timer);
   }, []);
+
+  // Countdown timer for OTP resend
+  useEffect(() => {
+    if (phoneStep !== 'otp' || resendTimer <= 0) return;
+    const interval = setInterval(() => {
+      setResendTimer((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phoneStep, resendTimer]);
 
   useEffect(() => {
     if (!googleResponse) return;
@@ -101,7 +124,7 @@ export function LoginScreen({ navigation, route }: Props) {
     if (!idToken) {
       setError({
         title: 'Identity Verification Failed',
-        message: 'Google did not return credentials. Please try signing in with email.',
+        message: 'Google did not return credentials. Please try signing in with email or phone.',
       });
       setGoogleLoading(false);
       return;
@@ -110,20 +133,75 @@ export function LoginScreen({ navigation, route }: Props) {
     setGoogleLoading(true);
     setError(null);
 
-    googleLogin(idToken, route.params.role)
+    googleLogin(idToken, role)
       .then((user) => {
-        navigation.navigate('Home', { role: user.role || route.params.role });
+        navigation.navigate('Home', { role: user.role || role });
       })
       .catch((err) => {
         setError(formatUnifiedError(err, 'login'));
       })
       .finally(() => setGoogleLoading(false));
-  }, [googleResponse, navigation, route.params.role]);
+  }, [googleResponse, navigation, role]);
 
+  // Phone: Send OTP Handler
+  const handleSendPhoneOtp = async () => {
+    setError(null);
+    const cleaned = phone.trim().replace(/[\s-]/g, '');
+    if (!cleaned || cleaned.length < 8) {
+      setError({
+        title: 'Invalid Phone Number',
+        message: 'Please enter a valid 10-digit mobile number.',
+      });
+      return;
+    }
+
+    const formatted = cleaned.startsWith('+') ? cleaned : `+91${cleaned.replace(/^0+/, '')}`;
+    setSendingOtp(true);
+    try {
+      const res = await sendPhoneOtp(formatted, role);
+      setPhoneStep('otp');
+      setResendTimer(30);
+      if (res.devOtp) {
+        setDevOtp(res.devOtp);
+      }
+    } catch (cause) {
+      setError(formatUnifiedError(cause, 'login'));
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  // Phone: Verify OTP Handler
+  const handleVerifyPhoneOtp = async () => {
+    setError(null);
+    const trimmedOtp = otp.trim();
+    if (!trimmedOtp || trimmedOtp.length < 4) {
+      setError({
+        title: 'Enter Verification Code',
+        message: 'Please enter the 6-digit OTP code received via SMS.',
+      });
+      return;
+    }
+
+    const cleaned = phone.trim().replace(/[\s-]/g, '');
+    const formatted = cleaned.startsWith('+') ? cleaned : `+91${cleaned.replace(/^0+/, '')}`;
+
+    setVerifyingOtp(true);
+    try {
+      const user = await verifyPhoneOtp(formatted, trimmedOtp, role);
+      navigation.navigate('Home', { role: user.role || role });
+    } catch (cause) {
+      setError(formatUnifiedError(cause, 'login'));
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  // Email form submit
   const validEmail = email.includes('@') && email.includes('.');
   const validForm = validEmail && password.length >= 8 && (!createMode || name.trim().length >= 2);
 
-  const submit = async () => {
+  const submitEmail = async () => {
     if (!validForm) {
       setError({
         title: 'Missing Required Fields',
@@ -137,11 +215,11 @@ export function LoginScreen({ navigation, route }: Props) {
     setLoading(true);
     try {
       if (createMode) {
-        const user = await register(name.trim(), email.trim(), password, route.params.role);
-        navigation.navigate('Home', { role: user.role || route.params.role });
+        const user = await register(name.trim(), email.trim(), password, role);
+        navigation.navigate('Home', { role: user.role || role });
       } else {
         const user = await login(email.trim(), password);
-        navigation.navigate('Home', { role: user.role || route.params.role });
+        navigation.navigate('Home', { role: user.role || role });
       }
     } catch (cause) {
       setError(formatUnifiedError(cause, 'login'));
@@ -175,18 +253,24 @@ export function LoginScreen({ navigation, route }: Props) {
   return (
     <Screen>
       <View style={s.header}>
-        {/* Modern Truck Location Branding Logo */}
         <Image
           source={require('../assets/logo.png')}
           style={s.logoImage}
           resizeMode="cover"
         />
         <View style={s.roleBadge}>
-          <Text style={s.kicker}>{route.params.role} WORKSPACE</Text>
+          <Text style={s.kicker}>{role} WORKSPACE</Text>
         </View>
-        <Text style={s.title}>{createMode ? 'Create Account' : 'Welcome Back'}</Text>
+        <Text style={s.title}>
+          {authMethod === 'phone'
+            ? phoneStep === 'input'
+              ? 'Sign in with Mobile'
+              : 'Verify Phone OTP'
+            : createMode
+            ? 'Create Account'
+            : 'Welcome Back'}
+        </Text>
 
-        {/* Real-time Server Ping Pill with Tap to Retry */}
         <Pressable style={s.statusRow} onPress={checkBackendHealth}>
           <View
             style={[
@@ -201,75 +285,220 @@ export function LoginScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
-      <View style={s.form}>
+      {/* Auth Method Tabs */}
+      <View style={s.tabContainer}>
         <Pressable
-          accessibilityRole="button"
-          disabled={loading || googleLoading}
-          onPress={handleGooglePress}
-          style={({ pressed }) => [
-            s.googleBtn,
-            pressed && s.googleBtnPressed,
-            (loading || googleLoading) && s.btnDisabled,
-          ]}
+          style={[s.tabBtn, authMethod === 'phone' && s.tabBtnActive]}
+          onPress={() => {
+            setAuthMethod('phone');
+            setError(null);
+          }}
         >
-          <Icon name="logo-google" size={18} color="#FFFFFF" />
-          <Text style={s.googleBtnText}>
-            {googleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+          <Icon name="call" size={14} color={authMethod === 'phone' ? '#00D084' : '#64748B'} />
+          <Text style={[s.tabBtnText, authMethod === 'phone' && s.tabBtnTextActive]}>
+            Phone OTP
           </Text>
         </Pressable>
 
-        <View style={s.dividerRow}>
-          <View style={s.dividerLine} />
-          <Text style={s.divider}>OR WITH EMAIL</Text>
-          <View style={s.dividerLine} />
-        </View>
+        <Pressable
+          style={[s.tabBtn, authMethod === 'email' && s.tabBtnActive]}
+          onPress={() => {
+            setAuthMethod('email');
+            setError(null);
+          }}
+        >
+          <Icon name="mail" size={14} color={authMethod === 'email' ? '#00D084' : '#64748B'} />
+          <Text style={[s.tabBtnText, authMethod === 'email' && s.tabBtnTextActive]}>
+            Email / Password
+          </Text>
+        </Pressable>
+      </View>
 
-        {createMode && (
-          <Input
-            label="Full name"
-            value={name}
-            onChangeText={(t) => { setName(t); setError(null); }}
-            placeholder="John Doe"
-            autoCapitalize="words"
-            tone="dark"
-          />
+      <View style={s.form}>
+        {/* ========================================================================= */}
+        {/* 1. PHONE NUMBER OTP AUTHENTICATION FLOW */}
+        {/* ========================================================================= */}
+        {authMethod === 'phone' ? (
+          phoneStep === 'input' ? (
+            <>
+              <Input
+                label="Mobile Phone Number"
+                value={phone}
+                onChangeText={(t) => {
+                  setPhone(t);
+                  setError(null);
+                }}
+                placeholder="98765 43210"
+                keyboardType="phone-pad"
+                autoCapitalize="none"
+                tone="dark"
+              />
+
+              <AppButton
+                label={sendingOtp ? 'Sending OTP...' : 'Send OTP Code →'}
+                loading={sendingOtp}
+                disabled={sendingOtp || !phone.trim()}
+                onPress={handleSendPhoneOtp}
+              />
+            </>
+          ) : (
+            <>
+              <View style={s.phoneSentBadge}>
+                <Icon name="chatbubble" size={14} color="#00D084" />
+                <Text style={s.phoneSentText}>
+                  Code sent to <Text style={{ color: '#00D084', fontWeight: '800' }}>{phone}</Text>
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setPhoneStep('input');
+                    setOtp('');
+                    setError(null);
+                  }}
+                  style={{ marginLeft: 'auto' }}
+                >
+                  <Text style={s.editPhoneText}>Edit</Text>
+                </Pressable>
+              </View>
+
+              <Input
+                label="6-Digit Verification Code"
+                value={otp}
+                onChangeText={(t) => {
+                  setOtp(t);
+                  setError(null);
+                }}
+                placeholder="• • • • • •"
+                keyboardType="number-pad"
+                autoCapitalize="none"
+                tone="dark"
+              />
+
+              {!!devOtp && (
+                <Pressable
+                  style={s.devOtpBox}
+                  onPress={() => setOtp(devOtp)}
+                >
+                  <Text style={s.devOtpLabel}>🔧 Dev Auto-Fill OTP:</Text>
+                  <Text style={s.devOtpCode}>{devOtp}</Text>
+                </Pressable>
+              )}
+
+              <AppButton
+                label={verifyingOtp ? 'Verifying OTP...' : 'Verify & Sign In'}
+                loading={verifyingOtp}
+                disabled={verifyingOtp || !otp.trim()}
+                onPress={handleVerifyPhoneOtp}
+              />
+
+              <View style={s.resendRow}>
+                {resendTimer > 0 ? (
+                  <Text style={s.resendTimerText}>Resend code in {resendTimer}s</Text>
+                ) : (
+                  <Pressable onPress={handleSendPhoneOtp}>
+                    <Text style={s.resendLinkText}>Resend OTP SMS</Text>
+                  </Pressable>
+                )}
+              </View>
+            </>
+          )
+        ) : (
+          /* ========================================================================= */
+          /* 2. EMAIL & PASSWORD AUTHENTICATION FLOW */
+          /* ========================================================================= */
+          <>
+            <Pressable
+              accessibilityRole="button"
+              disabled={loading || googleLoading}
+              onPress={handleGooglePress}
+              style={({ pressed }) => [
+                s.googleBtn,
+                pressed && s.googleBtnPressed,
+                (loading || googleLoading) && s.btnDisabled,
+              ]}
+            >
+              <Icon name="logo-google" size={18} color="#FFFFFF" />
+              <Text style={s.googleBtnText}>
+                {googleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+              </Text>
+            </Pressable>
+
+            <View style={s.dividerRow}>
+              <View style={s.dividerLine} />
+              <Text style={s.divider}>OR WITH EMAIL</Text>
+              <View style={s.dividerLine} />
+            </View>
+
+            {createMode && (
+              <Input
+                label="Full name"
+                value={name}
+                onChangeText={(t) => {
+                  setName(t);
+                  setError(null);
+                }}
+                placeholder="John Doe"
+                autoCapitalize="words"
+                tone="dark"
+              />
+            )}
+            <Input
+              label="Email address"
+              value={email}
+              onChangeText={(t) => {
+                setEmail(t);
+                setError(null);
+              }}
+              placeholder="name@example.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              tone="dark"
+            />
+            <Input
+              label="Password"
+              value={password}
+              onChangeText={(t) => {
+                setPassword(t);
+                setError(null);
+              }}
+              placeholder="At least 8 characters"
+              secureTextEntry
+              autoComplete={createMode ? 'new-password' : 'current-password'}
+              tone="dark"
+            />
+
+            {!createMode && (
+              <Pressable
+                style={s.forgotPasswordBtn}
+                onPress={() => navigation.navigate('ForgotPassword')}
+              >
+                <Text style={s.forgotPasswordText}>Forgot Password?</Text>
+              </Pressable>
+            )}
+
+            <AppButton
+              label={createMode ? 'Create account' : 'Sign in to workspace'}
+              loading={loading}
+              disabled={loading || googleLoading}
+              onPress={submitEmail}
+            />
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setCreateMode((value) => !value);
+                setError(null);
+              }}
+              style={s.switchPressable}
+            >
+              <Text style={s.switch}>
+                {createMode ? 'Already registered? Sign in' : 'Need an account? Create one now'}
+              </Text>
+            </Pressable>
+          </>
         )}
-        <Input
-          label="Email address"
-          value={email}
-          onChangeText={(t) => { setEmail(t); setError(null); }}
-          placeholder="name@example.com"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          tone="dark"
-        />
-        <Input
-          label="Password"
-          value={password}
-          onChangeText={(t) => { setPassword(t); setError(null); }}
-          placeholder="At least 8 characters"
-          secureTextEntry
-          autoComplete={createMode ? 'new-password' : 'current-password'}
-          tone="dark"
-        />
 
-        {!createMode && (
-          <Pressable
-            style={s.forgotPasswordBtn}
-            onPress={() => navigation.navigate('ForgotPassword')}
-          >
-            <Text style={s.forgotPasswordText}>Forgot Password?</Text>
-          </Pressable>
-        )}
-
-        <AppButton
-          label={createMode ? 'Create account' : 'Sign in to workspace'}
-          loading={loading}
-          disabled={loading || googleLoading}
-          onPress={submit}
-        />
-
+        {/* Error Notification Box */}
         {error ? (
           <View accessible accessibilityRole="alert" style={s.errorBox}>
             <Icon name="alert-circle" size={20} color="#F87171" />
@@ -283,20 +512,7 @@ export function LoginScreen({ navigation, route }: Props) {
           </View>
         ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            setCreateMode((value) => !value);
-            setError(null);
-          }}
-          style={s.switchPressable}
-        >
-          <Text style={s.switch}>
-            {createMode ? 'Already registered? Sign in' : 'Need an account? Create one now'}
-          </Text>
-        </Pressable>
-
-        <Text style={s.note}>End-to-end encrypted transport operations security.</Text>
+        <Text style={s.note}>End-to-end encrypted BlackSquad transport operations security.</Text>
       </View>
     </Screen>
   );
@@ -311,7 +527,21 @@ const s = StyleSheet.create<{
   statusRow: ViewStyle;
   statusDot: ViewStyle;
   status: TextStyle;
+  tabContainer: ViewStyle;
+  tabBtn: ViewStyle;
+  tabBtnActive: ViewStyle;
+  tabBtnText: TextStyle;
+  tabBtnTextActive: TextStyle;
   form: ViewStyle;
+  phoneSentBadge: ViewStyle;
+  phoneSentText: TextStyle;
+  editPhoneText: TextStyle;
+  devOtpBox: ViewStyle;
+  devOtpLabel: TextStyle;
+  devOtpCode: TextStyle;
+  resendRow: ViewStyle;
+  resendTimerText: TextStyle;
+  resendLinkText: TextStyle;
   googleBtn: ViewStyle;
   googleBtnPressed: ViewStyle;
   btnDisabled: ViewStyle;
@@ -332,7 +562,7 @@ const s = StyleSheet.create<{
   header: {
     alignItems: 'center',
     marginTop: 18,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   logoImage: {
     width: 80,
@@ -344,30 +574,30 @@ const s = StyleSheet.create<{
   },
   roleBadge: {
     backgroundColor: 'rgba(0, 208, 132, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
     borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 208, 132, 0.25)',
   },
   kicker: {
     color: '#00D084',
     fontSize: 10,
-    letterSpacing: 1.5,
     fontWeight: '800',
-    textAlign: 'center',
+    letterSpacing: 1.2,
   },
   title: {
-    fontSize: 26,
-    color: colors.text,
+    color: '#FFFFFF',
+    fontSize: 22,
     fontWeight: '900',
-    textAlign: 'center',
-    marginTop: 6,
+    marginBottom: 8,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 6,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1E293B',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 14,
@@ -383,8 +613,96 @@ const s = StyleSheet.create<{
     fontSize: 11,
     fontWeight: '700',
   },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  tabBtnActive: {
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 208, 132, 0.3)',
+  },
+  tabBtnText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  tabBtnTextActive: {
+    color: '#00D084',
+  },
   form: {
     gap: 12,
+  },
+  phoneSentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0, 208, 132, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 208, 132, 0.25)',
+  },
+  phoneSentText: {
+    color: '#E2E8F0',
+    fontSize: 12,
+  },
+  editPhoneText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  devOtpBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(234, 179, 8, 0.3)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  devOtpLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FACC15',
+  },
+  devOtpCode: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FEF08A',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 2,
+  },
+  resendRow: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  resendTimerText: {
+    color: '#64748B',
+    fontSize: 12,
+  },
+  resendLinkText: {
+    color: '#00D084',
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   googleBtn: {
     flexDirection: 'row',

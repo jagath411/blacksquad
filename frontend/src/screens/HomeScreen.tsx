@@ -21,6 +21,7 @@ import { ProfileModal } from '../components/ProfileModal';
 import { DriverDetailModal } from '../components/DriverDetailModal';
 import { FleetAnalyticsModal } from '../components/FleetAnalyticsModal';
 import { TripHistoryModal } from '../components/TripHistoryModal';
+import { AddDriverModal } from '../components/AddDriverModal';
 import { NotificationBanner, type NotificationItem } from '../components/NotificationBanner';
 import { Icon } from '../components/ui/Icon';
 import type { BookingData, BookingStatus, DriverLiveLocation, RootStackParamList, UserRole } from '../types';
@@ -109,6 +110,7 @@ export function HomeScreen({ route, navigation }: Props) {
   const [notification, setNotification] = useState<NotificationItem | null>(null);
   const [analyticsVisible, setAnalyticsVisible] = useState(false);
   const [tripHistoryVisible, setTripHistoryVisible] = useState(false);
+  const [addDriverModalVisible, setAddDriverModalVisible] = useState(false);
   const [roadRoute, setRoadRoute] = useState<RoadRouteResult | null>(null);
 
   // Device GPS Location State
@@ -1419,10 +1421,19 @@ export function HomeScreen({ route, navigation }: Props) {
         </Pressable>
 
         <View style={s.ownerHeader}>
-          <Text style={s.ownerTitle}>Active Vehicle Fleet</Text>
-          <Text style={s.ownerSub}>
-            {drivers ? `${drivers.length} total vehicles linked` : 'Loading fleet radar...'}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={s.ownerTitle}>Active Vehicle Fleet</Text>
+            <Text style={s.ownerSub}>
+              {drivers ? `${drivers.length} total vehicles linked` : 'Loading fleet radar...'}
+            </Text>
+          </View>
+          <Pressable
+            style={s.addDriverBtn}
+            onPress={() => setAddDriverModalVisible(true)}
+          >
+            <Icon name="person-add" size={14} color="#07100D" />
+            <Text style={s.addDriverBtnText}>+ Add Driver</Text>
+          </Pressable>
         </View>
 
         <ScrollView style={s.fleetScroll} showsVerticalScrollIndicator={false}>
@@ -1523,6 +1534,22 @@ export function HomeScreen({ route, navigation }: Props) {
         visible={tripHistoryVisible}
         role={role}
         onClose={() => setTripHistoryVisible(false)}
+      />
+
+      <AddDriverModal
+        visible={addDriverModalVisible}
+        onClose={() => setAddDriverModalVisible(false)}
+        onDriverAdded={() => {
+          // Trigger any refresh needed
+        }}
+        onShowNotification={(title, body, type) =>
+          setNotification({
+            id: Date.now().toString(),
+            title,
+            body,
+            type,
+          })
+        }
       />
     </View>
   );
@@ -1660,6 +1687,8 @@ const s = StyleSheet.create<{
   ownerHeader: ViewStyle;
   ownerTitle: TextStyle;
   ownerSub: TextStyle;
+  addDriverBtn: ViewStyle;
+  addDriverBtnText: TextStyle;
   fleetScroll: ViewStyle;
   fleetCard: ViewStyle;
   fleetAvatar: ViewStyle;
@@ -2481,6 +2510,9 @@ const s = StyleSheet.create<{
     marginTop: 2,
   },
   ownerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   ownerTitle: {
@@ -2492,6 +2524,20 @@ const s = StyleSheet.create<{
     color: '#94A3B8',
     fontSize: 12,
     marginTop: 2,
+  },
+  addDriverBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#00D084',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  addDriverBtnText: {
+    color: '#07100D',
+    fontSize: 12,
+    fontWeight: '900',
   },
   fleetScroll: {
     flex: 1,
