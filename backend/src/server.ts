@@ -171,4 +171,6 @@ const startServer = async (): Promise<http.Server> => {
   return server;
 };
 
-void startServer();
+if (process.env.NODE_ENV !== 'test') {
+  void startServer();
+}

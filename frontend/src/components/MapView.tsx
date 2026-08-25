@@ -36,47 +36,75 @@ interface MapViewProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const STYLES = {
+const STYLES: Record<string, any> = {
   light: {
     version: 8,
     sources: {
-      carto: {
+      carto_voyager: {
         type: 'raster',
         tiles: [
-          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
         ],
         tileSize: 256,
-        attribution: 'OpenStreetMap CARTO',
+        maxzoom: 19,
+        attribution: '© OpenStreetMap © CARTO',
       },
     },
-    layers: [{ id: 'carto', type: 'raster', source: 'carto', minzoom: 0, maxzoom: 19 }],
+    layers: [
+      {
+        id: 'bg-layer',
+        type: 'background',
+        paint: { 'background-color': '#F1F5F9' },
+      },
+      {
+        id: 'carto-voyager-tiles',
+        type: 'raster',
+        source: 'carto_voyager',
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
   },
   dark: {
     version: 8,
     sources: {
-      carto: {
+      carto_dark: {
         type: 'raster',
         tiles: [
-          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
         ],
         tileSize: 256,
-        attribution: 'OpenStreetMap CARTO',
+        maxzoom: 19,
+        attribution: '© OpenStreetMap © CARTO',
       },
     },
-    layers: [{ id: 'carto', type: 'raster', source: 'carto', minzoom: 0, maxzoom: 19 }],
+    layers: [
+      {
+        id: 'bg-layer',
+        type: 'background',
+        paint: { 'background-color': '#07100D' },
+      },
+      {
+        id: 'carto-dark-tiles',
+        type: 'raster',
+        source: 'carto_dark',
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
   },
 };
 
 export function MapView({
   center = { latitude: 12.9716, longitude: 77.5946 },
   zoom = 13,
-  styleMode = 'light',
+  styleMode = 'dark',
   markers = [],
   route,
   interactive = true,
@@ -85,6 +113,7 @@ export function MapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markerInstancesRef = useRef<Map<string, any>>(new Map());
+  const isUserInteractingRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !containerRef.current) return;
@@ -97,13 +126,25 @@ export function MapView({
       document.head.appendChild(link);
     }
 
+    const selectedStyle = STYLES[styleMode] || STYLES.dark;
+
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: STYLES[styleMode] || STYLES.light,
+      style: selectedStyle,
       center: [center.longitude, center.latitude],
       zoom,
+      minZoom: 2,
+      maxZoom: 18.5,
       interactive,
       attributionControl: false,
+    });
+
+    map.on('movestart', () => {
+      isUserInteractingRef.current = true;
+    });
+
+    map.on('moveend', () => {
+      isUserInteractingRef.current = false;
     });
 
     if (interactive) {
@@ -121,11 +162,22 @@ export function MapView({
   }, [styleMode]);
 
   useEffect(() => {
-    mapRef.current?.flyTo({
-      center: [center.longitude, center.latitude],
-      zoom,
-      duration: 600,
-    });
+    const map = mapRef.current;
+    if (!map || isUserInteractingRef.current) return;
+
+    const currentCenter = map.getCenter();
+    const currentZoom = map.getZoom();
+
+    const dist = Math.hypot(currentCenter.lng - center.longitude, currentCenter.lat - center.latitude);
+    const zoomDiff = Math.abs(currentZoom - zoom);
+
+    if (dist > 0.002 || zoomDiff > 1.0) {
+      map.flyTo({
+        center: [center.longitude, center.latitude],
+        zoom: Math.min(zoom, 18.5),
+        duration: 500,
+      });
+    }
   }, [center.latitude, center.longitude, zoom]);
 
   // Route Polyline Layer with Dual Casing & Auto-Bounds
