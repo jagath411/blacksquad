@@ -252,9 +252,46 @@ router.post('/payouts/settle', requireAuth, async (req: AuthenticatedRequest, re
     const body = settleSchema.parse(req.body);
     const ownerId = req.user?.id;
 
+    // Concurrency Guard: Check for duplicate transaction reference
+    const existingRef = await PayoutModel.findOne({
+      transactionReference: body.transactionReference.trim(),
+    }).lean();
+
+    if (existingRef) {
+      res.status(409).json({
+        success: false,
+        message: `Transaction reference '${body.transactionReference}' has already been settled and recorded.`,
+        data: existingRef,
+      });
+      return;
+    }
+
     const driver = await DriverModel.findById(body.driverId).lean();
     if (!driver) {
       res.status(404).json({ success: false, message: 'Driver not found' });
+      return;
+    }
+
+    // Calculate pending balance
+    const bookings = await BookingModel.find({
+      driverId: driver._id,
+      status: 'TRIP_COMPLETED',
+    }).lean();
+    const totalFares = bookings.reduce((sum, b) => sum + (b.fare || 0), 0);
+    const totalDriverEarnings = Math.round(totalFares * 0.8);
+
+    const paidPayouts = await PayoutModel.find({
+      driverId: driver._id,
+      status: 'PAID',
+    }).lean();
+    const settledAmount = paidPayouts.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const pendingBalance = Math.max(0, totalDriverEarnings - settledAmount);
+
+    if (body.amount > pendingBalance && pendingBalance > 0) {
+      res.status(400).json({
+        success: false,
+        message: `Payout amount ₹${body.amount} exceeds pending balance of ₹${pendingBalance}.`,
+      });
       return;
     }
 
@@ -267,7 +304,7 @@ router.post('/payouts/settle', requireAuth, async (req: AuthenticatedRequest, re
       periodEnd: new Date(),
       status: 'PAID',
       paymentMethod: body.paymentMethod,
-      transactionReference: body.transactionReference,
+      transactionReference: body.transactionReference.trim(),
       bankDetails: driver.bankDetails || {},
       settledAt: new Date(),
     });
