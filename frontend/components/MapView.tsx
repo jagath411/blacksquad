@@ -33,60 +33,61 @@ const STYLES: Record<string, any> = {
   light: {
     version: 8,
     sources: {
-      esri_streets: {
+      carto_voyager: {
         type: 'raster',
         tiles: [
-          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
         ],
         tileSize: 256,
-        attribution: '© Esri, OpenStreetMap contributors',
+        attribution: '© OpenStreetMap CARTO',
       },
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': '#F1F5F9' } },
-      { id: 'esri-streets', type: 'raster', source: 'esri_streets', minzoom: 0, maxzoom: 19 },
+      { id: 'carto-voyager', type: 'raster', source: 'carto_voyager', minzoom: 0, maxzoom: 19 },
     ],
   },
   dark: {
     version: 8,
     sources: {
-      esri_dark_base: {
+      carto_dark: {
         type: 'raster',
         tiles: [
-          'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+          'https://a.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png',
+          'https://c.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png',
+          'https://d.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png',
         ],
         tileSize: 256,
-        attribution: '© Esri, OpenStreetMap contributors',
-      },
-      esri_dark_labels: {
-        type: 'raster',
-        tiles: [
-          'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-        ],
-        tileSize: 256,
+        attribution: '© OpenStreetMap CARTO',
       },
     },
     layers: [
-      { id: 'bg', type: 'background', paint: { 'background-color': '#0B1120' } },
-      { id: 'esri-dark-base', type: 'raster', source: 'esri_dark_base', minzoom: 0, maxzoom: 19 },
-      { id: 'esri-dark-labels', type: 'raster', source: 'esri_dark_labels', minzoom: 0, maxzoom: 19 },
+      { id: 'bg', type: 'background', paint: { 'background-color': '#07100D' } },
+      { id: 'carto-dark', type: 'raster', source: 'carto_dark', minzoom: 0, maxzoom: 19 },
     ],
   },
   voyager: {
     version: 8,
     sources: {
-      esri_streets: {
+      carto_voyager: {
         type: 'raster',
         tiles: [
-          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
         ],
         tileSize: 256,
-        attribution: '© Esri, OpenStreetMap contributors',
+        attribution: '© OpenStreetMap CARTO',
       },
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': '#F1F5F9' } },
-      { id: 'esri-streets', type: 'raster', source: 'esri_streets', minzoom: 0, maxzoom: 19 },
+      { id: 'carto-voyager', type: 'raster', source: 'carto_voyager', minzoom: 0, maxzoom: 19 },
     ],
   },
 };
