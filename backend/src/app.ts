@@ -11,7 +11,7 @@ export const createApp = (): Application => {
   const app = express();
 
   // Security and utility middleware
-  app.use(helmet({ crossOriginOpenerPolicy: false, contentSecurityPolicy: false }));
+  app.use(helmet({ crossOriginOpenerPolicy: false, contentSecurityPolicy: false, originAgentCluster: false }));
   app.use(
     cors({
       origin: '*',

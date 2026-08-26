@@ -18,10 +18,14 @@ export async function createBooking(payload: {
 }
 
 export async function getActiveBooking(): Promise<BookingData | null> {
-  const response = await apiRequest<{ success: boolean; booking: BookingData | null }>(
-    '/bookings/active',
-  );
-  return response.booking;
+  try {
+    const response = await apiRequest<{ success: boolean; booking: BookingData | null }>(
+      '/bookings/active',
+    );
+    return response.booking;
+  } catch {
+    return null;
+  }
 }
 
 export async function acceptBooking(bookingId: string): Promise<BookingData> {
