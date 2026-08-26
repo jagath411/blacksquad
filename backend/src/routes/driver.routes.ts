@@ -40,15 +40,26 @@ const profileSchema = z.object({
 
 const router = Router();
 
+// 1. Driver Self Profile
 router.get(
   '/me',
   requireAuth,
   requireRole('DRIVER'),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const driver = await DriverModel.findOne({ userId: req.user!.id })
+      let driver = await DriverModel.findOne({ userId: req.user!.id })
         .populate('vehicleId')
         .lean();
+
+      if (!driver) {
+        // Auto-provision if missing
+        const created = await DriverModel.create({
+          userId: req.user!.id,
+          availabilityStatus: 'OFFLINE',
+        });
+        driver = await DriverModel.findById(created._id).populate('vehicleId').lean();
+      }
+
       res.json({ success: true, driver });
     } catch (error) {
       next(error);
@@ -67,7 +78,10 @@ router.patch(
         { userId: req.user!.id },
         { $set: changes },
         { new: true, runValidators: true },
-      ).lean();
+      )
+        .populate('vehicleId')
+        .lean();
+
       if (!driver) {
         res.status(404).json({ success: false, message: 'Driver profile not found' });
         return;
@@ -79,19 +93,35 @@ router.patch(
   },
 );
 
-router.get('/', requireAuth, requireRole('OWNER'), async (_req, res, next) => {
+// 2. Owner: List All Fleet Drivers with Live Location & Contact
+router.get('/', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res, next) => {
   try {
-    const drivers = await DriverModel.find()
-      .populate('userId', 'name email')
+    const ownerId = req.user?.id;
+    // Find all drivers belonging to this owner or general fleet
+    const drivers = await DriverModel.find(ownerId ? { $or: [{ ownerId }, { ownerId: { $exists: false } }] } : {})
+      .populate('userId', 'name email phoneNumber')
       .populate('vehicleId')
       .sort({ updatedAt: -1 })
       .lean();
+
+    const formatted = drivers.map((driver) => {
+      const live = locationState.get(driver.userId?._id?.toString() || (driver.userId as any)?.toString()) || null;
+      const lastCoords = driver.currentLocation?.coordinates;
+      return {
+        ...driver,
+        liveLocation: live || (lastCoords ? {
+          driverId: driver.userId?._id?.toString() || driver._id.toString(),
+          driverName: (driver.userId as any)?.name || 'Driver',
+          latitude: lastCoords[1],
+          longitude: lastCoords[0],
+          receivedAt: driver.lastLocationUpdate?.toISOString() || driver.updatedAt.toISOString(),
+        } : null),
+      };
+    });
+
     res.json({
       success: true,
-      drivers: drivers.map((driver) => ({
-        ...driver,
-        liveLocation: locationState.get(driver.userId.toString()) ?? null,
-      })),
+      drivers: formatted,
     });
   } catch (error) {
     next(error);
@@ -129,11 +159,12 @@ router.patch('/:driverId/vehicle', requireAuth, requireRole('OWNER'), async (req
   }
 });
 
-// ─── Owner: Onboard New Driver ────────────────────────────────────────────────
-router.post('/', requireAuth, requireRole('OWNER'), async (req, res, next) => {
+// 3. Owner: Onboard New Driver Partner
+router.post('/', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res, next) => {
   try {
     const data = onboardDriverSchema.parse(req.body);
     const cleanedPhone = data.phoneNumber.replace(/[\s-]/g, '');
+    const ownerId = req.user?.id ? new Types.ObjectId(req.user.id) : undefined;
 
     // 1. Find or create user
     let user = await UserModel.findOne({
@@ -165,16 +196,18 @@ router.post('/', requireAuth, requireRole('OWNER'), async (req, res, next) => {
       await user.save();
     }
 
-    // 2. Find or create driver profile
+    // 2. Find or create driver profile with ownerId
     let driver = await DriverModel.findOne({ userId: user._id });
     if (!driver) {
       driver = await DriverModel.create({
         userId: user._id,
+        ownerId,
         licenseNumber: data.licenseNumber || `DL-${cleanedPhone.slice(-6)}`,
         availabilityStatus: 'AVAILABLE',
       });
     } else {
       if (data.licenseNumber) driver.licenseNumber = data.licenseNumber;
+      if (ownerId) driver.ownerId = ownerId;
       await driver.save();
     }
 
@@ -206,7 +239,7 @@ router.post('/', requireAuth, requireRole('OWNER'), async (req, res, next) => {
     user.phoneOtpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h validity for welcome
     await user.save();
 
-    // Dispatch real onboarding SMS to driver's phone
+    // Dispatch onboarding SMS
     const smsResult = await smsService.sendDriverInviteSms(cleanedPhone, user.name, welcomeOtp);
 
     const populatedDriver = await DriverModel.findById(driver._id)

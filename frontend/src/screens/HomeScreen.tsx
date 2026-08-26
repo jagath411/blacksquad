@@ -54,6 +54,7 @@ import {
 import { geocodeAddress } from '../services/geocodingService';
 import { getRoadRoute, type RoadRouteResult } from '../services/routingService';
 import { formatUnifiedError } from '../utils/errorHandler';
+import { getDriverProfile, updateDriverProfile } from '../services/driverService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -144,12 +145,12 @@ export function HomeScreen({ route, navigation }: Props) {
   const [isDriverOnline, setIsDriverOnline] = useState(false);
   const [trackerStatus, setTrackerStatus] = useState<TrackerStatus>('offline');
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
-  const { drivers } = useFleet();
+  const { drivers, refreshFleet, loading: fleetLoading, connection: fleetConnection } = useFleet();
 
   const socketRef = useRef<FleetSocket | null>(null);
   const trackerCleanupRef = useRef<(() => void) | null>(null);
 
-  // 1. Initial Device GPS Location Fetch
+  // 1. Initial Device GPS Location Fetch & Driver Profile Sync
   const fetchCurrentLocation = async (centerMap = true) => {
     setIsLocating(true);
     try {
@@ -170,8 +171,17 @@ export function HomeScreen({ route, navigation }: Props) {
   };
 
   useEffect(() => {
-    fetchCurrentLocation(true);
-  }, []);
+    void fetchCurrentLocation(true);
+    if (role === 'DRIVER') {
+      void getDriverProfile()
+        .then((p) => {
+          if (p && p.availabilityStatus === 'AVAILABLE') {
+            setIsDriverOnline(true);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [role]);
 
   // 2. Initialize Socket and Active Booking
   useEffect(() => {
@@ -435,6 +445,9 @@ export function HomeScreen({ route, navigation }: Props) {
       if (socketRef.current) {
         setDriverDutyStatus(socketRef.current, 'OFFLINE');
       }
+      try {
+        await updateDriverProfile({ availabilityStatus: 'OFFLINE' });
+      } catch {}
       setNotification({
         id: Date.now().toString(),
         title: 'Duty Offline',
@@ -443,6 +456,7 @@ export function HomeScreen({ route, navigation }: Props) {
       });
     } else {
       try {
+        await updateDriverProfile({ availabilityStatus: 'AVAILABLE' });
         if (socketRef.current) {
           setDriverDutyStatus(socketRef.current, 'AVAILABLE');
           const cleanup = await startDriverTracking(
@@ -1471,7 +1485,9 @@ export function HomeScreen({ route, navigation }: Props) {
           <View style={{ flex: 1 }}>
             <Text style={s.ownerTitle}>Active Vehicle Fleet</Text>
             <Text style={s.ownerSub}>
-              {drivers ? `${drivers.length} drivers linked to radar` : 'Loading fleet radar...'}
+              {drivers && drivers.length > 0
+                ? `${drivers.filter((d) => d.state === 'Online').length} Online • ${drivers.length} Registered Drivers`
+                : 'Loading fleet radar...'}
             </Text>
           </View>
           <Pressable
@@ -1495,6 +1511,7 @@ export function HomeScreen({ route, navigation }: Props) {
                     latitude: driver.lat,
                     longitude: driver.lng,
                   });
+                  setMapZoom(16);
                 }}
               >
                 <View
@@ -1502,50 +1519,90 @@ export function HomeScreen({ route, navigation }: Props) {
                     s.fleetAvatar,
                     {
                       backgroundColor: `${driver.color}22`,
+                      borderColor: driver.color,
+                      borderWidth: 1.5,
                     },
                   ]}
                 >
                   <Icon
                     name="car-sport"
-                    size={20}
+                    size={18}
                     color={driver.color}
                   />
                 </View>
 
                 <View style={s.fleetMeta}>
-                  <Text style={s.fleetName}>{driver.name}</Text>
-                  <Text style={s.fleetVehicle}>
-                    {driver.vehicle}
-                  </Text>
-                </View>
-
-                <View style={s.fleetStatusGroup}>
-                  <View
-                    style={[
-                      s.statusPill,
-                      {
-                        backgroundColor: `${driver.color}22`,
-                      },
-                    ]}
-                  >
-                    <Text
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={s.fleetName}>{driver.name}</Text>
+                    <View
                       style={[
-                        s.statusPillText,
+                        s.statusPill,
                         {
-                          color: driver.color,
+                          backgroundColor: `${driver.color}22`,
                         },
                       ]}
                     >
-                      {driver.state}
-                    </Text>
+                      <Text
+                        style={[
+                          s.statusPillText,
+                          {
+                            color: driver.color,
+                          },
+                        ]}
+                      >
+                        {driver.state}
+                      </Text>
+                    </View>
                   </View>
+                  <Text style={s.fleetVehicle}>
+                    {driver.vehicle}
+                  </Text>
+                  {driver.phone ? (
+                    <Text style={s.fleetPhoneText}>
+                      📞 {driver.phone}
+                    </Text>
+                  ) : null}
+                </View>
+
+                <View style={s.fleetActionRow}>
+                  {driver.phone ? (
+                    <Pressable
+                      style={s.fleetCallBtn}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        void Linking.openURL(`tel:${driver.phone.replace(/[\s-]/g, '')}`);
+                      }}
+                    >
+                      <Icon name="call" size={14} color="#00D084" />
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    style={s.fleetFocusBtn}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      setSelectedDriver(driver);
+                      setMapCenter({
+                        latitude: driver.lat,
+                        longitude: driver.lng,
+                      });
+                      setMapZoom(16);
+                    }}
+                  >
+                    <Icon name="navigate" size={14} color="#38BDF8" />
+                  </Pressable>
                 </View>
               </Pressable>
             ))
           ) : (
             <View style={s.emptyFleet}>
-              <Icon name="cube" size={32} color="#64748B" />
-              <Text style={s.emptyFleetText}>No drivers currently online in fleet radar</Text>
+              <Icon name="car-sport-outline" size={36} color="#64748B" />
+              <Text style={s.emptyFleetText}>No drivers found in your fleet registry</Text>
+              <Pressable
+                style={s.emptyFleetAddBtn}
+                onPress={() => setAddDriverModalVisible(true)}
+              >
+                <Text style={s.emptyFleetAddBtnText}>+ Onboard First Fleet Driver</Text>
+              </Pressable>
             </View>
           )}
         </ScrollView>
@@ -1585,9 +1642,12 @@ export function HomeScreen({ route, navigation }: Props) {
 
       <FleetVehiclesModal
         visible={vehiclesModalVisible}
-        onClose={() => setVehiclesModalVisible(false)}
+        onClose={() => {
+          setVehiclesModalVisible(false);
+          void refreshFleet();
+        }}
         onVehicleUpdated={() => {
-          // Refresh fleet data if needed
+          void refreshFleet();
         }}
       />
 
@@ -1595,15 +1655,18 @@ export function HomeScreen({ route, navigation }: Props) {
         visible={expensesModalVisible}
         onClose={() => setExpensesModalVisible(false)}
         onExpenseUpdated={() => {
-          // Refresh analytics summary if needed
+          void refreshFleet();
         }}
       />
 
       <AddDriverModal
         visible={addDriverModalVisible}
-        onClose={() => setAddDriverModalVisible(false)}
+        onClose={() => {
+          setAddDriverModalVisible(false);
+          void refreshFleet();
+        }}
         onDriverAdded={() => {
-          // Trigger any refresh needed
+          void refreshFleet();
         }}
         onShowNotification={(title, body, type) =>
           setNotification({
@@ -1763,9 +1826,15 @@ const s = StyleSheet.create<{
   fleetMeta: ViewStyle;
   fleetName: TextStyle;
   fleetVehicle: TextStyle;
-  fleetStatusGroup: ViewStyle;
+  fleetPhoneText: TextStyle;
+  fleetActionRow: ViewStyle;
+  fleetCallBtn: ViewStyle;
+  fleetFocusBtn: ViewStyle;
+  fleetStatusGroup?: ViewStyle;
   emptyFleet: ViewStyle;
   emptyFleetText: TextStyle;
+  emptyFleetAddBtn: ViewStyle;
+  emptyFleetAddBtnText: TextStyle;
 }>({
   container: {
     flex: 1,
@@ -2673,19 +2742,58 @@ const s = StyleSheet.create<{
     fontSize: 11,
     marginTop: 2,
   },
-  fleetStatusGroup: {
-    alignItems: 'flex-end',
-    gap: 4,
+  fleetPhoneText: {
+    color: '#00D084',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  fleetActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fleetCallBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    borderWidth: 1,
+    borderColor: '#00D084',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fleetFocusBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyFleet: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
-    gap: 8,
+    paddingVertical: 36,
+    gap: 10,
   },
   emptyFleetText: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  emptyFleetAddBtn: {
+    backgroundColor: '#00D084',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 6,
+  },
+  emptyFleetAddBtnText: {
+    color: '#07100D',
+    fontSize: 13,
+    fontWeight: '900',
   },
 });

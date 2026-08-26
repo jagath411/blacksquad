@@ -13,6 +13,7 @@ export interface BankDetails {
 
 export interface DriverDocument extends Document {
   userId: Types.ObjectId;
+  ownerId?: Types.ObjectId;
   licenseNumber?: string;
   vehicleId?: Types.ObjectId;
   availabilityStatus: AvailabilityStatus;
@@ -26,6 +27,7 @@ export interface DriverDocument extends Document {
 const driverSchema = new Schema<DriverDocument>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
+    ownerId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     licenseNumber: { type: String, trim: true, maxlength: 80 },
     vehicleId: { type: Schema.Types.ObjectId, ref: 'Vehicle', index: true },
     availabilityStatus: {
@@ -47,5 +49,6 @@ const driverSchema = new Schema<DriverDocument>(
   },
   { timestamps: true },
 );
+
 driverSchema.index({ currentLocation: '2dsphere' });
 export const DriverModel = model<DriverDocument>('Driver', driverSchema);

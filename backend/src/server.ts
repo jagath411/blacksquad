@@ -121,20 +121,65 @@ const startServer = async (): Promise<http.Server> => {
     });
 
     // 3. Driver Duty Status toggle (online/offline)
-    socket.on('driver:status', (status: string) => {
+    socket.on('driver:status', async (status: string) => {
       if (user.role === 'DRIVER') {
-        if (status === 'AVAILABLE') {
+        const normalized = status === 'AVAILABLE' ? 'AVAILABLE' : 'OFFLINE';
+        if (normalized === 'AVAILABLE') {
           socket.join('drivers:available');
         } else {
           socket.leave('drivers:available');
         }
+
+        try {
+          const { DriverModel } = await import('./models/Driver');
+          await DriverModel.findOneAndUpdate(
+            { userId: user.id },
+            { $set: { availabilityStatus: normalized } },
+          );
+        } catch (err: any) {
+          console.error('[Socket] Driver status DB update error:', err.message);
+        }
+
+        io?.to('owners').emit('fleet:driver:status', {
+          driverId: user.id,
+          status: normalized,
+        });
+        io?.emit('drivers:available');
       }
     });
 
     // 4. Owner fleet snapshots
-    socket.on('owner:fleet:subscribe', () => {
+    socket.on('owner:fleet:subscribe', async () => {
       if (user.role === 'OWNER') {
-        socket.emit('fleet:snapshot', locationState.all());
+        try {
+          const { DriverModel } = await import('./models/Driver');
+          const drivers = await DriverModel.find()
+            .populate('userId', 'name email phoneNumber')
+            .populate('vehicleId')
+            .lean();
+
+          const snapshot = drivers.map((d) => {
+            const live = locationState.get(d.userId?._id?.toString() || (d.userId as any)?.toString());
+            const coords = d.currentLocation?.coordinates;
+            return {
+              driverId: d.userId?._id?.toString() || d._id.toString(),
+              driverName: (d.userId as any)?.name || 'Driver Partner',
+              driverPhone: (d.userId as any)?.phoneNumber || '',
+              vehiclePlate: (d.vehicleId as any)?.registrationNumber || '',
+              vehicleModel: (d.vehicleId as any)?.model || '',
+              status: d.availabilityStatus || 'OFFLINE',
+              latitude: live?.latitude || (coords ? coords[1] : 12.9716),
+              longitude: live?.longitude || (coords ? coords[0] : 77.5946),
+              speed: live?.speed,
+              heading: live?.heading,
+              receivedAt: live?.receivedAt || d.lastLocationUpdate?.toISOString() || d.updatedAt.toISOString(),
+            };
+          });
+
+          socket.emit('fleet:snapshot', snapshot);
+        } catch (err: any) {
+          socket.emit('fleet:snapshot', locationState.all());
+        }
       }
     });
   });

@@ -67,3 +67,44 @@ export async function onboardDriver(payload: OnboardDriverPayload): Promise<{
 }
 
 export type DriverProfileData = DriverProfile;
+
+export interface FleetDriverItem {
+  _id: string;
+  userId: {
+    _id: string;
+    name: string;
+    email: string;
+    phoneNumber?: string;
+  };
+  licenseNumber?: string;
+  availabilityStatus: 'OFFLINE' | 'AVAILABLE' | 'ON_TRIP';
+  vehicleId?: {
+    _id: string;
+    registrationNumber: string;
+    vehicleType: string;
+    model?: string;
+  };
+  bankDetails?: BankDetails;
+  currentLocation?: {
+    type: 'Point';
+    coordinates: [number, number]; // [lng, lat]
+  };
+  lastLocationUpdate?: string;
+  liveLocation?: {
+    driverId: string;
+    driverName?: string;
+    latitude: number;
+    longitude: number;
+    speed?: number;
+    heading?: number;
+    accuracy?: number;
+    receivedAt: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getFleetDrivers(): Promise<FleetDriverItem[]> {
+  const response = await apiRequest<{ success: boolean; drivers: FleetDriverItem[] }>('/drivers');
+  return response.drivers;
+}

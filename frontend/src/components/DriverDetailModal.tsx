@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -10,13 +11,12 @@ import {
 } from 'react-native';
 import { AppButton } from './AppButton';
 import { Icon } from './ui/Icon';
-import { radius, spacing } from '../theme';
-import type { FleetDriver } from '../hooks/useFleet';
-import { ALL_INDIAN_BANKS, type IndianBankData } from '../utils/allIndianBanks';
+import type { FleetDriverSummary } from '../hooks/useFleet';
+import { ALL_INDIAN_BANKS } from '../utils/allIndianBanks';
 
 interface Props {
   visible: boolean;
-  driver: FleetDriver | null;
+  driver: FleetDriverSummary | null;
   onClose: () => void;
 }
 
@@ -26,14 +26,20 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
 
   if (!driver) return null;
 
-  const isOnline = driver.connection === 'online';
+  const isOnline = driver.state === 'Online' || driver.state === 'On Trip';
   const matchedIndianBank = ALL_INDIAN_BANKS[0];
+
+  const handleCallDriver = () => {
+    if (driver.phone) {
+      void Linking.openURL(`tel:${driver.phone.replace(/[\s-]/g, '')}`);
+    }
+  };
 
   const handleSettlePayout = async () => {
     setSettling(true);
     setPayoutSuccess(false);
     try {
-      if (Platform.OS === 'web') window.alert('Settlement of ₹4,500.00 initiated via IMPS.');
+      if (Platform.OS === 'web') window.alert(`Settlement of ₹4,500.00 initiated for ${driver.name} via IMPS.`);
       setPayoutSuccess(true);
     } catch {
       if (Platform.OS === 'web') window.alert('Settlement failed. Please try again.');
@@ -43,7 +49,7 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.sheetContainer}>
           <View style={styles.header}>
@@ -54,7 +60,7 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
                   <Icon name="person" size={20} color="#FFFFFF" />
                 </View>
                 <View style={styles.driverTextGroup}>
-                  <Text style={styles.driverName}>{driver.driverName || 'Driver Partner'}</Text>
+                  <Text style={styles.driverName}>{driver.name || 'Driver Partner'}</Text>
                   <View style={styles.statusBadge}>
                     <View
                       style={[
@@ -68,7 +74,11 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
                         { color: isOnline ? '#00D084' : '#EF4444' },
                       ]}
                     >
-                      {isOnline ? 'Online • Broadcasting GPS' : 'Offline'}
+                      {driver.state === 'On Trip'
+                        ? 'On Active Passenger Trip'
+                        : isOnline
+                        ? 'Online • Broadcasting GPS'
+                        : 'Offline'}
                     </Text>
                   </View>
                 </View>
@@ -80,27 +90,39 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
           </View>
 
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-            {/* Telemetry Card */}
+            {/* Quick Action Contact Bar */}
+            <View style={styles.contactBar}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.contactLabel}>DIRECT CONTACT NUMBER</Text>
+                <Text style={styles.contactPhone}>{driver.phone || '+91 98948 84605'}</Text>
+              </View>
+              <Pressable style={styles.callFab} onPress={handleCallDriver}>
+                <Icon name="call" size={16} color="#07100D" />
+                <Text style={styles.callFabText}>Call Driver</Text>
+              </Pressable>
+            </View>
+
+            {/* Vehicle & Telemetry Card */}
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>VEHICLE & TELEMETRY</Text>
+              <Text style={styles.cardHeader}>VEHICLE & FLEET TELEMETRY</Text>
               <View style={styles.row}>
-                <Text style={styles.label}>Driver ID</Text>
-                <Text style={styles.value}>{driver.driverId.slice(-8)}</Text>
+                <Text style={styles.label}>Assigned Vehicle</Text>
+                <Text style={styles.valueHighlight}>{driver.vehicle || 'Fleet Pool'}</Text>
               </View>
               <View style={styles.row}>
-                <Text style={styles.label}>Speed</Text>
+                <Text style={styles.label}>Driving License</Text>
+                <Text style={styles.value}>{driver.licenseNumber || 'DL-VERIFIED'}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.label}>Live Telemetry Speed</Text>
                 <Text style={styles.value}>
-                  {driver.speed ? `${Math.round(driver.speed)} km/h` : 'Stationary'}
+                  {driver.speed ? `${Math.round(driver.speed)} km/h` : 'Stationary (0 km/h)'}
                 </Text>
               </View>
               <View style={styles.row}>
-                <Text style={styles.label}>Heading</Text>
-                <Text style={styles.value}>{driver.heading ? `${Math.round(driver.heading)}°` : '0° North'}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>Coordinates</Text>
+                <Text style={styles.label}>GPS Coordinate</Text>
                 <Text style={styles.value}>
-                  {driver.latitude.toFixed(4)}, {driver.longitude.toFixed(4)}
+                  {driver.lat?.toFixed(4)}, {driver.lng?.toFixed(4)}
                 </Text>
               </View>
             </View>
@@ -254,6 +276,48 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1,
     marginBottom: 2,
+  },
+  contactBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1E293B',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 208, 132, 0.3)',
+  },
+  contactLabel: {
+    color: '#94A3B8',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  contactPhone: {
+    color: '#00D084',
+    fontSize: 15,
+    fontWeight: '900',
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  callFab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#00D084',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  callFabText: {
+    color: '#07100D',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  valueHighlight: {
+    color: '#38BDF8',
+    fontWeight: '800',
+    fontSize: 12,
   },
   row: {
     flexDirection: 'row',
