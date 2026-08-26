@@ -148,18 +148,6 @@ export function MapView({
       attributionControl: false,
     });
 
-    map.on('movestart', () => {
-      isUserInteractingRef.current = true;
-    });
-
-    map.on('moveend', () => {
-      isUserInteractingRef.current = false;
-    });
-
-    if (interactive) {
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
-    }
-
     mapRef.current = map;
 
     return () => {
@@ -172,21 +160,14 @@ export function MapView({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || isUserInteractingRef.current) return;
+    if (!map) return;
 
-    const currentCenter = map.getCenter();
-    const currentZoom = map.getZoom();
-
-    const dist = Math.hypot(currentCenter.lng - center.longitude, currentCenter.lat - center.latitude);
-    const zoomDiff = Math.abs(currentZoom - zoom);
-
-    if (dist > 0.002 || zoomDiff > 1.0) {
-      map.flyTo({
-        center: [center.longitude, center.latitude],
-        zoom: Math.min(zoom, 18.5),
-        duration: 500,
-      });
-    }
+    map.flyTo({
+      center: [center.longitude, center.latitude],
+      zoom: Math.min(zoom, 18.5),
+      essential: true,
+      duration: 600,
+    });
   }, [center.latitude, center.longitude, zoom]);
 
   // Route Polyline Layer with Dual Casing & Auto-Bounds

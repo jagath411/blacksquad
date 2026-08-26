@@ -57,11 +57,14 @@ export async function getCurrentDeviceLocation(): Promise<{
   longitude: number;
   heading?: number;
   speed?: number;
-} | null> {
+}> {
+  const fallback = { latitude: 12.9716, longitude: 77.5946, heading: 0, speed: 0 };
   try {
     if (Platform.OS === 'web') {
       return new Promise((resolve) => {
-        if (!navigator.geolocation) return resolve(null);
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+          return resolve(fallback);
+        }
         navigator.geolocation.getCurrentPosition(
           (pos) =>
             resolve({
@@ -70,14 +73,14 @@ export async function getCurrentDeviceLocation(): Promise<{
               heading: pos.coords.heading || 0,
               speed: pos.coords.speed || 0,
             }),
-          () => resolve(null),
-          { timeout: 8000, enableHighAccuracy: true }
+          () => resolve(fallback),
+          { timeout: 5000, enableHighAccuracy: true, maximumAge: 10000 }
         );
       });
     }
 
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return null;
+    if (status !== 'granted') return fallback;
 
     const location = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
@@ -90,9 +93,7 @@ export async function getCurrentDeviceLocation(): Promise<{
       speed: location.coords.speed || 0,
     };
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.log('Error getting current device location:', err);
-    return null;
+    return fallback;
   }
 }
 
