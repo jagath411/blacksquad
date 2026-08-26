@@ -1096,6 +1096,20 @@ export function HomeScreen({ route, navigation }: Props) {
             </View>
           </View>
 
+          {/* Driver GPS Recenter FAB */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="My GPS Location"
+            style={s.recenterFab}
+            onPress={() => fetchCurrentLocation(true)}
+          >
+            {isLocating ? (
+              <ActivityIndicator size="small" color="#00D084" />
+            ) : (
+              <Icon name="locate" size={20} color="#00D084" />
+            )}
+          </Pressable>
+
           {activeBooking && (
             <View style={s.floatingEtaPill}>
               <Icon name="navigate" size={14} color="#00D084" />

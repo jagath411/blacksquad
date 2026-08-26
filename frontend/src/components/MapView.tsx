@@ -40,17 +40,14 @@ const STYLES: Record<string, any> = {
   light: {
     version: 8,
     sources: {
-      carto_voyager: {
+      esri_streets: {
         type: 'raster',
         tiles: [
-          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
         ],
         tileSize: 256,
         maxzoom: 19,
-        attribution: '© OpenStreetMap © CARTO',
+        attribution: '© Esri, OpenStreetMap contributors',
       },
     },
     layers: [
@@ -60,9 +57,9 @@ const STYLES: Record<string, any> = {
         paint: { 'background-color': '#F1F5F9' },
       },
       {
-        id: 'carto-voyager-tiles',
+        id: 'esri-streets-tiles',
         type: 'raster',
-        source: 'carto_voyager',
+        source: 'esri_streets',
         minzoom: 0,
         maxzoom: 19,
       },
@@ -71,29 +68,41 @@ const STYLES: Record<string, any> = {
   dark: {
     version: 8,
     sources: {
-      carto_dark: {
+      esri_dark_base: {
         type: 'raster',
         tiles: [
-          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
         ],
         tileSize: 256,
         maxzoom: 19,
-        attribution: '© OpenStreetMap © CARTO',
+        attribution: '© Esri, OpenStreetMap contributors',
+      },
+      esri_dark_labels: {
+        type: 'raster',
+        tiles: [
+          'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+        ],
+        tileSize: 256,
+        maxzoom: 19,
       },
     },
     layers: [
       {
         id: 'bg-layer',
         type: 'background',
-        paint: { 'background-color': '#07100D' },
+        paint: { 'background-color': '#0B1120' },
       },
       {
-        id: 'carto-dark-tiles',
+        id: 'esri-dark-base-tiles',
         type: 'raster',
-        source: 'carto_dark',
+        source: 'esri_dark_base',
+        minzoom: 0,
+        maxzoom: 19,
+      },
+      {
+        id: 'esri-dark-labels-tiles',
+        type: 'raster',
+        source: 'esri_dark_labels',
         minzoom: 0,
         maxzoom: 19,
       },

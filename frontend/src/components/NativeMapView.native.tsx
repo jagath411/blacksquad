@@ -4,22 +4,30 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Icon } from './ui/Icon';
 import type { MapMarker, RoutePolyline } from './MapView';
 
-const CARTO_STYLE = {
+const ESRI_DARK_STYLE = {
   version: 8,
   sources: {
-    carto: {
+    esri_dark_base: {
       type: 'raster',
       tiles: [
-        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
       ],
       tileSize: 256,
-      attribution: 'OpenStreetMap CARTO',
+      attribution: '© Esri, OpenStreetMap contributors',
+    },
+    esri_dark_labels: {
+      type: 'raster',
+      tiles: [
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+      ],
+      tileSize: 256,
     },
   },
-  layers: [{ id: 'carto', type: 'raster', source: 'carto', minzoom: 0, maxzoom: 19 }],
+  layers: [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#0B1120' } },
+    { id: 'esri-dark-base', type: 'raster', source: 'esri_dark_base', minzoom: 0, maxzoom: 19 },
+    { id: 'esri-dark-labels', type: 'raster', source: 'esri_dark_labels', minzoom: 0, maxzoom: 19 },
+  ],
 } as any;
 
 interface Props {
@@ -35,7 +43,7 @@ export function NativeMapView({ center, zoom, markers, interactive, style }: Pro
   return (
     <Map
       style={[styles.map, style]}
-      mapStyle={CARTO_STYLE}
+      mapStyle={ESRI_DARK_STYLE}
       dragPan={interactive}
       touchZoom={interactive}
       touchRotate={interactive}
