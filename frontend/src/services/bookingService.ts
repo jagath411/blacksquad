@@ -81,3 +81,9 @@ export async function getBookingHistory(): Promise<BookingData[]> {
   );
   return response.bookings;
 }
+
+/** A ride that is still waiting for a driver, for a driver who opened its notification. */
+export async function getRideOffer(bookingId: string): Promise<BookingData | null> {
+  const response = await apiRequest<{ success: boolean; offer: BookingData | null }>(`/bookings/${bookingId}/offer`);
+  return response.offer;
+}

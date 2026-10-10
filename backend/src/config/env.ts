@@ -41,6 +41,9 @@ const envSchema = z.object({
   MSG91_TEMPLATE_ID: z.string().optional(),
   CUSTOM_SMS_WEBHOOK_URL: z.string().optional(),
   SHOW_DEV_OTP: z.string().default('false'),
+  // Push notifications through Expo's push service.
+  PUSH_ENABLED: z.enum(['true', 'false']).default('true'),
+  EXPO_ACCESS_TOKEN: z.string().optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

@@ -178,6 +178,23 @@ router.get('/active', requireAuth, async (req: AuthenticatedRequest, res, next) 
   }
 });
 
+// A ride still waiting for a driver, for a driver opening its notification. No rider details.
+router.get('/:id/offer', requireAuth, requireRole('DRIVER'), async (req, res, next) => {
+  try {
+    const bookingId = req.params.id;
+    if (!objectId(bookingId)) {
+      res.status(400).json({ success: false, message: 'Invalid booking ID' });
+      return;
+    }
+    const offer = await BookingModel.findOne({ _id: bookingId, status: 'REQUESTED' })
+      .select('pickupAddress dropAddress pickupLocation dropLocation serviceTier fare distanceKm createdAt')
+      .lean();
+    res.json({ success: true, offer });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // 3. Driver accepts a booking (atomic; only one driver can win)
 router.post('/:id/accept', requireAuth, requireRole('DRIVER'), async (req: AuthenticatedRequest, res, next) => {
   try {
@@ -229,11 +246,9 @@ router.post('/:id/accept', requireAuth, requireRole('DRIVER'), async (req: Authe
 
     const view = await findBookingForView(updatedBooking._id);
     broadcastStatus(updatedBooking, 'DRIVER_ACCEPTED', view);
-    void notificationService.notifyTripMilestone(
-      updatedBooking.customerId.toString(),
-      req.user?.name || 'Driver',
-      'DRIVER_ACCEPTED',
-    );
+    void notificationService.notifyRider(updatedBooking.customerId.toString(), updatedBooking._id.toString(), 'DRIVER_ACCEPTED', {
+      driverName: req.user?.name,
+    });
 
     res.json({ success: true, booking: withoutStartPin(view) });
   } catch (error) {
@@ -323,6 +338,11 @@ router.patch('/:id/status', requireAuth, async (req: AuthenticatedRequest, res, 
       return;
     }
 
+    // The trip's target changes from pickup to drop-off when it starts; refresh the live state.
+    if (role === 'DRIVER' && status === 'TRIP_STARTED') {
+      locationState.setActiveBooking(req.user!.id, updatedBooking._id.toString());
+    }
+
     if ((status === 'TRIP_COMPLETED' || status === 'CANCELLED') && updatedBooking.driverId) {
       const driverDoc = await DriverModel.findOneAndUpdate(
         { _id: updatedBooking.driverId, availabilityStatus: 'ON_TRIP' },
@@ -334,7 +354,17 @@ router.patch('/:id/status', requireAuth, async (req: AuthenticatedRequest, res, 
 
     const view = await findBookingForView(updatedBooking._id);
     broadcastStatus(updatedBooking, status, view);
-    void notificationService.notifyTripMilestone(updatedBooking.customerId.toString(), req.user?.name || 'Driver', status);
+    // The rider hears about every change the driver makes; the driver hears when the rider cancels.
+    if (role === 'DRIVER') {
+      void notificationService.notifyRider(updatedBooking.customerId.toString(), updatedBooking._id.toString(), status, {
+        driverName: req.user?.name,
+        reason: updatedBooking.cancellationReason,
+        fare: updatedBooking.fare,
+      });
+    } else if (status === 'CANCELLED' && updatedBooking.driverId) {
+      const driverDoc = await DriverModel.findById(updatedBooking.driverId).select('userId').lean();
+      if (driverDoc) void notificationService.notifyDriverCancelled(driverDoc.userId.toString(), updatedBooking._id.toString());
+    }
 
     res.json({ success: true, booking: role === 'CUSTOMER' ? view : withoutStartPin(view) });
   } catch (error) {

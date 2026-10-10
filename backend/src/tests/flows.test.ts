@@ -6,7 +6,10 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BookingModel } from '../models/Booking';
 import { DriverModel } from '../models/Driver';
+import { DriverLocationModel } from '../models/DriverLocation';
 import { expireUnansweredRequests, REQUEST_TIMEOUT_MS } from '../services/dispatch.service';
+import { NotificationService } from '../services/notification.service';
+import { UserModel } from '../models/User';
 import { call, collect, connect, makeUser, trip } from './harness';
 
 /** Puts a driver online at a position with a fresh GPS fix. */
@@ -134,4 +137,80 @@ describe('dispatch', () => {
     assert.equal(res.status, 202);
     assert.equal((await seen).length, 1);
   });
+
+  test('rapid GPS fixes are all accepted but stored at most every 15 seconds', async () => {
+    const driver = await makeUser('DRIVER');
+    for (let i = 0; i < 5; i++) {
+      const res = await call(
+        'POST',
+        '/drivers/location',
+        { latitude: 12.9716 + i * 0.00001, longitude: 77.5946, timestamp: Date.now() + i },
+        driver.token,
+      );
+      assert.equal(res.status, 202);
+    }
+    const stored = await DriverLocationModel.countDocuments({ driverId: driver.driver!._id });
+    assert.equal(stored, 1);
+  });
 });
+
+describe('ride offers from notifications', () => {
+  test('a driver can open a waiting ride without seeing the PIN or rider, and not after it is taken', async () => {
+    const driver = await makeUser('DRIVER');
+    await placeDriver(driver.driver!._id, 77.5946, 12.9716);
+    const customer = await makeUser('CUSTOMER');
+    const created = await call('POST', '/bookings', trip, customer.token);
+    const id = created.body.booking._id;
+
+    const open = await call('GET', `/bookings/${id}/offer`, undefined, driver.token);
+    assert.equal(open.status, 200);
+    assert.equal(open.body.offer._id, id);
+    assert.equal(open.body.offer.startOtp, undefined);
+    assert.equal(open.body.offer.customerId, undefined);
+
+    await call('POST', `/bookings/${id}/accept`, {}, driver.token);
+    const taken = await call('GET', `/bookings/${id}/offer`, undefined, driver.token);
+    assert.equal(taken.body.offer, null);
+
+    const asCustomer = await call('GET', `/bookings/${id}/offer`, undefined, customer.token);
+    assert.equal(asCustomer.status, 403);
+  });
+});
+
+describe('push notifications', () => {
+  test('a rider gets a push with the trip id, and dead tokens are forgotten', async () => {
+    const customer = await makeUser('CUSTOMER');
+    await UserModel.updateOne({ _id: customer.user._id }, { pushToken: 'ExponentPushToken[test-device]' });
+
+    const sent: unknown[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (_url: string, init: { body: string }) => {
+      sent.push(...JSON.parse(init.body));
+      return new Response(JSON.stringify({ data: [{ status: 'error', details: { error: 'DeviceNotRegistered' } }] }), {
+        status: 200,
+      });
+    }) as unknown as typeof fetch;
+    try {
+      await new NotificationService(true).notifyRider(customer.user.id, 'booking-1', 'DRIVER_ACCEPTED', { driverName: 'Ravi' });
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+
+    assert.equal(sent.length, 1);
+    const message = sent[0] as { to: string; title: string; data: { bookingId: string } };
+    assert.equal(message.to, 'ExponentPushToken[test-device]');
+    assert.equal(message.title, 'Driver on the way');
+    assert.equal(message.data.bookingId, 'booking-1');
+    const stored = await UserModel.findById(customer.user._id).lean();
+    assert.equal(stored?.pushToken, undefined);
+  });
+
+  test('signing out stops notifications to that phone', async () => {
+    const customer = await makeUser('CUSTOMER');
+    await call('POST', '/auth/push-token', { pushToken: 'ExponentPushToken[phone-a]' }, customer.token);
+    await call('POST', '/auth/logout', { refreshToken: customer.refreshToken });
+    const stored = await UserModel.findById(customer.user._id).lean();
+    assert.equal(stored?.pushToken, undefined);
+  });
+});
+

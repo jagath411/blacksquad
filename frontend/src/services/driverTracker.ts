@@ -2,48 +2,47 @@ import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import type { FleetSocket } from './socket';
-import { apiRequest } from './api/client';
 import { getAccessToken } from './tokenStore';
+import { flushPendingFix, uploadFix, type GpsFix } from './locationUploader';
 
 export type TrackerStatus = 'offline' | 'requesting' | 'online' | 'denied' | 'error';
 const BACKGROUND_TASK = 'blacksquad-driver-location';
 
+// Moving: an update every few seconds. The distance filter stops updates while parked.
+const UPDATE_INTERVAL_MS = 5000;
+const DISTANCE_FILTER_METERS = 10;
+
+type FixListener = (fix: GpsFix) => void;
+const fixListeners = new Set<FixListener>();
+
+interface RawLocation {
+  coords: { latitude: number; longitude: number; speed: number | null; heading: number | null; accuracy: number | null };
+  timestamp: number;
+}
+
+const toFix = (position: RawLocation): GpsFix => ({
+  latitude: position.coords.latitude,
+  longitude: position.coords.longitude,
+  speed: position.coords.speed != null && position.coords.speed >= 0 ? position.coords.speed : undefined,
+  heading: position.coords.heading != null && position.coords.heading >= 0 ? position.coords.heading : undefined,
+  accuracy: position.coords.accuracy ?? undefined,
+  timestamp: position.timestamp,
+});
+
+/** Every fix goes through here, whether the app is open, in the background or the phone is locked. */
+async function handleFix(fix: GpsFix): Promise<void> {
+  fixListeners.forEach((listener) => listener(fix));
+  await uploadFix(fix);
+}
+
+// Defined at module load so the OS can wake the app and deliver locations while it is closed.
 if (!TaskManager.isTaskDefined(BACKGROUND_TASK)) {
   TaskManager.defineTask(BACKGROUND_TASK, async ({ data, error }) => {
     if (error || !data) return;
-    const locations = (
-      data as {
-        locations?: {
-          coords: {
-            latitude: number;
-            longitude: number;
-            speed: number | null;
-            heading: number | null;
-            accuracy: number;
-          };
-          timestamp: number;
-        }[];
-      }
-    ).locations;
-    const position = locations?.[locations.length - 1];
-    if (!position || !(await getAccessToken())) return;
-
-    try {
-      // apiRequest renews an expired access token, so tracking survives long shifts.
-      await apiRequest('/drivers/location', {
-        method: 'POST',
-        body: JSON.stringify({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          speed: position.coords.speed ?? undefined,
-          heading: position.coords.heading ?? undefined,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
-        }),
-      });
-    } catch {
-      // Dropped while offline; the offline queue arrives in Phase 3.
-    }
+    const locations = (data as { locations?: RawLocation[] }).locations;
+    const latest = locations?.[locations.length - 1];
+    if (!latest || !(await getAccessToken())) return;
+    await handleFix(toFix(latest));
   });
 }
 
@@ -93,129 +92,108 @@ export async function getCurrentDeviceLocation(): Promise<DeviceLocation | null>
   }
 }
 
+/**
+ * Starts sharing the driver's position until the returned function is called.
+ *
+ * With "Allow all the time" location, one background task delivers every fix, whether the app
+ * is open, in the background or the phone is locked (Android shows a notification while it runs).
+ * Without it, positions are sent only while the app is open.
+ *
+ * askBackground is shown before the system's "all the time" prompt; app stores require that
+ * explanation. It resolves true when the driver agrees.
+ */
 export async function startDriverTracking(
   socket: FleetSocket,
   onStatus: (status: TrackerStatus) => void,
-  onLocation?: (coords: { latitude: number; longitude: number; heading?: number; speed?: number }) => void
+  onLocation?: (coords: { latitude: number; longitude: number; heading?: number; speed?: number }) => void,
+  askBackground?: () => Promise<boolean>,
 ): Promise<() => void> {
   onStatus('requesting');
+  const listener: FixListener = (fix) => {
+    onStatus('online');
+    onLocation?.({ latitude: fix.latitude, longitude: fix.longitude, heading: fix.heading, speed: fix.speed });
+  };
+  fixListeners.add(listener);
+
+  // Anything held while offline goes out as soon as the socket is back.
+  const onReconnect = () => void flushPendingFix();
+  socket.on('connect', onReconnect);
+  const detach = () => {
+    fixListeners.delete(listener);
+    socket.off('connect', onReconnect);
+  };
 
   if (Platform.OS === 'web') {
-    const geo = (
-      globalThis as typeof globalThis & {
-        navigator?: { geolocation?: { watchPosition: Function; clearWatch: Function } };
-      }
-    ).navigator?.geolocation;
-
-    if (!geo) {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      detach();
       onStatus('error');
       throw new Error('Location is not supported by this browser');
     }
-
-    const watchId = geo.watchPosition(
-      (position: {
-        coords: {
-          latitude: number;
-          longitude: number;
-          speed: number | null;
-          heading: number | null;
-          accuracy: number;
-        };
-      }) => {
-        onStatus('online');
-        const loc = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          speed: position.coords.speed ?? undefined,
-          heading: position.coords.heading ?? undefined,
-        };
-        onLocation?.(loc);
-        socket.emit('driver:location', {
-          ...loc,
-          accuracy: position.coords.accuracy,
-          timestamp: Date.now(),
-        });
-      },
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => void handleFix(toFix(position as unknown as RawLocation)),
       () => onStatus('denied'),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
     );
-
-    return () => geo.clearWatch(watchId);
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      detach();
+    };
   }
 
-  // 1. Request Foreground Permissions
   const foreground = await Location.requestForegroundPermissionsAsync();
   if (foreground.status !== 'granted') {
+    detach();
     onStatus('denied');
     throw new Error('Location permission was denied. Please allow location access in settings.');
   }
 
-  onStatus('online');
-
-  // 2. Fetch initial fix immediately
   try {
     const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    const loc = {
-      latitude: initial.coords.latitude,
-      longitude: initial.coords.longitude,
-      heading: initial.coords.heading || 0,
-      speed: initial.coords.speed || 0,
-    };
-    onLocation?.(loc);
-    socket.emit('driver:location', {
-      ...loc,
-      accuracy: initial.coords.accuracy,
-      timestamp: initial.timestamp,
-    });
-  } catch {}
-
-  // 3. Start high-frequency Foreground Watch
-  const subscription = await Location.watchPositionAsync(
-    {
-      accuracy: Location.Accuracy.High,
-      timeInterval: 3000,
-      distanceInterval: 5,
-    },
-    (position) => {
-      onStatus('online');
-      const loc = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        speed: position.coords.speed ?? undefined,
-        heading: position.coords.heading ?? undefined,
-      };
-      onLocation?.(loc);
-      socket.emit('driver:location', {
-        ...loc,
-        accuracy: position.coords.accuracy ?? undefined,
-        timestamp: position.timestamp,
-      });
-    }
-  );
-
-  // 4. Optionally attempt background task without blocking foreground tracking
-  try {
-    const background = await Location.requestBackgroundPermissionsAsync();
-    if (background.status === 'granted') {
-      await Location.startLocationUpdatesAsync(BACKGROUND_TASK, {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 10000,
-        distanceInterval: 10,
-        pausesUpdatesAutomatically: false,
-        showsBackgroundLocationIndicator: true,
-        foregroundService: {
-          notificationTitle: 'BlackSquad Driver Live Tracking',
-          notificationBody: 'Your vehicle coordinates are live with your fleet network.',
-          notificationColor: '#00D084',
-        },
-      });
-    }
+    await handleFix(toFix(initial));
   } catch {
-    // Gracefully continue with foreground watch
+    // The watch below will deliver a fix as soon as one is available.
   }
 
+  let background = await Location.getBackgroundPermissionsAsync();
+  if (background.status !== 'granted' && background.canAskAgain && askBackground && (await askBackground())) {
+    background = await Location.requestBackgroundPermissionsAsync();
+  }
+
+  if (background.status === 'granted') {
+    await Location.startLocationUpdatesAsync(BACKGROUND_TASK, {
+      accuracy: Location.Accuracy.High,
+      timeInterval: UPDATE_INTERVAL_MS,
+      distanceInterval: DISTANCE_FILTER_METERS,
+      pausesUpdatesAutomatically: false,
+      activityType: Location.ActivityType.AutomotiveNavigation,
+      showsBackgroundLocationIndicator: true,
+      foregroundService: {
+        notificationTitle: 'BlackSquad: you are online',
+        notificationBody: 'Your location is shared with riders and your fleet while you are online.',
+        notificationColor: '#00D084',
+        killServiceOnDestroy: false,
+      },
+    });
+    return () => {
+      Location.stopLocationUpdatesAsync(BACKGROUND_TASK).catch(() => undefined);
+      detach();
+    };
+  }
+
+  // Foreground only: updates stop when the app is closed or the phone is locked.
+  const subscription = await Location.watchPositionAsync(
+    { accuracy: Location.Accuracy.High, timeInterval: UPDATE_INTERVAL_MS, distanceInterval: DISTANCE_FILTER_METERS },
+    (position) => void handleFix(toFix(position)),
+  );
   return () => {
     subscription.remove();
-    Location.stopLocationUpdatesAsync(BACKGROUND_TASK).catch(() => {});
+    detach();
   };
+}
+
+/** Whether the driver has allowed location "all the time" (needed to track with the screen off). */
+export async function hasBackgroundLocation(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+  const { status } = await Location.getBackgroundPermissionsAsync();
+  return status === 'granted';
 }

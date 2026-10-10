@@ -145,7 +145,9 @@ router.post('/refresh', refreshLimiter, async (req, res, next) => {
 router.post('/logout', async (req, res, next) => {
   try {
     const { refreshToken } = z.object({ refreshToken: z.string().min(20) }).parse(req.body);
-    await revokeRefreshToken(refreshToken);
+    const userId = await revokeRefreshToken(refreshToken);
+    // A signed-out phone must stop receiving this account's notifications.
+    if (userId) await UserModel.updateOne({ _id: userId }, { $unset: { pushToken: 1 } });
     res.json({ success: true });
   } catch (error) {
     next(error);

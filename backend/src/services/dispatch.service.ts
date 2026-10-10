@@ -2,6 +2,7 @@ import type { Types } from 'mongoose';
 import { BookingModel } from '../models/Booking';
 import { DriverModel } from '../models/Driver';
 import { bookingRoom, customerRoom, driverRoom, getIO } from '../sockets';
+import { notificationService } from './notification.service';
 
 /** How far from the pickup a driver can be offered a ride. */
 export const DISPATCH_RADIUS_METERS = 10_000;
@@ -49,6 +50,8 @@ export async function offerRide(offer: RideOffer, pickup: [number, number]): Pro
   if (io) {
     for (const userId of driverUserIds) io.to(driverRoom(userId)).emit('booking:new:request', offer);
   }
+  // Drivers with the app in the background or the phone locked get a push as well.
+  void notificationService.notifyRideOffer(driverUserIds, offer._id, offer.fare, offer.pickupAddress);
   return driverUserIds.length;
 }
 
@@ -82,6 +85,9 @@ export async function expireUnansweredRequests(now = Date.now()): Promise<number
     const payload = { bookingId, status: 'CANCELLED', booking: updated };
     io?.to(customerRoom(updated.customerId.toString())).emit('booking:status:change', payload);
     io?.to(bookingRoom(bookingId)).emit('booking:request:taken', { bookingId });
+    void notificationService.notifyRider(updated.customerId.toString(), bookingId, 'CANCELLED', {
+      reason: 'No drivers available nearby. Please try again.',
+    });
   }
   return expired;
 }

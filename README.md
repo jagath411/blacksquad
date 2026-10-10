@@ -57,6 +57,15 @@ npm run db:indexes
 
 The app uses OpenFreeMap (OpenStreetMap data), which needs no API key. To use another provider, set `EXPO_PUBLIC_MAP_STYLE_URL` in `frontend/.env` to its style URL. Address search and routing still use the public Nominatim and OSRM demo services, which are fine for testing but not allowed for production traffic: pick a provider before launch.
 
+## Push notifications and background location
+
+Push goes through Expo's push service (`PUSH_ENABLED=true` on the server). Before it works on real phones:
+
+- **Android:** add Firebase Cloud Messaging credentials to the project with `eas credentials` (FCM V1 service account key).
+- **iOS:** EAS creates the APNs key during the first iOS build.
+
+Drivers are asked to allow location "all the time" after an in-app explanation, which Google Play and the App Store require. With it, the app keeps sharing location with the screen off (Android shows a notification while the driver is online). Google Play also asks for a declaration and a short video of this feature at submission.
+
 ## Upgrading an existing database
 
 Phase 1 added fleet ownership to vehicles and encrypts bank account numbers. Run once after deploying:

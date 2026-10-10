@@ -9,7 +9,16 @@
     "icon": "./assets/icon.png",
     "plugins": [
       "expo-secure-store",
-      "expo-location",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BlackSquad uses your location to show where you are and to share your live position during a trip.",
+          "locationAlwaysAndWhenInUsePermission": "While you are online as a driver, BlackSquad shares your location in the background so riders and your fleet owner can follow your trip.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
+      ],
       "expo-web-browser",
       [
         "expo-splash-screen",
@@ -26,6 +35,12 @@
             "usesCleartextTraffic": true
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#00D084"
+        }
       ]
     ],
     "android": {
@@ -37,15 +52,15 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION"
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS"
       ]
     },
     "ios": {
       "bundleIdentifier": "com.blacksquad.mobile",
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "BlackSquad uses your location to share your live driver position with your transport owner.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "BlackSquad uses background location to keep your owner informed during an active trip."
-      }
+      "infoPlist": {}
     },
     "extra": {
       "eas": {

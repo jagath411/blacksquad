@@ -25,6 +25,8 @@ const driverLocationSchema = new Schema<DriverLocationDocument>(
 );
 driverLocationSchema.index({ location: '2dsphere' });
 driverLocationSchema.index({ driverId: 1, timestamp: -1 });
+// Keep 30 days of trail; older points are removed by MongoDB.
+driverLocationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 export const DriverLocationModel = model<DriverLocationDocument>(
   'DriverLocation',
   driverLocationSchema,

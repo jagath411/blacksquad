@@ -67,11 +67,13 @@ export async function rotateRefreshToken(refreshToken: string): Promise<{ user: 
   return { user, tokens: await issueTokens(toAuthUser(user)) };
 }
 
-export async function revokeRefreshToken(refreshToken: string): Promise<void> {
-  await RefreshTokenModel.updateOne(
+/** Revokes one session. Returns the user it belonged to, if it was still active. */
+export async function revokeRefreshToken(refreshToken: string): Promise<string | null> {
+  const record = await RefreshTokenModel.findOneAndUpdate(
     { tokenHash: sha256(refreshToken), revokedAt: { $exists: false } },
     { $set: { revokedAt: new Date() } },
-  );
+  ).lean();
+  return record ? record.userId.toString() : null;
 }
 
 export async function revokeAllSessions(userId: string): Promise<void> {

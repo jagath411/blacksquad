@@ -8,9 +8,10 @@ import { Icon } from '../../components/ui/Icon';
 import { useActiveTrip, type TripEvent } from '../../hooks/useActiveTrip';
 import { useDeviceLocation } from '../../hooks/useDeviceLocation';
 import { useRoadRoute } from '../../hooks/useRoadRoute';
-import { acceptBooking, updateBookingStatus } from '../../services/bookingService';
+import { acceptBooking, getRideOffer, updateBookingStatus } from '../../services/bookingService';
+import { onNotificationTap } from '../../services/pushNotifications';
 import { getDriverProfile, updateDriverProfile } from '../../services/driverService';
-import { startDriverTracking, type TrackerStatus } from '../../services/driverTracker';
+import { hasBackgroundLocation, startDriverTracking, type TrackerStatus } from '../../services/driverTracker';
 import { onBookingRequestTaken, onNewBookingRequest, setDriverDutyStatus } from '../../services/socket';
 import type { BookingData, BookingStatus } from '../../types';
 import { callNumber, confirmAction } from '../../utils/dialogs';
@@ -38,6 +39,18 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const stopTrackingRef = useRef<(() => void) | null>(null);
+  // Resolves the background-location explanation shown before the system prompt.
+  const [disclosureResolve, setDisclosureResolve] = useState<((ok: boolean) => void) | null>(null);
+  const [backgroundAllowed, setBackgroundAllowed] = useState(true);
+
+  const askBackground = useCallback(
+    () => new Promise<boolean>((resolve) => setDisclosureResolve(() => resolve)),
+    [],
+  );
+  const answerDisclosure = (ok: boolean) => {
+    disclosureResolve?.(ok);
+    setDisclosureResolve(null);
+  };
 
   const { location, setLocation, isLocating, locate, camera } = useDeviceLocation();
 
@@ -67,8 +80,9 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
 
   const startTracking = useCallback(async () => {
     if (!socket || stopTrackingRef.current) return;
-    stopTrackingRef.current = await startDriverTracking(socket, setTrackerStatus, (loc) => setLocation(loc));
-  }, [socket, setLocation]);
+    stopTrackingRef.current = await startDriverTracking(socket, setTrackerStatus, (loc) => setLocation(loc), askBackground);
+    setBackgroundAllowed(await hasBackgroundLocation());
+  }, [socket, setLocation, askBackground]);
 
   const stopTracking = useCallback(() => {
     stopTrackingRef.current?.();
@@ -112,6 +126,25 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
       offTaken();
     };
   }, [socket]);
+
+  // Tapping a ride-request notification opens that offer if it is still open.
+  useEffect(
+    () =>
+      onNotificationTap((data) => {
+        if (data.type !== 'RIDE_OFFER' || !data.bookingId) return;
+        getRideOffer(data.bookingId)
+          .then((open) => {
+            if (open) {
+              setOffer(open);
+              setOfferSeconds(OFFER_SECONDS);
+            } else {
+              notify('Ride no longer available', 'Another driver took it or the rider cancelled.', 'info');
+            }
+          })
+          .catch(() => undefined);
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!offer) return;
@@ -330,7 +363,9 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
                 <Text style={s.dutySub}>
                   {isOnline
                     ? trackerStatus === 'online'
-                      ? 'Sharing your location • waiting for rides'
+                      ? backgroundAllowed
+                        ? 'Sharing your location • waiting for rides'
+                        : 'Keep the app open: location stops when the screen is off'
                       : trackerStatus === 'denied'
                         ? 'Location permission is off: riders cannot find you'
                         : 'Starting location…'
@@ -372,6 +407,30 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
           </View>
         )}
       </View>
+
+      <Modal visible={Boolean(disclosureResolve)} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={s.otpModalCard}>
+            <View style={s.otpHeader}>
+              <Icon name="location" size={32} color="#00D084" />
+              <Text style={s.otpModalTitle}>Share location in the background</Text>
+              <Text style={s.otpModalSub}>
+                BlackSquad collects your location while you are online, even when the app is closed or the screen
+                is off, so riders can see you arrive and your fleet owner can see your vehicle. It stops when you go
+                offline. On the next screen, choose &ldquo;Allow all the time&rdquo;.
+              </Text>
+            </View>
+            <View style={s.otpActions}>
+              <Pressable style={s.otpCancelBtn} onPress={() => answerDisclosure(false)}>
+                <Text style={s.otpCancelText}>Not now</Text>
+              </Pressable>
+              <Pressable style={s.otpSubmitBtn} onPress={() => answerDisclosure(true)}>
+                <Text style={s.otpSubmitText}>Continue</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={pinModal} transparent animationType="slide">
         <View style={s.modalOverlay}>
