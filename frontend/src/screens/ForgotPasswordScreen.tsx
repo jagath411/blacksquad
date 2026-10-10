@@ -136,7 +136,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
             }}
             style={s.resendBtn}
           >
-            <Text style={s.resendText}>Didn't receive it? Try again</Text>
+            <Text style={s.resendText}>Didn&apos;t receive it? Try again</Text>
           </Pressable>
 
           <Pressable onPress={() => navigation.goBack()} style={s.backToLoginBtn}>

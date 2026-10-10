@@ -34,7 +34,6 @@ async function setItemSafe(key: string, value: string): Promise<void> {
       await SecureStore.setItemAsync(key, value);
       return;
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.warn(`[Storage] SecureStore setItem failed for ${key}, falling back:`, error);
     }
   }
@@ -44,7 +43,6 @@ async function setItemSafe(key: string, value: string): Promise<void> {
       window.localStorage.setItem(key, value);
       return;
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.warn(`[Storage] localStorage setItem failed for ${key}, falling back to memory:`, error);
     }
   }
@@ -61,7 +59,6 @@ async function getItemSafe(key: string): Promise<string | null> {
       const val = await SecureStore.getItemAsync(key);
       if (val !== null) return val;
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.warn(`[Storage] SecureStore getItem failed for ${key}:`, error);
     }
   }
@@ -71,7 +68,6 @@ async function getItemSafe(key: string): Promise<string | null> {
       const val = window.localStorage.getItem(key);
       if (val !== null) return val;
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.warn(`[Storage] localStorage getItem failed for ${key}:`, error);
     }
   }

@@ -44,10 +44,17 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('release.keystore')
-            storePassword 'blacksquad123'
-            keyAlias 'blacksquad'
-            keyPassword 'blacksquad123'
+            // Upload key is supplied at build time and never committed.
+            // Set BLACKSQUAD_UPLOAD_STORE_FILE, BLACKSQUAD_UPLOAD_STORE_PASSWORD,
+            // BLACKSQUAD_UPLOAD_KEY_ALIAS and BLACKSQUAD_UPLOAD_KEY_PASSWORD as env vars
+            // or Gradle properties (for example in ~/.gradle/gradle.properties).
+            def uploadStoreFile = System.getenv('BLACKSQUAD_UPLOAD_STORE_FILE') ?: findProperty('BLACKSQUAD_UPLOAD_STORE_FILE')
+            if (uploadStoreFile) {
+                storeFile file(uploadStoreFile)
+                storePassword System.getenv('BLACKSQUAD_UPLOAD_STORE_PASSWORD') ?: findProperty('BLACKSQUAD_UPLOAD_STORE_PASSWORD')
+                keyAlias System.getenv('BLACKSQUAD_UPLOAD_KEY_ALIAS') ?: findProperty('BLACKSQUAD_UPLOAD_KEY_ALIAS')
+                keyPassword System.getenv('BLACKSQUAD_UPLOAD_KEY_PASSWORD') ?: findProperty('BLACKSQUAD_UPLOAD_KEY_PASSWORD')
+            }
             v1SigningEnabled true
             v2SigningEnabled true
         }

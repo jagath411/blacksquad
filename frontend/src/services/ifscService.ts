@@ -73,7 +73,6 @@ export async function lookupIfscCode(ifsc: string): Promise<VerifiedIfscResult |
     ifscCache.set(cleanIfsc, result);
     return result;
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.warn('[IFSC Service] Failed to lookup IFSC:', error);
 
     // Local fallback matching by 4-letter prefix

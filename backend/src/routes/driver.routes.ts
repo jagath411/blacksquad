@@ -10,6 +10,7 @@ import { VehicleModel } from '../models/Vehicle';
 import { locationState } from '../services/location.service';
 import { smsService } from '../services/sms.service';
 import type { AuthenticatedRequest } from '../types/auth';
+import type { PopulatedRef } from '../types/populated';
 
 const onboardDriverSchema = z.object({
   name: z.string().min(2).max(120),
@@ -105,13 +106,13 @@ router.get('/', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequ
       .lean();
 
     const formatted = drivers.map((driver) => {
-      const live = locationState.get(driver.userId?._id?.toString() || (driver.userId as any)?.toString()) || null;
+      const live = locationState.get(driver.userId?._id?.toString() || (driver.userId as unknown as PopulatedRef)?.toString()) || null;
       const lastCoords = driver.currentLocation?.coordinates;
       return {
         ...driver,
         liveLocation: live || (lastCoords ? {
           driverId: driver.userId?._id?.toString() || driver._id.toString(),
-          driverName: (driver.userId as any)?.name || 'Driver',
+          driverName: (driver.userId as unknown as PopulatedRef)?.name || 'Driver',
           latitude: lastCoords[1],
           longitude: lastCoords[0],
           receivedAt: driver.lastLocationUpdate?.toISOString() || driver.updatedAt.toISOString(),
@@ -226,7 +227,7 @@ router.post('/', requireAuth, requireRole('OWNER'), async (req: AuthenticatedReq
         });
       } else {
         vehicle.driverId = driver._id;
-        if (data.vehicleModel) (vehicle as any).model = data.vehicleModel.trim();
+        if (data.vehicleModel) vehicle.set('model', data.vehicleModel.trim());
         await vehicle.save();
       }
       driver.vehicleId = vehicle._id as Types.ObjectId;

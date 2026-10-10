@@ -8,6 +8,8 @@ import { ExpenseModel } from '../models/Expense';
 import { PayoutModel } from '../models/Payout';
 import { DriverModel } from '../models/Driver';
 import { VehicleModel } from '../models/Vehicle';
+import { errorMessage } from '../utils/errors';
+import type { PopulatedRef } from '../types/populated';
 
 const router = Router();
 
@@ -60,8 +62,8 @@ router.get('/summary', requireAuth, async (req: AuthenticatedRequest, res: Respo
         activeDrivers,
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to calculate analytics summary' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: errorMessage(error) || 'Failed to calculate analytics summary' });
   }
 });
 
@@ -116,8 +118,8 @@ router.get('/weekly', requireAuth, async (req: AuthenticatedRequest, res: Respon
       success: true,
       data: days,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to fetch weekly series' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: errorMessage(error) || 'Failed to fetch weekly series' });
   }
 });
 
@@ -148,8 +150,8 @@ router.get('/expenses', requireAuth, async (req: AuthenticatedRequest, res: Resp
       .lean();
 
     res.json({ success: true, data: expenses });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to retrieve expenses' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: errorMessage(error) || 'Failed to retrieve expenses' });
   }
 });
 
@@ -172,8 +174,8 @@ router.post('/expenses', requireAuth, async (req: AuthenticatedRequest, res: Res
     });
 
     res.status(201).json({ success: true, data: expense });
-  } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message || 'Failed to record expense' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: errorMessage(error) || 'Failed to record expense' });
   }
 });
 
@@ -182,8 +184,8 @@ router.delete('/expenses/:id', requireAuth, async (req: AuthenticatedRequest, re
     const { id } = req.params;
     await ExpenseModel.findByIdAndDelete(id);
     res.json({ success: true, message: 'Expense deleted successfully' });
-  } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message || 'Failed to delete expense' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: errorMessage(error) || 'Failed to delete expense' });
   }
 });
 
@@ -217,9 +219,9 @@ router.get('/payouts', requireAuth, async (_req: AuthenticatedRequest, res: Resp
 
         return {
           driverId: driver._id,
-          driverName: (driver.userId as any)?.name || 'Driver',
-          driverEmail: (driver.userId as any)?.email || '',
-          driverPhone: (driver.userId as any)?.phoneNumber || '',
+          driverName: (driver.userId as unknown as PopulatedRef)?.name || 'Driver',
+          driverEmail: (driver.userId as unknown as PopulatedRef)?.email || '',
+          driverPhone: (driver.userId as unknown as PopulatedRef)?.phoneNumber || '',
           licenseNumber: driver.licenseNumber,
           vehicle: driver.vehicleId,
           bankDetails: driver.bankDetails || {},
@@ -234,8 +236,8 @@ router.get('/payouts', requireAuth, async (_req: AuthenticatedRequest, res: Resp
     );
 
     res.json({ success: true, data: statements });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to fetch payout statements' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: errorMessage(error) || 'Failed to fetch payout statements' });
   }
 });
 
@@ -311,8 +313,8 @@ router.post('/payouts/settle', requireAuth, async (req: AuthenticatedRequest, re
       });
 
       res.status(201).json({ success: true, message: 'Driver payout recorded successfully', data: payout });
-    } catch (createErr: any) {
-      if (createErr?.code === 11000 || createErr?.name === 'MongoServerError') {
+    } catch (createErr) {
+      if ((createErr as { code?: number })?.code === 11000 || (createErr as { name?: string })?.name === 'MongoServerError') {
         res.status(409).json({
           success: false,
           message: `Transaction reference '${body.transactionReference}' has already been processed.`,
@@ -321,8 +323,8 @@ router.post('/payouts/settle', requireAuth, async (req: AuthenticatedRequest, re
       }
       throw createErr;
     }
-  } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message || 'Failed to settle payout' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: errorMessage(error) || 'Failed to settle payout' });
   }
 });
 

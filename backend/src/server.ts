@@ -6,6 +6,8 @@ import { env } from './config/env';
 import { dbService } from './config/database';
 import { locationState } from './services/location.service';
 import type { AuthUser } from './types/auth';
+import { errorMessage } from './utils/errors';
+import type { PopulatedRef } from './types/populated';
 
 export let io: SocketIOServer | null = null;
 
@@ -136,8 +138,8 @@ const startServer = async (): Promise<http.Server> => {
             { userId: user.id },
             { $set: { availabilityStatus: normalized } },
           );
-        } catch (err: any) {
-          console.error('[Socket] Driver status DB update error:', err.message);
+        } catch (err) {
+          console.error('[Socket] Driver status DB update error:', errorMessage(err));
         }
 
         io?.to('owners').emit('fleet:driver:status', {
@@ -159,14 +161,14 @@ const startServer = async (): Promise<http.Server> => {
             .lean();
 
           const snapshot = drivers.map((d) => {
-            const live = locationState.get(d.userId?._id?.toString() || (d.userId as any)?.toString());
+            const live = locationState.get(d.userId?._id?.toString() || (d.userId as unknown as PopulatedRef)?.toString());
             const coords = d.currentLocation?.coordinates;
             return {
               driverId: d.userId?._id?.toString() || d._id.toString(),
-              driverName: (d.userId as any)?.name || 'Driver Partner',
-              driverPhone: (d.userId as any)?.phoneNumber || '',
-              vehiclePlate: (d.vehicleId as any)?.registrationNumber || '',
-              vehicleModel: (d.vehicleId as any)?.model || '',
+              driverName: (d.userId as unknown as PopulatedRef)?.name || 'Driver Partner',
+              driverPhone: (d.userId as unknown as PopulatedRef)?.phoneNumber || '',
+              vehiclePlate: (d.vehicleId as unknown as PopulatedRef)?.registrationNumber || '',
+              vehicleModel: (d.vehicleId as unknown as PopulatedRef)?.model || '',
               status: d.availabilityStatus || 'OFFLINE',
               latitude: live?.latitude || (coords ? coords[1] : 12.9716),
               longitude: live?.longitude || (coords ? coords[0] : 77.5946),
@@ -177,7 +179,7 @@ const startServer = async (): Promise<http.Server> => {
           });
 
           socket.emit('fleet:snapshot', snapshot);
-        } catch (err: any) {
+        } catch {
           socket.emit('fleet:snapshot', locationState.all());
         }
       }

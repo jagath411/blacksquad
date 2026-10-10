@@ -15,6 +15,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   API_PREFIX: z.string().default('/api'),
   CORS_ORIGIN: z.string().default('*'),
+  PUBLIC_APP_URL: z.string().url().default('http://localhost:5000'),
   MONGODB_URI: z
     .string()
     .min(1, 'MONGODB_URI is required')

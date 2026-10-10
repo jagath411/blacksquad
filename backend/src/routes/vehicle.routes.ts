@@ -92,7 +92,7 @@ router.patch('/:vehicleId', requireAuth, requireRole('OWNER'), async (req, res, 
     const { vehicleId } = req.params;
     const partialData = vehicleSchema.partial().parse(req.body);
 
-    const updateObj: Record<string, any> = { ...partialData };
+    const updateObj: Record<string, unknown> = { ...partialData };
     if (partialData.registrationNumber) {
       updateObj.registrationNumber = partialData.registrationNumber.trim().toUpperCase();
     }

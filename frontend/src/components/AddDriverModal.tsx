@@ -26,7 +26,7 @@ interface Props {
   onShowNotification: (title: string, body: string, type: 'success' | 'error' | 'info') => void;
 }
 
-const VEHICLE_TYPES: Array<'SEDAN' | 'SUV' | 'VAN' | 'TRUCK'> = ['SEDAN', 'SUV', 'VAN', 'TRUCK'];
+const VEHICLE_TYPES: ('SEDAN' | 'SUV' | 'VAN' | 'TRUCK')[] = ['SEDAN', 'SUV', 'VAN', 'TRUCK'];
 
 export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotification }: Props) {
   const [name, setName] = useState('');

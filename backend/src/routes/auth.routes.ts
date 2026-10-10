@@ -235,7 +235,7 @@ router.post('/forgot-password', async (req, res, next) => {
     await user.save();
 
     // Build reset link (deep link for mobile, web link for browser)
-    const resetLink = `http://65.2.202.84:5000/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
+    const resetLink = `${env.PUBLIC_APP_URL.replace(/\/$/, '')}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
     // Log to console (production would use nodemailer/SendGrid/etc.)
     // eslint-disable-next-line no-console

@@ -1,18 +1,13 @@
 import { getAccessToken } from '../tokenStore';
 
 function getBaseUrl(): string {
-  if (typeof window !== 'undefined' && window.location) {
-    const { protocol, hostname, port } = window.location;
-    // When served directly on port 5000 or via reverse proxy
-    if (port === '5000' || hostname === '65.2.202.84' && port === '') {
-      return `${protocol}//${hostname}:5000/api`;
-    }
-    // If browser is on HTTPS, never use cleartext HTTP to prevent Mixed Content blocking
-    if (protocol === 'https:' && (!process.env.EXPO_PUBLIC_API_BASE_URL || process.env.EXPO_PUBLIC_API_BASE_URL.startsWith('http://'))) {
-      return 'https://comply-plywood-crept.ngrok-free.dev/api';
-    }
+  const configured = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (configured) return configured.replace(/\/$/, '');
+  // Web build served by the backend itself: use the same origin.
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/api`;
   }
-  return (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://65.2.202.84:5000/api').replace(/\/$/, '');
+  throw new Error('EXPO_PUBLIC_API_BASE_URL is not set. Copy .env.example to .env and set it.');
 }
 
 const API_BASE_URL = getBaseUrl();
@@ -29,7 +24,6 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'ngrok-skip-browser-warning': '69420',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...((init?.headers as Record<string, string>) || {}),
   };

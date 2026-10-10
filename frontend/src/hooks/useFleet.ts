@@ -36,7 +36,6 @@ export function useFleet() {
       const data = await getFleetDrivers();
       setDbDrivers(data);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.warn('[useFleet] REST driver fetch error:', err);
     } finally {
       setLoading(false);

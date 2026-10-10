@@ -254,8 +254,8 @@ router.patch('/:id/status', requireAuth, async (req: AuthenticatedRequest, res, 
     }
 
     // Atomic Condition & Updates based on Strict State Machine
-    const condition: Record<string, any> = { _id: bookingId };
-    const updateFields: Record<string, any> = { status };
+    const condition: Record<string, unknown> = { _id: bookingId };
+    const updateFields: Record<string, unknown> = { status };
 
     if (status === 'DRIVER_ARRIVING') {
       condition.status = 'DRIVER_ACCEPTED';

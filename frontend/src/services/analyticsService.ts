@@ -71,13 +71,13 @@ export interface DriverPayoutStatement {
   totalEarnings: number;
   settledAmount: number;
   pendingBalance: number;
-  payoutHistory: Array<{
+  payoutHistory: {
     _id: string;
     amount: number;
     paymentMethod: string;
     transactionReference?: string;
     settledAt?: string;
-  }>;
+  }[];
 }
 
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {

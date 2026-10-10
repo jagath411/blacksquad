@@ -39,29 +39,18 @@ jobs:
 
       - name: Configure mobile environment
         working-directory: frontend
+        env:
+          EXPO_PUBLIC_API_BASE_URL: ${{ vars.EXPO_PUBLIC_API_BASE_URL }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
         run: |
-          printf '%s\n' \
-            'EXPO_PUBLIC_API_BASE_URL=http://65.2.202.84:5000/api' \
-            'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=892541607147-lsvgfd2bnc14bedn150a0jflmv30gh1m.apps.googleusercontent.com' \
-            'EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=892541607147-no1cnphat1e4ksb72urft5l2991afn6l.apps.googleusercontent.com' \
-            'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=892541607147-mrse0ua8umjjk9rdc588chb3qtauph41.apps.googleusercontent.com' \
-            > .env
-
-      - name: Verify Live Backend Health & Connectivity
-        run: |
-          echo "=== Pinging Production Backend API at http://65.2.202.84:5000/api/health ==="
-          curl -sSf -m 10 http://65.2.202.84:5000/api/health | grep -q '"success":true' && echo "✓ Backend API is reachable and healthy!" || (echo "⚠ Direct ping warning, continuing with fallback..." && true)
+          test -n "$EXPO_PUBLIC_API_BASE_URL" || { echo "Set the EXPO_PUBLIC_API_BASE_URL repository variable"; exit 1; }
+          env | grep '^EXPO_PUBLIC_' > .env
 
       - name: Typecheck frontend
         working-directory: frontend
         run: npm run typecheck
-
-      - name: Sanity Check - Android Manifest Cleartext & Network Security
-        working-directory: frontend/android
-        run: |
-          echo "=== Verifying Android Cleartext Permissions ==="
-          grep -q 'android:usesCleartextTraffic="true"' app/src/main/AndroidManifest.xml && echo "✓ Cleartext traffic permission confirmed!"
-          test -f app/src/main/res/xml/network_security_config.xml && echo "✓ Network security config confirmed!"
 
       - name: Ensure Android Assets and Vector Fonts
         working-directory: frontend
@@ -70,8 +59,20 @@ jobs:
           cp node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/*.ttf android/app/src/main/assets/fonts/ 2>/dev/null || true
           echo "Bundled $(ls -1 android/app/src/main/assets/fonts/*.ttf | wc -l) vector font files."
 
+      - name: Restore upload key
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_UPLOAD_KEYSTORE_BASE64" || { echo "Set the ANDROID_UPLOAD_KEYSTORE_BASE64 secret"; exit 1; }
+          echo "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.keystore"
+
       - name: Build Android Release APK with Gradle
         working-directory: frontend/android
+        env:
+          BLACKSQUAD_UPLOAD_STORE_FILE: ${{ runner.temp }}/upload.keystore
+          BLACKSQUAD_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          BLACKSQUAD_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          BLACKSQUAD_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Verify APK Signatures (v1 and v2)
@@ -94,12 +95,7 @@ jobs:
           tag_name: pilot-apk-v${{ github.run_number }}
           name: BlackSquad Pilot Release v${{ github.run_number }}
           body: |
-            🚀 **BlackSquad Production Android Standalone APK**
-            - **Brand**: New Mobility Truck & GPS Radar Location Logo across app icon, splash, and auth screens
-            - **Connectivity**: `usesCleartextTraffic` & Network Security Config allowing `http://65.2.202.84:5000/api`
-            - **Google Sign-In**: Fixed `id_token` Web/Android OAuth flow preventing `Error 400: invalid_request`
-            - **Signing**: Permanent `release.keystore` with Dual v1 (JAR) & v2 (APK) signature schemes
-            - **UI/UX**: 100% Vector Icons (`@expo/vector-icons`), Map-first interface, 4-digit PIN OTP verification
+            BlackSquad pilot APK built from ${{ github.sha }}.
           files: frontend/android/app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

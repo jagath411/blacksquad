@@ -92,7 +92,7 @@ export function LoginScreen({ navigation, route }: Props) {
     setApi('Checking server...');
     try {
       await getHealth();
-      setApi('Server Online (65.2.202.84:5000)');
+      setApi('Server online');
       setApiOnline(true);
       if (error?.title === 'Connection Unavailable' || error?.title === 'Server Temporarily Unavailable') {
         setError(null);
@@ -413,8 +413,8 @@ export function LoginScreen({ navigation, route }: Props) {
                     </View>
                   </View>
                   <Text style={s.smsSimulatorBody}>
-                    "Your BlackSquad verification code is{' '}
-                    <Text style={s.smsCodeHighlight}>{devOtp}</Text>. Valid for 10 min."
+                    &ldquo;Your BlackSquad verification code is{' '}
+                    <Text style={s.smsCodeHighlight}>{devOtp}</Text>. Valid for 10 min.&rdquo;
                   </Text>
                   <Pressable
                     style={({ pressed }) => [s.smsAutoFillBtn, pressed && { opacity: 0.8 }]}

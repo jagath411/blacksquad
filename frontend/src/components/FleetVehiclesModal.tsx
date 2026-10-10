@@ -40,7 +40,7 @@ const VEHICLE_TYPES = [
   { id: 'TRUCK', label: 'Freight Truck', icon: 'cube' },
 ];
 
-const FUEL_TYPES: Array<{ id: FuelType; label: string; icon: string }> = [
+const FUEL_TYPES: { id: FuelType; label: string; icon: string }[] = [
   { id: 'DIESEL', label: 'Diesel', icon: 'water' },
   { id: 'PETROL', label: 'Petrol', icon: 'flame' },
   { id: 'CNG', label: 'CNG Eco', icon: 'leaf' },

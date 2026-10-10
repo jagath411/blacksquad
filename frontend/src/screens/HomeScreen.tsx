@@ -163,7 +163,6 @@ export function HomeScreen({ route, navigation }: Props) {
         }
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.log('Location acquisition notice:', err);
     } finally {
       setIsLocating(false);
@@ -255,7 +254,6 @@ export function HomeScreen({ route, navigation }: Props) {
           unsubscribeRequests();
         };
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.log('Socket initialization notice:', err);
       }
     }

@@ -5,6 +5,13 @@
  */
 
 import { env } from '../config/env';
+import { errorMessage } from '../utils/errors';
+
+interface Fast2SmsResponse {
+  return?: boolean;
+  request_id?: string;
+  message?: string | string[];
+}
 
 export interface SendSmsResult {
   success: boolean;
@@ -63,15 +70,15 @@ class SmsService {
           }
         );
 
-        const data: any = await response.json();
+        const data = (await response.json()) as { sid?: string; message?: string };
         if (response.ok) {
           console.log(`📡 [TWILIO SMS SENT] To: ${e164} | SID: ${data.sid}`);
           return { success: true, provider: 'TWILIO', isLiveGateway: true, messageId: data.sid };
         } else {
           console.error(`❌ [TWILIO SMS ERROR] ${data.message || response.statusText}`);
         }
-      } catch (err: any) {
-        console.error(`❌ [TWILIO DISPATCH FAILED] ${err.message}`);
+      } catch (err) {
+        console.error(`❌ [TWILIO DISPATCH FAILED] ${errorMessage(err)}`);
       }
     }
 
@@ -92,7 +99,7 @@ class SmsService {
           }),
         });
 
-        let data: any = await response.json();
+        let data = (await response.json()) as Fast2SmsResponse;
         if (data.return) {
           console.log(`📡 [FAST2SMS SENT (OTP ROUTE)] To: ${raw10} | ReqID: ${data.request_id}`);
           return { success: true, provider: 'FAST2SMS', isLiveGateway: true, messageId: data.request_id };
@@ -113,15 +120,15 @@ class SmsService {
           }),
         });
 
-        data = await response.json();
+        data = (await response.json()) as Fast2SmsResponse;
         if (data.return) {
           console.log(`📡 [FAST2SMS SENT (QUICK ROUTE)] To: ${raw10} | ReqID: ${data.request_id}`);
           return { success: true, provider: 'FAST2SMS', isLiveGateway: true, messageId: data.request_id };
         } else {
           console.error(`❌ [FAST2SMS ERROR] ${Array.isArray(data.message) ? data.message.join(', ') : data.message || 'Dispatch failed'}`);
         }
-      } catch (err: any) {
-        console.error(`❌ [FAST2SMS DISPATCH FAILED] ${err.message}`);
+      } catch (err) {
+        console.error(`❌ [FAST2SMS DISPATCH FAILED] ${errorMessage(err)}`);
       }
     }
 
@@ -141,13 +148,13 @@ class SmsService {
           }),
         });
 
-        const data: any = await response.json();
+        const data = (await response.json()) as { type?: string; request_id?: string };
         if (data.type === 'success') {
           console.log(`📡 [MSG91 SMS SENT] To: 91${raw10} | ReqID: ${data.request_id}`);
           return { success: true, provider: 'MSG91', isLiveGateway: true, messageId: data.request_id };
         }
-      } catch (err: any) {
-        console.error(`❌ [MSG91 DISPATCH FAILED] ${err.message}`);
+      } catch (err) {
+        console.error(`❌ [MSG91 DISPATCH FAILED] ${errorMessage(err)}`);
       }
     }
 
@@ -163,8 +170,8 @@ class SmsService {
           console.log(`📡 [WEBHOOK SMS SENT] To: ${e164}`);
           return { success: true, provider: 'CUSTOM_WEBHOOK', isLiveGateway: true };
         }
-      } catch (err: any) {
-        console.error(`❌ [WEBHOOK SMS FAILED] ${err.message}`);
+      } catch (err) {
+        console.error(`❌ [WEBHOOK SMS FAILED] ${errorMessage(err)}`);
       }
     }
 

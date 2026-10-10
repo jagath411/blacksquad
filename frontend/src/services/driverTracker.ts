@@ -13,7 +13,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_TASK)) {
     if (error || !data) return;
     const locations = (
       data as {
-        locations?: Array<{
+        locations?: {
           coords: {
             latitude: number;
             longitude: number;
@@ -22,7 +22,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_TASK)) {
             accuracy: number;
           };
           timestamp: number;
-        }>;
+        }[];
       }
     ).locations;
     const position = locations?.[locations.length - 1];
@@ -35,7 +35,6 @@ if (!TaskManager.isTaskDefined(BACKGROUND_TASK)) {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-          'ngrok-skip-browser-warning': '69420',
         },
         body: JSON.stringify({
           latitude: position.coords.latitude,

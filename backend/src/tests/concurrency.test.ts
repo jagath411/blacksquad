@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- loose HTTP test harness */
 /**
  * End-to-End HTTP Concurrency & Data Race Condition Test Suite for BlackSquad
  * Validates real HTTP network requests under high concurrency load against Express & MongoDB.
@@ -104,6 +105,12 @@ async function httpPatch(url: string, token: string, body: any): Promise<{ statu
 }
 
 async function runE2EConcurrencySuite() {
+  // The suite deletes and creates records, so never point it at a real database.
+  if (!/test/i.test(env.MONGODB_URI)) {
+    console.error('Refusing to run: MONGODB_URI must point at a database whose name contains "test".');
+    process.exit(1);
+  }
+
   console.log('🧪 =========================================================');
   console.log('🧪 BlackSquad End-to-End HTTP Concurrency & Race Condition Suite');
   console.log('🧪 =========================================================\n');
