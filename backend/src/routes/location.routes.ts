@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { locationState } from '../services/location.service';
+import { ownerDriverUserIds } from '../services/fleet.service';
 import type { AuthenticatedRequest } from '../types/auth';
 
 const router = Router();
@@ -40,15 +41,28 @@ router.post(
   },
 );
 
-router.get('/', requireAuth, requireRole('OWNER'), (_req, res) =>
-  res.json({ success: true, locations: locationState.all() }),
-);
-router.get('/:driverId', requireAuth, requireRole('OWNER'), (req, res) => {
-  const driverId = req.params.driverId;
-  if (!driverId) {
-    res.status(400).json({ success: false, message: 'driverId is required' });
-    return;
+// Owners see only the drivers in their own fleet.
+router.get('/', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const fleet = await ownerDriverUserIds(req.user!.id);
+    res.json({ success: true, locations: locationState.all().filter((l) => fleet.has(l.driverId)) });
+  } catch (error) {
+    next(error);
   }
-  res.json({ success: true, location: locationState.get(driverId) ?? null });
 });
+
+router.get('/:driverId', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const driverId = req.params.driverId;
+    const fleet = await ownerDriverUserIds(req.user!.id);
+    if (!driverId || !fleet.has(driverId)) {
+      res.status(404).json({ success: false, message: 'Driver not found in your fleet' });
+      return;
+    }
+    res.json({ success: true, location: locationState.get(driverId) ?? null });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

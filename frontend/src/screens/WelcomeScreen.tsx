@@ -5,7 +5,8 @@ import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { Icon } from '../components/ui/Icon';
 import { colors } from '../constants/theme';
-import { getAccessToken, getSessionUser, saveSessionUser, clearAllStorage } from '../services/tokenStore';
+import { getAccessToken, getRefreshToken, getSessionUser, saveSessionUser, clearAllStorage } from '../services/tokenStore';
+import { ApiError } from '../services/api/client';
 import { getCurrentUser } from '../services/authService';
 import type { RootStackParamList } from '../types';
 
@@ -21,17 +22,21 @@ export function WelcomeScreen({ navigation }: Props) {
         const token = await getAccessToken();
         const cachedUser = await getSessionUser();
 
-        if (token && cachedUser && cachedUser.role) {
+        if ((token || (await getRefreshToken())) && cachedUser && cachedUser.role) {
           try {
-            // Validate token against backend to prevent stale session exploits
+            // Confirm the session with the server (this also renews an expired access token).
             const liveUser = await getCurrentUser();
             if (isMounted && liveUser && liveUser.role) {
               await saveSessionUser(liveUser);
               navigation.replace('Home', { role: liveUser.role });
               return;
             }
-          } catch {
-            // Token expired or revoked — clear storage cleanly
+          } catch (cause) {
+            if (cause instanceof ApiError && cause.status === 0) {
+              // Offline: keep the user signed in and let the app reconnect later.
+              if (isMounted) navigation.replace('Home', { role: cachedUser.role });
+              return;
+            }
             await clearAllStorage();
           }
         }

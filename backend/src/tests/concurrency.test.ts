@@ -165,9 +165,11 @@ async function runE2EConcurrencySuite() {
       vehicleType: 'SEDAN',
       model: 'Swift Dzire',
       status: 'ACTIVE',
+      ownerId: owner._id,
     });
     const dDoc = await DriverModel.create({
       userId: dUser._id,
+      ownerId: owner._id,
       licenseNumber: `DL-E2E-00${i}`,
       vehicleId: vehicle._id,
       availabilityStatus: 'AVAILABLE',
@@ -231,9 +233,7 @@ async function runE2EConcurrencySuite() {
     dropAddress: 'E2E Concurrency Airport',
     pickupCoordinates: [77.5946, 12.9716],
     dropCoordinates: [77.7064, 13.1986],
-    serviceTier: 'SEDAN',
-    fare: 850,
-    distanceKm: 34.2,
+    serviceTier: 'uberx',
   };
 
   const createResponses = await Promise.all([

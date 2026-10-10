@@ -43,7 +43,7 @@ import {
   type TrackerStatus,
 } from '../services/driverTracker';
 import { useFleet } from '../hooks/useFleet';
-import { clearAllStorage } from '../services/tokenStore';
+import { logout } from '../services/authService';
 import {
   acceptBooking,
   createBooking,
@@ -373,7 +373,7 @@ export function HomeScreen({ route, navigation }: Props) {
     if (trackerCleanupRef.current) {
       trackerCleanupRef.current();
     }
-    await clearAllStorage();
+    await logout();
     navigation.reset({
       index: 0,
       routes: [{ name: 'Role' }],
@@ -822,7 +822,7 @@ export function HomeScreen({ route, navigation }: Props) {
               </View>
               <View style={s.otpBadge}>
                 <Text style={s.otpLabel}>START PIN</Text>
-                <Text style={s.otpCode}>{activeBooking.startOtp || '4829'}</Text>
+                <Text style={s.otpCode}>{activeBooking.startOtp ?? '----'}</Text>
               </View>
             </View>
 

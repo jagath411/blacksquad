@@ -1,7 +1,7 @@
 import './src/utils/cryptoPolyfill';
 import 'react-native-gesture-handler';
-import React from 'react';
-import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import React, { useEffect } from 'react';
+import { NavigationContainer, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -14,10 +14,23 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import type { RootStackParamList } from './src/types';
+import { onSessionExpired } from './src/services/session';
+import { disconnectFleetSocket } from './src/services/socket';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 export default function App() {
+  // When a session can no longer be renewed, close the live connection and return to sign-in.
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        disconnectFleetSocket();
+        if (navigationRef.isReady()) navigationRef.reset({ index: 0, routes: [{ name: 'Role' }] });
+      }),
+    [],
+  );
+
   const [fontsLoaded] = useFonts({
     ...Ionicons.font,
     ...MaterialCommunityIcons.font,
@@ -35,6 +48,7 @@ export default function App() {
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       theme={{
         ...DarkTheme,
         colors: { ...DarkTheme.colors, background: '#07100D' },

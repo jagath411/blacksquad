@@ -21,6 +21,7 @@ export type LocationUpdateResult =
   | {
       accepted: true;
       location: DriverLocation;
+      ownerId?: string;
       activeBookingId?: string;
       etaMinutes?: number;
       distanceKm?: number;
@@ -91,7 +92,7 @@ class LocationStateService {
     try {
       const driver = await DriverModel.findOne({ userId: input.driverId })
         .populate('userId', 'name email')
-        .select('_id userId availabilityStatus')
+        .select('_id userId ownerId availabilityStatus')
         .lean();
       if (!driver) return { accepted: false, reason: 'driver_not_found' };
 
@@ -183,7 +184,14 @@ class LocationStateService {
         this.activeDriverBookings.delete(input.driverId);
       }
 
-      return { accepted: true, location, activeBookingId, etaMinutes, distanceKm };
+      return {
+        accepted: true,
+        location,
+        ownerId: driver.ownerId?.toString(),
+        activeBookingId,
+        etaMinutes,
+        distanceKm,
+      };
     } finally {
       resolveLock();
       if (this.locks.get(input.driverId) === chain) this.locks.delete(input.driverId);

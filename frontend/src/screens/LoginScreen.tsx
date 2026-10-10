@@ -2,6 +2,7 @@ import '../utils/cryptoPolyfill';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Platform,
   Pressable,
@@ -21,7 +22,7 @@ import { AppButton } from '../components/AppButton';
 import { Input } from '../components/ui/Input';
 import { Icon } from '../components/ui/Icon';
 import { getHealth } from '../services/api/health';
-import { googleLogin, login, register, sendPhoneOtp, verifyPhoneOtp } from '../services/authService';
+import { googleLogin, login, register, sendPhoneOtp, verifyPhoneOtp, type UserProfile } from '../services/authService';
 import type { RootStackParamList } from '../types';
 import { formatUnifiedError, type FormattedError } from '../utils/errorHandler';
 
@@ -120,6 +121,22 @@ export function LoginScreen({ navigation, route }: Props) {
     return () => clearInterval(interval);
   }, [phoneStep, resendTimer]);
 
+  // The server decides the account's role. If it differs from the portal picked, say why.
+  const enterApp = (user: UserProfile) => {
+    if (user.role !== role) {
+      const reason =
+        role === 'DRIVER'
+          ? 'This account is not registered as a driver yet. Ask your fleet owner to add your phone number.'
+          : role === 'OWNER'
+            ? 'This account is not a fleet owner account. Contact BlackSquad to set up a fleet.'
+            : `This account is a ${user.role.toLowerCase()} account.`;
+      const title = `Signed in as ${user.role.toLowerCase()}`;
+      if (Platform.OS === 'web') window.alert(`${title}\n\n${reason}`);
+      else Alert.alert(title, reason);
+    }
+    navigation.reset({ index: 0, routes: [{ name: 'Home', params: { role: user.role } }] });
+  };
+
   useEffect(() => {
     if (!googleResponse) return;
 
@@ -148,10 +165,8 @@ export function LoginScreen({ navigation, route }: Props) {
     setGoogleLoading(true);
     setError(null);
 
-    googleLogin(idToken, role)
-      .then((user) => {
-        navigation.navigate('Home', { role: user.role || role });
-      })
+    googleLogin(idToken)
+      .then(enterApp)
       .catch((err) => {
         setError(formatUnifiedError(err, 'login'));
       })
@@ -173,10 +188,10 @@ export function LoginScreen({ navigation, route }: Props) {
     const formatted = cleaned.startsWith('+') ? cleaned : `+91${cleaned.replace(/^0+/, '')}`;
     setSendingOtp(true);
     try {
-      const res = await sendPhoneOtp(formatted, role);
+      const res = await sendPhoneOtp(formatted);
       setPhone(formatted);
       setPhoneStep('otp');
-      setResendTimer(30);
+      setResendTimer(60);
       setSmsProvider(res.smsProvider || '');
       setIsLiveGateway(Boolean(res.isLiveGateway));
       if (res.devOtp) {
@@ -206,8 +221,7 @@ export function LoginScreen({ navigation, route }: Props) {
 
     setVerifyingOtp(true);
     try {
-      const user = await verifyPhoneOtp(formatted, targetOtp, role);
-      navigation.navigate('Home', { role: user.role || role });
+      enterApp(await verifyPhoneOtp(formatted, targetOtp));
     } catch (cause) {
       setError(formatUnifiedError(cause, 'login'));
     } finally {
@@ -239,11 +253,9 @@ export function LoginScreen({ navigation, route }: Props) {
     setLoading(true);
     try {
       if (createMode) {
-        const user = await register(name.trim(), email.trim(), password, role);
-        navigation.navigate('Home', { role: user.role || role });
+        enterApp(await register(name.trim(), email.trim(), password));
       } else {
-        const user = await login(email.trim(), password);
-        navigation.navigate('Home', { role: user.role || role });
+        enterApp(await login(email.trim(), password));
       }
     } catch (cause) {
       setError(formatUnifiedError(cause, 'login'));

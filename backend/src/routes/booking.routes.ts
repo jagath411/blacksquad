@@ -2,79 +2,130 @@ import { Router } from 'express';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { BookingModel } from '../models/Booking';
+import { BookingModel, type BookingStatus } from '../models/Booking';
 import { DriverModel } from '../models/Driver';
 import { VehicleModel } from '../models/Vehicle';
 import { notificationService } from '../services/notification.service';
 import { locationState } from '../services/location.service';
-import { io } from '../server';
+import { FARE_TIERS, findTier, quoteFare } from '../services/pricing.service';
+import { findBookingForView, withoutStartPin } from '../services/booking.view';
+import { ownerDriverIds } from '../services/fleet.service';
+import { AVAILABLE_DRIVERS_ROOM, bookingRoom, customerRoom, getIO } from '../sockets';
 import type { AuthenticatedRequest } from '../types/auth';
+import { safeEqual } from '../utils/crypto';
+import crypto from 'crypto';
 
 const router = Router();
 
 const customerBookingLocks = new Map<string, Promise<unknown>>();
 
-const createBookingSchema = z.object({
-  pickupAddress: z.string().min(2).max(300),
-  dropAddress: z.string().min(2).max(300),
-  pickupCoordinates: z.tuple([z.number(), z.number()]), // [lng, lat]
-  dropCoordinates: z.tuple([z.number(), z.number()]), // [lng, lat]
-  serviceTier: z.string().default('uberx'),
-  fare: z.number().min(0),
-  distanceKm: z.number().optional(),
+const ACTIVE_STATUSES: BookingStatus[] = [
+  'REQUESTED',
+  'ASSIGNED',
+  'DRIVER_ACCEPTED',
+  'DRIVER_ARRIVING',
+  'TRIP_STARTED',
+];
+
+// [longitude, latitude]
+const coordinates = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
+
+const tripSchema = z.object({
+  pickupCoordinates: coordinates,
+  dropCoordinates: coordinates,
+  serviceTier: z.string().min(1).max(60).default('uberx'),
 });
 
-// 1. Create Booking (Customer)
-router.post(
-  '/',
-  requireAuth,
-  requireRole('CUSTOMER'),
-  async (req: AuthenticatedRequest, res, next) => {
-    const customerId = req.user!.id;
-    const previousLock = customerBookingLocks.get(customerId) ?? Promise.resolve();
-    let resolveLock!: () => void;
-    const currentLock = new Promise<void>((resolve) => {
-      resolveLock = resolve;
-    });
-    const chain = previousLock.then(() => currentLock);
-    customerBookingLocks.set(customerId, chain);
-    await previousLock;
+const createBookingSchema = tripSchema.extend({
+  pickupAddress: z.string().min(2).max(300),
+  dropAddress: z.string().min(2).max(300),
+});
 
-    try {
-      const data = createBookingSchema.parse(req.body);
+const objectId = (value: string | undefined): value is string => Boolean(value && Types.ObjectId.isValid(value));
 
-      // Concurrency Guard: Check if customer already has an active ride in progress
-      const activeExisting = await BookingModel.findOne({
-        customerId,
-        status: { $in: ['REQUESTED', 'ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'TRIP_STARTED'] },
-      }).lean();
+/** Sends a status change to everyone watching; only the customer's copy carries the trip PIN. */
+function broadcastStatus(
+  booking: { _id: Types.ObjectId; customerId: Types.ObjectId | { _id: Types.ObjectId } },
+  status: BookingStatus,
+  view: object | null,
+): void {
+  const io = getIO();
+  if (!io) return;
+  const bookingId = booking._id.toString();
+  const customerId =
+    'toHexString' in booking.customerId ? booking.customerId.toString() : booking.customerId._id.toString();
 
-      if (activeExisting) {
-        res.status(409).json({
-          success: false,
-          message: 'You already have an active ride request in progress.',
-          booking: activeExisting,
-        });
-        return;
-      }
+  io.to(bookingRoom(bookingId))
+    .except(customerRoom(customerId))
+    .emit('booking:status:change', { bookingId, status, booking: withoutStartPin(view) });
+  io.to(customerRoom(customerId)).emit('booking:status:change', { bookingId, status, booking: view });
+}
 
-      const startOtp = Math.floor(1000 + Math.random() * 9000).toString();
+router.get('/tiers', requireAuth, (_req, res) => {
+  res.json({ success: true, tiers: FARE_TIERS });
+});
 
-      const booking = await BookingModel.create({
-        customerId,
-        pickupAddress: data.pickupAddress,
-        dropAddress: data.dropAddress,
-        pickupLocation: { type: 'Point', coordinates: data.pickupCoordinates },
-        dropLocation: { type: 'Point', coordinates: data.dropCoordinates },
-        serviceTier: data.serviceTier,
-        fare: data.fare,
-        distanceKm: data.distanceKm,
-        startOtp,
-        status: 'REQUESTED',
+router.post('/quote', requireAuth, (req, res, next) => {
+  try {
+    const data = tripSchema.parse(req.body);
+    const tier = findTier(data.serviceTier);
+    if (!tier) {
+      res.status(400).json({ success: false, message: 'Unknown service tier' });
+      return;
+    }
+    res.json({ success: true, tier: tier.id, ...quoteFare(tier, data.pickupCoordinates, data.dropCoordinates) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 1. Create booking (customer). The server sets the fare; any fare sent by the app is ignored.
+router.post('/', requireAuth, requireRole('CUSTOMER'), async (req: AuthenticatedRequest, res, next) => {
+  const customerId = req.user!.id;
+  const previousLock = customerBookingLocks.get(customerId) ?? Promise.resolve();
+  let resolveLock!: () => void;
+  const currentLock = new Promise<void>((resolve) => {
+    resolveLock = resolve;
+  });
+  const chain = previousLock.then(() => currentLock);
+  customerBookingLocks.set(customerId, chain);
+  await previousLock;
+
+  try {
+    const data = createBookingSchema.parse(req.body);
+    const tier = findTier(data.serviceTier);
+    if (!tier) {
+      res.status(400).json({ success: false, message: 'Unknown service tier' });
+      return;
+    }
+
+    const activeExisting = await BookingModel.findOne({ customerId, status: { $in: ACTIVE_STATUSES } }).lean();
+    if (activeExisting) {
+      res.status(409).json({
+        success: false,
+        message: 'You already have an active ride request in progress.',
+        booking: activeExisting,
       });
+      return;
+    }
 
-      // Broadcast new booking opportunity to available drivers
-      io?.to('drivers:available').emit('booking:new:request', {
+    const { fare, distanceKm } = quoteFare(tier, data.pickupCoordinates, data.dropCoordinates);
+    const booking = await BookingModel.create({
+      customerId,
+      pickupAddress: data.pickupAddress,
+      dropAddress: data.dropAddress,
+      pickupLocation: { type: 'Point', coordinates: data.pickupCoordinates },
+      dropLocation: { type: 'Point', coordinates: data.dropCoordinates },
+      serviceTier: tier.id,
+      fare,
+      distanceKm,
+      startOtp: crypto.randomInt(1000, 10000).toString(),
+      status: 'REQUESTED',
+    });
+
+    getIO()
+      ?.to(AVAILABLE_DRIVERS_ROOM)
+      .emit('booking:new:request', {
         _id: booking._id.toString(),
         pickupAddress: booking.pickupAddress,
         dropAddress: booking.dropAddress,
@@ -86,308 +137,269 @@ router.post(
         createdAt: booking.createdAt,
       });
 
-      res.status(201).json({ success: true, booking });
-    } catch (error) {
-      next(error);
-    } finally {
-      resolveLock();
-      if (customerBookingLocks.get(customerId) === chain) customerBookingLocks.delete(customerId);
-    }
-  },
-);
+    res.status(201).json({ success: true, booking });
+  } catch (error) {
+    next(error);
+  } finally {
+    resolveLock();
+    if (customerBookingLocks.get(customerId) === chain) customerBookingLocks.delete(customerId);
+  }
+});
 
-// 2. Get Active Booking (Customer or Driver)
+// 2. Active booking (customer or driver)
 router.get('/active', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
-    let query: Record<string, unknown> = {};
+    let booking = null;
     if (req.user!.role === 'CUSTOMER') {
-      query = {
-        customerId: req.user!.id,
-        status: {
-          $in: ['REQUESTED', 'ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'TRIP_STARTED'],
-        },
-      };
+      const found = await BookingModel.findOne({ customerId: req.user!.id, status: { $in: ACTIVE_STATUSES } })
+        .sort({ createdAt: -1 })
+        .select('_id')
+        .lean();
+      booking = found ? await findBookingForView(found._id) : null;
     } else if (req.user!.role === 'DRIVER') {
-      const driver = await DriverModel.findOne({ userId: req.user!.id }).lean();
-      if (!driver) {
-        res.json({ success: true, booking: null });
-        return;
-      }
-      query = {
-        driverId: driver._id,
-        status: {
-          $in: ['DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'TRIP_STARTED'],
-        },
-      };
-    } else {
-      res.json({ success: true, booking: null });
-      return;
+      const driver = await DriverModel.findOne({ userId: req.user!.id }).select('_id').lean();
+      const found = driver
+        ? await BookingModel.findOne({
+            driverId: driver._id,
+            status: { $in: ['DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'TRIP_STARTED'] },
+          })
+            .sort({ createdAt: -1 })
+            .select('_id')
+            .lean()
+        : null;
+      booking = found ? withoutStartPin(await findBookingForView(found._id)) : null;
     }
-
-    const booking = await BookingModel.findOne(query)
-      .populate('customerId', 'name email phoneNumber')
-      .populate({
-        path: 'driverId',
-        populate: { path: 'userId', select: 'name email phoneNumber' },
-      })
-      .populate('vehicleId')
-      .sort({ createdAt: -1 })
-      .lean();
-
     res.json({ success: true, booking });
   } catch (error) {
     next(error);
   }
 });
 
-// 3. Driver Accept Booking (Atomic Concurrency-Safe)
-router.post(
-  '/:id/accept',
-  requireAuth,
-  requireRole('DRIVER'),
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const bookingId = req.params.id;
-      if (!bookingId || !Types.ObjectId.isValid(bookingId)) {
-        res.status(400).json({ success: false, message: 'Invalid booking ID' });
-        return;
-      }
-
-      // Step 1: Atomically acquire driver availability lock
-      const driver = await DriverModel.findOneAndUpdate(
-        { userId: req.user!.id, availabilityStatus: { $ne: 'ON_TRIP' } },
-        { $set: { availabilityStatus: 'ON_TRIP' } },
-        { new: true },
-      );
-
-      if (!driver) {
-        res.status(409).json({ success: false, message: 'You are currently on an active trip or offline.' });
-        return;
-      }
-
-      // If driver has no vehicle assigned, attach active vehicle
-      if (!driver.vehicleId) {
-        const defaultVehicle = await VehicleModel.findOne({ driverId: driver._id });
-        if (defaultVehicle) {
-          driver.vehicleId = defaultVehicle._id as Types.ObjectId;
-          await driver.save();
-        }
-      }
-
-      // Step 2: Atomically acquire booking lock (only if still REQUESTED or ASSIGNED)
-      const updatedBooking = await BookingModel.findOneAndUpdate(
-        {
-          _id: bookingId,
-          status: { $in: ['REQUESTED', 'ASSIGNED'] },
-        },
-        {
-          $set: {
-            status: 'DRIVER_ACCEPTED',
-            driverId: driver._id,
-            ...(driver.vehicleId ? { vehicleId: driver.vehicleId } : {}),
-          },
-        },
-        { new: true },
-      );
-
-      if (!updatedBooking) {
-        // Rollback driver availability if another driver won the race
-        await DriverModel.findByIdAndUpdate(driver._id, { $set: { availabilityStatus: 'AVAILABLE' } });
-        res.status(409).json({ success: false, message: 'This ride is no longer available (accepted by another partner).' });
-        return;
-      }
-
-      // Track active booking in location service
-      locationState.setActiveBooking(req.user!.id, updatedBooking._id.toString());
-
-      // Fetch populated booking
-      const populatedBooking = await BookingModel.findById(updatedBooking._id)
-        .populate('customerId', 'name email phoneNumber')
-        .populate({
-          path: 'driverId',
-          populate: { path: 'userId', select: 'name email phoneNumber' },
-        })
-        .populate('vehicleId')
-        .lean();
-
-      // Emit real-time status change to booking room and customer room
-      io?.to(`booking:${updatedBooking._id}`).emit('booking:status:change', {
-        bookingId: updatedBooking._id.toString(),
-        status: 'DRIVER_ACCEPTED',
-        booking: populatedBooking,
-      });
-
-      io?.to(`customer:${updatedBooking.customerId}`).emit('booking:status:change', {
-        bookingId: updatedBooking._id.toString(),
-        status: 'DRIVER_ACCEPTED',
-        booking: populatedBooking,
-      });
-
-      void notificationService.notifyTripMilestone(
-        updatedBooking.customerId.toString(),
-        req.user?.name || 'Driver',
-        'DRIVER_ACCEPTED',
-      );
-
-      res.json({ success: true, booking: populatedBooking });
-    } catch (error) {
-      next(error);
+// 3. Driver accepts a booking (atomic; only one driver can win)
+router.post('/:id/accept', requireAuth, requireRole('DRIVER'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const bookingId = req.params.id;
+    if (!objectId(bookingId)) {
+      res.status(400).json({ success: false, message: 'Invalid booking ID' });
+      return;
     }
-  },
-);
 
-// 4. Update Booking Status (Atomic State Machine)
+    // Only an online driver who is not already on a trip can accept.
+    const driver = await DriverModel.findOneAndUpdate(
+      { userId: req.user!.id, availabilityStatus: 'AVAILABLE' },
+      { $set: { availabilityStatus: 'ON_TRIP' } },
+      { new: true },
+    );
+    if (!driver) {
+      res.status(409).json({ success: false, message: 'Go online to accept rides, or finish your current trip first.' });
+      return;
+    }
+
+    if (!driver.vehicleId) {
+      const defaultVehicle = await VehicleModel.findOne({ driverId: driver._id });
+      if (defaultVehicle) {
+        driver.vehicleId = defaultVehicle._id;
+        await driver.save();
+      }
+    }
+
+    const updatedBooking = await BookingModel.findOneAndUpdate(
+      { _id: bookingId, status: { $in: ['REQUESTED', 'ASSIGNED'] } },
+      {
+        $set: {
+          status: 'DRIVER_ACCEPTED',
+          driverId: driver._id,
+          ...(driver.vehicleId ? { vehicleId: driver.vehicleId } : {}),
+        },
+      },
+      { new: true },
+    );
+
+    if (!updatedBooking) {
+      await DriverModel.findByIdAndUpdate(driver._id, { $set: { availabilityStatus: 'AVAILABLE' } });
+      res.status(409).json({ success: false, message: 'This ride is no longer available (accepted by another partner).' });
+      return;
+    }
+
+    locationState.setActiveBooking(req.user!.id, updatedBooking._id.toString());
+    getIO()?.to(AVAILABLE_DRIVERS_ROOM).emit('booking:request:taken', { bookingId: updatedBooking._id.toString() });
+
+    const view = await findBookingForView(updatedBooking._id);
+    broadcastStatus(updatedBooking, 'DRIVER_ACCEPTED', view);
+    void notificationService.notifyTripMilestone(
+      updatedBooking.customerId.toString(),
+      req.user?.name || 'Driver',
+      'DRIVER_ACCEPTED',
+    );
+
+    res.json({ success: true, booking: withoutStartPin(view) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const statusSchema = z.object({
+  status: z.enum(['DRIVER_ARRIVING', 'TRIP_STARTED', 'TRIP_COMPLETED', 'CANCELLED']),
+  otp: z.string().max(10).optional(),
+  cancellationReason: z.string().max(300).optional(),
+});
+
+/** Which statuses each role may move a booking into, and from which statuses. */
+const TRANSITIONS: Record<'CUSTOMER' | 'DRIVER', Partial<Record<BookingStatus, BookingStatus[]>>> = {
+  CUSTOMER: {
+    CANCELLED: ['REQUESTED', 'ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_ARRIVING'],
+  },
+  DRIVER: {
+    DRIVER_ARRIVING: ['DRIVER_ACCEPTED'],
+    TRIP_STARTED: ['DRIVER_ACCEPTED', 'DRIVER_ARRIVING'],
+    TRIP_COMPLETED: ['TRIP_STARTED'],
+    CANCELLED: ['DRIVER_ACCEPTED', 'DRIVER_ARRIVING'],
+  },
+};
+
+// 4. Update booking status. Only the booking's customer or its assigned driver can act on it.
 router.patch('/:id/status', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const bookingId = req.params.id;
-    const statusSchema = z.object({
-      status: z.enum(['DRIVER_ARRIVING', 'TRIP_STARTED', 'TRIP_COMPLETED', 'CANCELLED']),
-      otp: z.string().optional(),
-      cancellationReason: z.string().optional(),
-    });
+    if (!objectId(bookingId)) {
+      res.status(400).json({ success: false, message: 'Invalid booking ID' });
+      return;
+    }
     const { status, otp, cancellationReason } = statusSchema.parse(req.body);
+    const role = req.user!.role;
+    if (role !== 'CUSTOMER' && role !== 'DRIVER') {
+      res.status(403).json({ success: false, message: 'Insufficient permissions' });
+      return;
+    }
 
-    const existingBooking = await BookingModel.findById(bookingId);
+    const condition: Record<string, unknown> = { _id: bookingId };
+    if (role === 'CUSTOMER') {
+      condition.customerId = req.user!.id;
+    } else {
+      const driver = await DriverModel.findOne({ userId: req.user!.id }).select('_id').lean();
+      if (!driver) {
+        res.status(404).json({ success: false, message: 'Booking not found' });
+        return;
+      }
+      condition.driverId = driver._id;
+    }
+
+    const existingBooking = await BookingModel.findOne(condition).lean();
     if (!existingBooking) {
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
 
-    // Atomic Condition & Updates based on Strict State Machine
-    const condition: Record<string, unknown> = { _id: bookingId };
-    const updateFields: Record<string, unknown> = { status };
+    const allowedFrom = TRANSITIONS[role][status];
+    if (!allowedFrom) {
+      res.status(403).json({ success: false, message: 'You cannot set this status' });
+      return;
+    }
+    condition.status = { $in: allowedFrom };
 
-    if (status === 'DRIVER_ARRIVING') {
-      condition.status = 'DRIVER_ACCEPTED';
-    } else if (status === 'TRIP_STARTED') {
-      condition.status = { $in: ['DRIVER_ACCEPTED', 'DRIVER_ARRIVING'] };
-      // Verify ride start PIN
-      if (existingBooking.startOtp && otp) {
-        if (otp.trim() !== existingBooking.startOtp.trim()) {
-          res.status(400).json({ success: false, message: 'Incorrect ride start PIN' });
-          return;
-        }
+    const updateFields: Record<string, unknown> = { status };
+    if (status === 'TRIP_STARTED') {
+      if (!otp || !existingBooking.startOtp || !safeEqual(otp.trim(), existingBooking.startOtp)) {
+        res.status(400).json({ success: false, message: 'Incorrect ride start PIN' });
+        return;
       }
       updateFields.startedAt = new Date();
     } else if (status === 'TRIP_COMPLETED') {
-      condition.status = 'TRIP_STARTED';
       updateFields.completedAt = new Date();
     } else if (status === 'CANCELLED') {
-      // Cannot cancel an already completed trip
-      condition.status = { $in: ['REQUESTED', 'ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_ARRIVING'] };
       updateFields.cancelledAt = new Date();
-      if (cancellationReason) {
-        updateFields.cancellationReason = cancellationReason;
-      }
+      updateFields.cancellationReason = cancellationReason || `Cancelled by ${role.toLowerCase()}`;
     }
 
-    const updatedBooking = await BookingModel.findOneAndUpdate(
-      condition,
-      { $set: updateFields },
-      { new: true },
-    );
-
+    const updatedBooking = await BookingModel.findOneAndUpdate(condition, { $set: updateFields }, { new: true });
     if (!updatedBooking) {
       res.status(409).json({
         success: false,
-        message: `Cannot transition ride status from '${existingBooking.status}' to '${status}'.`,
+        message: `Cannot change ride status from '${existingBooking.status}' to '${status}'.`,
       });
       return;
     }
 
-    // Free driver if trip ended
-    if (status === 'TRIP_COMPLETED' || status === 'CANCELLED') {
-      if (updatedBooking.driverId) {
-        const driverDoc = await DriverModel.findByIdAndUpdate(
-          updatedBooking.driverId,
-          { $set: { availabilityStatus: 'AVAILABLE' } },
-          { new: true },
-        );
-        if (driverDoc) {
-          locationState.setActiveBooking(driverDoc.userId.toString(), null);
-        }
-      }
+    if ((status === 'TRIP_COMPLETED' || status === 'CANCELLED') && updatedBooking.driverId) {
+      const driverDoc = await DriverModel.findOneAndUpdate(
+        { _id: updatedBooking.driverId, availabilityStatus: 'ON_TRIP' },
+        { $set: { availabilityStatus: 'AVAILABLE' } },
+        { new: true },
+      );
+      if (driverDoc) locationState.setActiveBooking(driverDoc.userId.toString(), null);
     }
 
-    const populatedBooking = await BookingModel.findById(updatedBooking._id)
-      .populate('customerId', 'name email phoneNumber')
-      .populate({
-        path: 'driverId',
-        populate: { path: 'userId', select: 'name email phoneNumber' },
-      })
-      .populate('vehicleId')
-      .lean();
+    const view = await findBookingForView(updatedBooking._id);
+    broadcastStatus(updatedBooking, status, view);
+    void notificationService.notifyTripMilestone(updatedBooking.customerId.toString(), req.user?.name || 'Driver', status);
 
-    // Broadcast status change to booking room, customer room, and driver room
-    io?.to(`booking:${updatedBooking._id}`).emit('booking:status:change', {
-      bookingId: updatedBooking._id.toString(),
-      status,
-      booking: populatedBooking,
-    });
-
-    io?.to(`customer:${updatedBooking.customerId}`).emit('booking:status:change', {
-      bookingId: updatedBooking._id.toString(),
-      status,
-      booking: populatedBooking,
-    });
-
-    void notificationService.notifyTripMilestone(
-      updatedBooking.customerId.toString(),
-      req.user?.name || 'Driver',
-      status,
-    );
-
-    res.json({ success: true, booking: populatedBooking });
+    res.json({ success: true, booking: role === 'CUSTOMER' ? view : withoutStartPin(view) });
   } catch (error) {
     next(error);
   }
 });
 
-// 5. Rate Trip (Customer or Driver)
+// 5. Rate a completed trip, once per side.
 router.post('/:id/rate', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const bookingId = req.params.id;
-    const rateSchema = z.object({
-      rating: z.number().min(1).max(5),
-    });
-    const { rating } = rateSchema.parse(req.body);
+    if (!objectId(bookingId)) {
+      res.status(400).json({ success: false, message: 'Invalid booking ID' });
+      return;
+    }
+    const { rating } = z.object({ rating: z.number().int().min(1).max(5) }).parse(req.body);
 
-    const booking = await BookingModel.findById(bookingId);
-    if (!booking) {
-      res.status(404).json({ success: false, message: 'Booking not found' });
+    let filter: Record<string, unknown>;
+    let field: 'driverRating' | 'riderRating';
+    if (req.user!.role === 'CUSTOMER') {
+      filter = { _id: bookingId, customerId: req.user!.id };
+      field = 'driverRating';
+    } else if (req.user!.role === 'DRIVER') {
+      const driver = await DriverModel.findOne({ userId: req.user!.id }).select('_id').lean();
+      filter = { _id: bookingId, driverId: driver?._id ?? null };
+      field = 'riderRating';
+    } else {
+      res.status(403).json({ success: false, message: 'Insufficient permissions' });
       return;
     }
 
-    if (req.user!.role === 'CUSTOMER') {
-      booking.driverRating = rating;
-    } else {
-      booking.riderRating = rating;
+    const booking = await BookingModel.findOneAndUpdate(
+      { ...filter, status: 'TRIP_COMPLETED', [field]: { $exists: false } },
+      { $set: { [field]: rating } },
+      { new: true },
+    ).lean();
+    if (!booking) {
+      res.status(409).json({ success: false, message: 'This trip cannot be rated' });
+      return;
     }
-    await booking.save();
-
-    res.json({ success: true, message: 'Rating saved successfully', booking });
+    res.json({ success: true, message: 'Rating saved successfully' });
   } catch (error) {
     next(error);
   }
 });
 
-// 6. Booking History
+// 6. Booking history
 router.get('/history', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
-    let query: Record<string, unknown> = {};
+    let query: Record<string, unknown>;
     if (req.user!.role === 'CUSTOMER') {
       query = { customerId: req.user!.id };
     } else if (req.user!.role === 'DRIVER') {
-      const driver = await DriverModel.findOne({ userId: req.user!.id }).lean();
+      const driver = await DriverModel.findOne({ userId: req.user!.id }).select('_id').lean();
       if (!driver) {
         res.json({ success: true, bookings: [] });
         return;
       }
       query = { driverId: driver._id };
+    } else {
+      query = { driverId: { $in: await ownerDriverIds(req.user!.id) } };
     }
 
-    const bookings = await BookingModel.find(query).sort({ createdAt: -1 }).limit(20).lean();
-
+    const bookings = await BookingModel.find(query)
+      .select(req.user!.role === 'CUSTOMER' ? '' : '-startOtp')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
     res.json({ success: true, bookings });
   } catch (error) {
     next(error);

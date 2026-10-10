@@ -14,6 +14,7 @@ export interface VehicleDocument {
   insuranceExpiry?: Date;
   pucExpiry?: Date;
   driverId?: Types.ObjectId;
+  ownerId?: Types.ObjectId;
   status: VehicleStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -41,6 +42,7 @@ const vehicleSchema = new Schema<VehicleDocument>(
     insuranceExpiry: { type: Date },
     pucExpiry: { type: Date },
     driverId: { type: Schema.Types.ObjectId, ref: 'Driver', index: true },
+    ownerId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     status: {
       type: String,
       enum: ['ACTIVE', 'MAINTENANCE', 'INACTIVE'],

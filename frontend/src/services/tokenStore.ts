@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import type { UserRole } from '../types';
 
 const TOKEN_KEY = 'blacksquad.accessToken';
+const REFRESH_KEY = 'blacksquad.refreshToken';
 const USER_KEY = 'blacksquad.sessionUser';
 
 // In-Memory Storage Fallback (Tier 3)
@@ -114,6 +115,23 @@ export async function clearAccessToken(): Promise<void> {
   await removeItemSafe(TOKEN_KEY);
 }
 
+export async function getRefreshToken(): Promise<string | null> {
+  return getItemSafe(REFRESH_KEY);
+}
+
+/** Stores everything a sign-in or token refresh returns. */
+export async function saveSession(session: {
+  accessToken: string;
+  refreshToken: string;
+  user: SessionUser;
+}): Promise<void> {
+  await Promise.all([
+    setItemSafe(TOKEN_KEY, session.accessToken),
+    setItemSafe(REFRESH_KEY, session.refreshToken),
+    setItemSafe(USER_KEY, JSON.stringify(session.user)),
+  ]);
+}
+
 export interface SessionUser {
   id: string;
   name: string;
@@ -154,6 +172,7 @@ export async function getActiveRole(): Promise<UserRole | null> {
 export async function clearAllStorage(): Promise<void> {
   await Promise.all([
     clearAccessToken(),
+    removeItemSafe(REFRESH_KEY),
     clearSessionUser(),
     removeItemSafe(ROLE_KEY),
   ]);

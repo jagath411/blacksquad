@@ -94,7 +94,7 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
             <View style={styles.contactBar}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.contactLabel}>DIRECT CONTACT NUMBER</Text>
-                <Text style={styles.contactPhone}>{driver.phone || '+91 98948 84605'}</Text>
+                <Text style={styles.contactPhone}>{driver.phone || 'No phone on file'}</Text>
               </View>
               <Pressable style={styles.callFab} onPress={handleCallDriver}>
                 <Icon name="call" size={16} color="#07100D" />

@@ -1,5 +1,6 @@
 import { apiRequest } from './api/client';
-import { saveAccessToken, saveSessionUser } from './tokenStore';
+import { clearAllStorage, getRefreshToken, saveSession } from './tokenStore';
+import { disconnectFleetSocket } from './socket';
 import type { UserRole } from '../types';
 
 export interface UserProfile {
@@ -10,24 +11,21 @@ export interface UserProfile {
   role: UserRole;
 }
 
-interface LoginResponse { success: boolean; accessToken: string; user: UserProfile }
+interface LoginResponse { success: boolean; accessToken: string; refreshToken: string; user: UserProfile }
 
 export async function login(email: string, password: string): Promise<UserProfile> {
   const response = await apiRequest<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-  await saveAccessToken(response.accessToken);
-  await saveSessionUser(response.user);
+  await saveSession(response);
   return response.user;
 }
-export async function register(name: string, email: string, password: string, role: UserRole): Promise<UserProfile> {
-  const response = await apiRequest<LoginResponse>('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, role }) });
-  await saveAccessToken(response.accessToken);
-  await saveSessionUser(response.user);
+export async function register(name: string, email: string, password: string): Promise<UserProfile> {
+  const response = await apiRequest<LoginResponse>('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+  await saveSession(response);
   return response.user;
 }
-export async function googleLogin(idToken: string, role: UserRole): Promise<UserProfile> {
-  const response = await apiRequest<LoginResponse>('/auth/google', { method: 'POST', body: JSON.stringify({ idToken, role }) });
-  await saveAccessToken(response.accessToken);
-  await saveSessionUser(response.user);
+export async function googleLogin(idToken: string): Promise<UserProfile> {
+  const response = await apiRequest<LoginResponse>('/auth/google', { method: 'POST', body: JSON.stringify({ idToken }) });
+  await saveSession(response);
   return response.user;
 }
 
@@ -46,7 +44,6 @@ export async function updateUserProfile(data: { name?: string; phoneNumber?: str
 
 export async function sendPhoneOtp(
   phoneNumber: string,
-  role?: UserRole
 ): Promise<{
   success: boolean;
   message: string;
@@ -66,21 +63,26 @@ export async function sendPhoneOtp(
     devOtp?: string;
   }>('/auth/phone/send-otp', {
     method: 'POST',
-    body: JSON.stringify({ phoneNumber, role }),
+    body: JSON.stringify({ phoneNumber }),
   });
 }
 
-export async function verifyPhoneOtp(
-  phoneNumber: string,
-  otp: string,
-  role?: UserRole
-): Promise<UserProfile> {
+export async function verifyPhoneOtp(phoneNumber: string, otp: string): Promise<UserProfile> {
   const response = await apiRequest<LoginResponse>('/auth/phone/verify-otp', {
     method: 'POST',
-    body: JSON.stringify({ phoneNumber, otp, role }),
+    body: JSON.stringify({ phoneNumber, otp }),
   });
-  await saveAccessToken(response.accessToken);
-  await saveSessionUser(response.user);
+  await saveSession(response);
   return response.user;
 }
 
+
+/** Signs out on the server and on this device, and closes the live connection. */
+export async function logout(): Promise<void> {
+  disconnectFleetSocket();
+  const refreshToken = await getRefreshToken();
+  if (refreshToken) {
+    await apiRequest('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }).catch(() => undefined);
+  }
+  await clearAllStorage();
+}

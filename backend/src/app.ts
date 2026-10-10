@@ -6,9 +6,11 @@ import { env } from './config/env';
 import apiRouter from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
+import { apiRateLimiter } from './middleware/rateLimiter';
 
 export const createApp = (): Application => {
   const app = express();
+  app.set('trust proxy', env.TRUST_PROXY);
 
   // Security and utility middleware
   app.use(helmet({ crossOriginOpenerPolicy: false, contentSecurityPolicy: false, originAgentCluster: false }));
@@ -21,7 +23,7 @@ export const createApp = (): Application => {
     }),
   );
 
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '100kb' }));
   app.use(express.urlencoded({ extended: true }));
 
   // Request logging in development
@@ -30,7 +32,7 @@ export const createApp = (): Application => {
   }
 
   // Mount API routes
-  app.use(env.API_PREFIX, apiRouter);
+  app.use(env.API_PREFIX, apiRateLimiter, apiRouter);
 
   // Serve the browser build through the same public port as the API.
   // Keeping /api separate lets mobile clients use the API while browser users

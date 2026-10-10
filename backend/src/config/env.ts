@@ -1,8 +1,9 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-// Load environment variables from .env file
-dotenv.config();
+// Load environment variables from .env file. Tests never read .env, so they cannot
+// pick up real SMS keys or a real database by accident.
+if (process.env.NODE_ENV !== 'test') dotenv.config();
 
 const envSchema = z.object({
   PORT: z
@@ -21,6 +22,13 @@ const envSchema = z.object({
     .min(1, 'MONGODB_URI is required')
     .default('mongodb://127.0.0.1:27017/blacksquad_db'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  // Number of reverse proxies in front of the API, so rate limits see the real client IP.
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+  // 32-byte key (hex or base64) for encrypting bank details at rest.
+  // When unset, a key is derived from JWT_SECRET; set it explicitly in production.
+  DATA_ENCRYPTION_KEY: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().min(10).optional(),
   GOOGLE_WEB_CLIENT_ID: z.string().optional(),
   GOOGLE_ANDROID_CLIENT_ID: z.string().optional(),

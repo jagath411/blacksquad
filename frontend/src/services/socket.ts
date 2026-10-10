@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import { API_BASE_URL } from './api/client';
+import { API_BASE_URL, refreshSession } from './api/client';
 import { getAccessToken } from './tokenStore';
 import type { BookingData, BookingStatus, DriverLiveLocation } from '../types';
 
@@ -21,25 +21,42 @@ export type FleetSocket = Socket;
 let globalSocket: FleetSocket | null = null;
 
 export async function createFleetSocket(): Promise<FleetSocket> {
-  if (globalSocket && globalSocket.connected) {
+  if (globalSocket) {
+    if (!globalSocket.connected) globalSocket.connect();
     return globalSocket;
   }
 
-  const token = await getAccessToken();
-  if (!token) throw new Error('Sign in before connecting to live tracking');
+  if (!(await getAccessToken())) throw new Error('Sign in before connecting to live tracking');
   const socketUrl = API_BASE_URL.replace(/\/api\/?$/, '');
 
   const socket = io(socketUrl, {
-    auth: { token },
+    // Read the token on every (re)connect so a refreshed token is always used.
+    auth: (cb) => {
+      void getAccessToken().then((token) => cb({ token }));
+    },
     transports: ['websocket', 'polling'],
     autoConnect: true,
     reconnection: true,
-    reconnectionAttempts: 10,
     reconnectionDelay: 1000,
+    reconnectionDelayMax: 15000,
+  });
+
+  socket.on('connect_error', (err) => {
+    if (err.message !== 'Invalid or expired token') return;
+    void refreshSession().then((renewed) => {
+      if (renewed && globalSocket === socket) socket.connect();
+    });
   });
 
   globalSocket = socket;
   return socket;
+}
+
+/** Closes the live connection, e.g. on sign-out, so the next user never inherits it. */
+export function disconnectFleetSocket(): void {
+  globalSocket?.removeAllListeners();
+  globalSocket?.disconnect();
+  globalSocket = null;
 }
 
 export function getFleetSocket(): FleetSocket | null {

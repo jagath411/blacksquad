@@ -1,4 +1,5 @@
-import { getAccessToken } from '../tokenStore';
+import { clearAllStorage, getAccessToken, getRefreshToken, saveSession, type SessionUser } from '../tokenStore';
+import { emitSessionExpired } from '../session';
 
 function getBaseUrl(): string {
   const configured = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -19,24 +20,68 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+// Sign-in endpoints answer 401 for bad credentials; those must not trigger a token refresh.
+const isCredentialEndpoint = (path: string) => path.startsWith('/auth/') && !path.startsWith('/auth/me');
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+/**
+ * Swaps the stored refresh token for a new pair. Concurrent callers share one request.
+ * Returns false (and signs the user out) when the session cannot be renewed.
+ */
+export function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const refreshToken = await getRefreshToken();
+      if (!refreshToken) return false;
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (res.ok) {
+          const body = (await res.json()) as { accessToken: string; refreshToken: string; user: SessionUser };
+          await saveSession(body);
+          return true;
+        }
+        if (res.status === 401 || res.status === 400) {
+          await clearAllStorage();
+          emitSessionExpired();
+        }
+        return false;
+      } catch {
+        // Offline: keep the session and let the caller retry later.
+        return false;
+      }
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function send(path: string, init: RequestInit | undefined): Promise<Response> {
   const token = await getAccessToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...((init?.headers as Record<string, string>) || {}),
   };
-
-  let response: Response;
   try {
-    const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-    response = await fetch(url, {
-      ...init,
-      headers,
-    });
-  } catch (netErr) {
+    return await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  } catch {
     throw new ApiError(0, 'Unable to reach the server. Please check your network connection.');
+  }
+}
+
+export async function apiRequest<T>(rawPath: string, init?: RequestInit): Promise<T> {
+  const path = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+  let response = await send(path, init);
+
+  if (response.status === 401 && !isCredentialEndpoint(path) && (await refreshSession())) {
+    response = await send(path, init);
   }
 
   if (!response.ok) {

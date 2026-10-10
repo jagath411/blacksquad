@@ -180,8 +180,8 @@ class SmsService {
     console.log('📱 [BLACKSQUAD SMS GATEWAY DISPATCH]');
     console.log(`   To: ${e164} (India Mobile)`);
     console.log(`   Carrier Route: OTP Transactional High-Priority`);
-    console.log(`   Message Content: "${message}"`);
-    if (otpCode) console.log(`   Security Token: ${otpCode}`);
+    if (env.NODE_ENV === 'development') console.log(`   Message Content: "${message}"`);
+    if (otpCode && env.NODE_ENV === 'development') console.log(`   Security Token: ${otpCode}`);
     console.log('======================================================\n');
 
     return {

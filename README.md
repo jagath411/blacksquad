@@ -30,15 +30,41 @@ On macOS, port 5000 is often taken by AirPlay Receiver. Set `PORT=5001` in `back
 
 On a phone, `localhost` is the phone itself: use your computer's LAN address instead.
 
+## Accounts and roles
+
+Public sign-up (email, phone or Google) always creates a **customer**.
+
+- **Drivers** are added by their fleet owner in the app, by phone number. The driver then signs in with that number.
+- **Owners** are created on the server:
+
+```bash
+cd backend
+npm run create-owner -- --name "Ravi Fleet" --phone 9876543210
+```
+
+Phone sign-in needs an SMS provider (`FAST2SMS_API_KEY`, `MSG91_*` or `TWILIO_*`). For local development without one, set `NODE_ENV=development` and `SHOW_DEV_OTP=true` and the app shows the code on screen.
+
+## Upgrading an existing database
+
+Phase 1 added fleet ownership to vehicles and encrypts bank account numbers. Run once after deploying:
+
+```bash
+cd backend
+npm run migrate:phase1            # dry run: shows what would change
+npm run migrate:phase1 -- --apply
+```
+
+Set `DATA_ENCRYPTION_KEY` before running it, and keep that key safe: without it, stored account numbers cannot be read.
+
 ## Checks
 
 ```bash
 cd backend  && npx tsc --noEmit && npm run lint && npm run build
-cd backend  && MONGODB_URI=mongodb://127.0.0.1:27017/blacksquad_test npm test
+cd backend  && MONGODB_URI=mongodb://127.0.0.1:27017/blacksquad_test JWT_SECRET=<32+ chars> npm test
 cd frontend && npm run typecheck && npm run lint && npx expo-doctor
 ```
 
-The backend test suite deletes and creates records, so it refuses to run unless the database name contains `test`.
+The backend tests (concurrency and security) delete and create records, so they refuse to run unless the database name contains `test`. Tests never read `.env`, so they cannot reach a real SMS provider or database.
 
 ## Release signing
 

@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import type { FleetSocket } from './socket';
-import { API_BASE_URL } from './api/client';
+import { apiRequest } from './api/client';
 import { getAccessToken } from './tokenStore';
 
 export type TrackerStatus = 'offline' | 'requesting' | 'online' | 'denied' | 'error';
@@ -26,16 +26,12 @@ if (!TaskManager.isTaskDefined(BACKGROUND_TASK)) {
       }
     ).locations;
     const position = locations?.[locations.length - 1];
-    const token = await getAccessToken();
-    if (!position || !token) return;
+    if (!position || !(await getAccessToken())) return;
 
     try {
-      await fetch(`${API_BASE_URL}/drivers/location`, {
+      // apiRequest renews an expired access token, so tracking survives long shifts.
+      await apiRequest('/drivers/location', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -46,7 +42,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_TASK)) {
         }),
       });
     } catch {
-      // background network retry handled by OS task manager
+      // Dropped while offline; the offline queue arrives in Phase 3.
     }
   });
 }

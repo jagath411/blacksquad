@@ -6,6 +6,11 @@ import { DriverModel } from '../models/Driver';
 import { VehicleModel } from '../models/Vehicle';
 
 async function seed() {
+  // Seed accounts use a shared demo password, so they must never exist in production.
+  if (env.NODE_ENV === 'production') {
+    console.error('Refusing to seed demo accounts when NODE_ENV=production.');
+    process.exit(1);
+  }
   console.log('⏳ Connecting to MongoDB...');
   await mongoose.connect(env.MONGODB_URI);
   console.log('✅ Connected to MongoDB.');
@@ -55,6 +60,7 @@ async function seed() {
     {
       $set: {
         licenseNumber: 'DL-IND-2026-98765',
+        ownerId: primaryOwnerId,
         availabilityStatus: 'AVAILABLE',
         bankDetails: {
           accountHolderName: 'Test Driver',
@@ -85,6 +91,7 @@ async function seed() {
         model: 'Volvo FL Express',
         capacity: 10,
         driverId: driverProfile._id,
+        ownerId: primaryOwnerId,
         status: 'ACTIVE',
       },
     },

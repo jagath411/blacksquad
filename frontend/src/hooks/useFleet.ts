@@ -50,18 +50,17 @@ export function useFleet() {
   useEffect(() => {
     let socket: Awaited<ReturnType<typeof createFleetSocket>> | undefined;
     let cancelled = false;
+    const onConnectError = () => setConnection('error');
+    const onDisconnect = () => setConnection('disconnected');
 
     void createFleetSocket()
       .then((s) => {
-        if (cancelled) {
-          s.close();
-          return;
-        }
+        if (cancelled) return;
         socket = s;
         setConnection('connected');
 
-        s.on('connect_error', () => setConnection('error'));
-        s.on('disconnect', () => setConnection('disconnected'));
+        s.on('connect_error', onConnectError);
+        s.on('disconnect', onDisconnect);
 
         // Snapshot from server
         s.on('fleet:snapshot', (items: any[]) => {
@@ -115,7 +114,10 @@ export function useFleet() {
 
     return () => {
       cancelled = true;
-      socket?.close();
+      // The socket is shared with other screens: remove only this hook's listeners.
+      socket?.off('connect_error', onConnectError);
+      socket?.off('disconnect', onDisconnect);
+      for (const event of ['fleet:snapshot', 'fleet:location', 'fleet:driver:status']) socket?.off(event);
     };
   }, []);
 
@@ -155,7 +157,7 @@ export function useFleet() {
         driverDocId: d._id,
         name: d.userId?.name || `Driver ${driverUserId.slice(-4)}`,
         email: d.userId?.email || '',
-        phone: d.userId?.phoneNumber || '+91 98948 84605',
+        phone: d.userId?.phoneNumber || '',
         vehicle: `${vehiclePlate} (${vehicleModel})`,
         vehiclePlate,
         vehicleType: d.vehicleId?.vehicleType || 'SEDAN',
