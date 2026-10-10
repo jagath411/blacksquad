@@ -72,7 +72,7 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
         <View style={s.sheetHandle} />
 
         {/* Fleet Revenue & Analytics Banner Action */}
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={s.ownerAnalyticsBanner}
           onPress={() => setAnalyticsVisible(true)}
         >
@@ -88,7 +88,7 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
 
         {/* Quick Management Actions Grid (Vehicles & Expenses) */}
         <View style={s.ownerQuickGrid}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={s.ownerQuickCard}
             onPress={() => setVehiclesModalVisible(true)}
           >
@@ -101,7 +101,7 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
             </View>
           </Pressable>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={s.ownerQuickCard}
             onPress={() => setExpensesModalVisible(true)}
           >
@@ -124,7 +124,7 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
                 : fleetLoading ? 'Loading fleet…' : 'No drivers yet'}
             </Text>
           </View>
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={s.addDriverBtn}
             onPress={() => setAddDriverModalVisible(true)}
           >
@@ -136,7 +136,7 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
         <ScrollView style={s.fleetScroll} showsVerticalScrollIndicator={false}>
           {drivers && drivers.length > 0 ? (
             drivers.map((driver) => (
-              <Pressable
+              <Pressable accessibilityRole="button"
                 key={driver.id}
                 style={s.fleetCard}
                 onPress={() => focusDriver(driver)}
@@ -194,7 +194,8 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
 
                 <View style={s.fleetActionRow}>
                   {driver.phone ? (
-                    <Pressable
+                    <Pressable accessibilityRole="button"
+                      accessibilityLabel={`Call ${driver.name}`}
                       style={s.fleetCallBtn}
                       onPress={(e) => {
                         e.stopPropagation?.();
@@ -204,7 +205,8 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
                       <Icon name="call" size={14} color="#00D084" />
                     </Pressable>
                   ) : null}
-                  <Pressable
+                  <Pressable accessibilityRole="button"
+                    accessibilityLabel={`Show ${driver.name} on the map`}
                     style={s.fleetFocusBtn}
                     onPress={(e) => {
                       e.stopPropagation?.();
@@ -220,7 +222,7 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
             <View style={s.emptyFleet}>
               <Icon name="car-sport-outline" size={36} color="#64748B" />
               <Text style={s.emptyFleetText}>No drivers found in your fleet registry</Text>
-              <Pressable
+              <Pressable accessibilityRole="button"
                 style={s.emptyFleetAddBtn}
                 onPress={() => setAddDriverModalVisible(true)}
               >

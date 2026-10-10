@@ -290,10 +290,10 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
               </View>
             </View>
             <View style={s.incomingActions}>
-              <Pressable style={s.declineBtn} onPress={() => setOffer(null)}>
+              <Pressable accessibilityRole="button" style={s.declineBtn} onPress={() => setOffer(null)}>
                 <Text style={s.declineBtnText}>Decline</Text>
               </Pressable>
-              <Pressable style={s.acceptBtn} disabled={busy} onPress={() => void handleAccept(offer._id)}>
+              <Pressable accessibilityRole="button" style={s.acceptBtn} disabled={busy} onPress={() => void handleAccept(offer._id)}>
                 <Text style={s.acceptBtnText}>ACCEPT RIDE</Text>
               </Pressable>
             </View>
@@ -312,7 +312,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
                 <Text style={s.tripFare}>₹{activeBooking.fare}</Text>
               </View>
               {rider?.phoneNumber ? (
-                <Pressable accessibilityLabel="Call rider" style={s.profileAvatarBtn} onPress={() => callNumber(rider.phoneNumber!)}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Call rider" style={s.profileAvatarBtn} onPress={() => callNumber(rider.phoneNumber!)}>
                   <Icon name="call" size={16} color="#FFFFFF" />
                 </Pressable>
               ) : null}
@@ -330,17 +330,17 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
             </View>
 
             {activeBooking.status === 'DRIVER_ACCEPTED' && (
-              <Pressable style={s.actionPrimaryBtn} disabled={busy} onPress={() => void setStatus('DRIVER_ARRIVING')}>
+              <Pressable accessibilityRole="button" style={s.actionPrimaryBtn} disabled={busy} onPress={() => void setStatus('DRIVER_ARRIVING')}>
                 <Text style={s.actionPrimaryText}>I HAVE ARRIVED AT PICKUP</Text>
               </Pressable>
             )}
             {activeBooking.status === 'DRIVER_ARRIVING' && (
-              <Pressable style={s.actionPrimaryBtn} disabled={busy} onPress={() => setPinModal(true)}>
+              <Pressable accessibilityRole="button" style={s.actionPrimaryBtn} disabled={busy} onPress={() => setPinModal(true)}>
                 <Text style={s.actionPrimaryText}>ENTER RIDER PIN & START TRIP</Text>
               </Pressable>
             )}
             {activeBooking.status === 'TRIP_STARTED' && (
-              <Pressable
+              <Pressable accessibilityRole="button"
                 style={[s.actionPrimaryBtn, { backgroundColor: '#10B981' }]}
                 disabled={busy}
                 onPress={() => void setStatus('TRIP_COMPLETED')}
@@ -349,7 +349,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
               </Pressable>
             )}
             {(activeBooking.status === 'DRIVER_ACCEPTED' || activeBooking.status === 'DRIVER_ARRIVING') && (
-              <Pressable style={[s.cancelBtn, { marginTop: 10 }]} disabled={busy} onPress={() => void handleDropTrip()}>
+              <Pressable accessibilityRole="button" style={[s.cancelBtn, { marginTop: 10 }]} disabled={busy} onPress={() => void handleDropTrip()}>
                 <Icon name="close-circle" size={16} color="#EF4444" />
                 <Text style={s.cancelBtnText}>Cancel trip</Text>
               </Pressable>
@@ -396,7 +396,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
               </View>
             )}
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={[s.toggleDutyBtn, isOnline ? s.toggleDutyBtnOffline : s.toggleDutyBtnOnline]}
               disabled={busy}
               onPress={() => void handleToggleDuty()}
@@ -421,10 +421,10 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
               </Text>
             </View>
             <View style={s.otpActions}>
-              <Pressable style={s.otpCancelBtn} onPress={() => answerDisclosure(false)}>
+              <Pressable accessibilityRole="button" style={s.otpCancelBtn} onPress={() => answerDisclosure(false)}>
                 <Text style={s.otpCancelText}>Not now</Text>
               </Pressable>
-              <Pressable style={s.otpSubmitBtn} onPress={() => answerDisclosure(true)}>
+              <Pressable accessibilityRole="button" style={s.otpSubmitBtn} onPress={() => answerDisclosure(true)}>
                 <Text style={s.otpSubmitText}>Continue</Text>
               </Pressable>
             </View>
@@ -451,10 +451,10 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
               autoFocus
             />
             <View style={s.otpActions}>
-              <Pressable style={s.otpCancelBtn} onPress={() => setPinModal(false)}>
+              <Pressable accessibilityRole="button" style={s.otpCancelBtn} onPress={() => setPinModal(false)}>
                 <Text style={s.otpCancelText}>Back</Text>
               </Pressable>
-              <Pressable style={s.otpSubmitBtn} disabled={busy} onPress={() => void handleStartTrip()}>
+              <Pressable accessibilityRole="button" style={s.otpSubmitBtn} disabled={busy} onPress={() => void handleStartTrip()}>
                 <Text style={s.otpSubmitText}>Start trip</Text>
               </Pressable>
             </View>

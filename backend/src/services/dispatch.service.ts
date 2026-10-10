@@ -3,6 +3,7 @@ import { BookingModel } from '../models/Booking';
 import { DriverModel } from '../models/Driver';
 import { bookingRoom, customerRoom, driverRoom, getIO } from '../sockets';
 import { notificationService } from './notification.service';
+import { logger } from '../utils/logger';
 
 /** How far from the pickup a driver can be offered a ride. */
 export const DISPATCH_RADIUS_METERS = 10_000;
@@ -95,7 +96,7 @@ export async function expireUnansweredRequests(now = Date.now()): Promise<number
 export function startRequestExpiry(intervalMs = 30_000): NodeJS.Timeout {
   const timer = setInterval(() => {
     expireUnansweredRequests().catch((err: unknown) => {
-      console.error('[Dispatch] request expiry failed:', err instanceof Error ? err.message : err);
+      logger.error({ detail: err instanceof Error ? err.message : err }, '[Dispatch] request expiry failed');
     });
   }, intervalMs);
   timer.unref();

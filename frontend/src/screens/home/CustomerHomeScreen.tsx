@@ -242,13 +242,13 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
 
           <View style={s.sheetActions}>
             {driverUser?.phoneNumber ? (
-              <Pressable style={s.callBtn} onPress={() => callNumber(driverUser.phoneNumber)}>
+              <Pressable accessibilityRole="button" style={s.callBtn} onPress={() => callNumber(driverUser.phoneNumber)}>
                 <Icon name="call" size={16} color="#FFFFFF" />
                 <Text style={s.callBtnText}>Call driver</Text>
               </Pressable>
             ) : null}
             {activeBooking.status !== 'TRIP_STARTED' && (
-              <Pressable style={s.cancelBtn} onPress={() => void handleCancel()}>
+              <Pressable accessibilityRole="button" style={s.cancelBtn} onPress={() => void handleCancel()}>
                 <Icon name="close-circle" size={16} color="#EF4444" />
                 <Text style={s.cancelBtnText}>Cancel</Text>
               </Pressable>
@@ -260,7 +260,7 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
           <View style={s.sheetHandle} />
 
           {!formOpen ? (
-            <Pressable style={s.searchBar} onPress={() => setFormOpen(true)}>
+            <Pressable accessibilityRole="button" style={s.searchBar} onPress={() => setFormOpen(true)}>
               <Icon name="search" size={18} color="#00D084" />
               <Text style={s.searchPlaceholder}>Where are you heading today?</Text>
               <View style={s.searchNowBtn}>
@@ -271,7 +271,7 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
             <ScrollView style={s.bookingFormScroll} showsVerticalScrollIndicator={false}>
               <View style={s.bookingFormHeader}>
                 <Text style={s.sheetTitle}>Choose transport</Text>
-                <Pressable accessibilityLabel="Close" onPress={() => setFormOpen(false)}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setFormOpen(false)}>
                   <Icon name="close" size={20} color="#94A3B8" />
                 </Pressable>
               </View>
@@ -319,7 +319,7 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
                     const details = TIER_DETAILS[quote.tier] ?? { name: quote.tier, desc: '', icon: 'car' };
                     const isSelected = selectedTier === quote.tier;
                     return (
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         key={quote.tier}
                         style={[s.tierCard, isSelected && s.tierCardActive]}
                         onPress={() => setSelectedTier(quote.tier)}
@@ -362,13 +362,13 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
             </View>
             <View style={s.starsRow}>
               {[1, 2, 3, 4, 5].map((star) => (
-                <Pressable key={star} accessibilityLabel={`${star} stars`} onPress={() => setRating(star)} style={s.starBtn}>
+                <Pressable accessibilityRole="button" key={star} accessibilityLabel={`${star} stars`} onPress={() => setRating(star)} style={s.starBtn}>
                   <Icon name={star <= rating ? 'star' : 'star-outline'} size={28} color="#F59E0B" />
                 </Pressable>
               ))}
             </View>
             <AppButton label="Submit rating" onPress={() => void handleSubmitRating()} />
-            <Pressable onPress={() => setRatingBooking(null)} style={{ marginTop: 12, alignItems: 'center' }}>
+            <Pressable accessibilityRole="button" onPress={() => setRatingBooking(null)} style={{ marginTop: 12, alignItems: 'center' }}>
               <Text style={s.ratingSub}>Skip</Text>
             </Pressable>
           </View>

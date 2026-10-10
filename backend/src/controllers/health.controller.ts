@@ -16,19 +16,20 @@ export interface HealthResponse {
 
 export const getHealth = (_req: Request, res: Response): void => {
   const dbHealth = dbService.getStatus();
-  const isHealthy = true; // API itself is functional
+  // Unhealthy without the database, so uptime checks and load balancers notice.
+  const isHealthy = dbHealth.status === 'connected';
 
   const responsePayload: HealthResponse = {
     success: isHealthy,
     message: 'BlackSquad API service is running',
     environment: env.NODE_ENV,
     timestamp: new Date().toISOString(),
-    apiStatus: 'healthy',
+    apiStatus: isHealthy ? 'healthy' : 'degraded',
     database: {
       status: dbHealth.status,
     },
     uptime: Math.floor(process.uptime()),
   };
 
-  res.status(200).json(responsePayload);
+  res.status(isHealthy ? 200 : 503).json(responsePayload);
 };

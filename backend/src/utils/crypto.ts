@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { env } from '../config/env';
+import { logger } from '../utils/logger';
 
 const ENC_PREFIX = 'enc:v1:';
 
@@ -11,8 +12,7 @@ function resolveKey(): Buffer {
     return key;
   }
   if (env.NODE_ENV === 'production') {
-    // eslint-disable-next-line no-console
-    console.warn('⚠️ DATA_ENCRYPTION_KEY is not set; deriving it from JWT_SECRET. Set a dedicated key.');
+    logger.warn('⚠️ DATA_ENCRYPTION_KEY is not set; deriving it from JWT_SECRET. Set a dedicated key.');
   }
   return crypto.createHash('sha256').update(`blacksquad-data-key:${env.JWT_SECRET}`).digest();
 }

@@ -23,13 +23,13 @@ export const createApp = (): Application => {
     }),
   );
 
-  app.use(express.json({ limit: '100kb' }));
-  app.use(express.urlencoded({ extended: true }));
-
-  // Request logging in development
+  // Before body parsing, so rejected bodies are logged too.
   if (env.NODE_ENV !== 'test') {
     app.use(requestLogger);
   }
+
+  app.use(express.json({ limit: '100kb' }));
+  app.use(express.urlencoded({ extended: true }));
 
   // Mount API routes
   app.use(env.API_PREFIX, apiRateLimiter, apiRouter);

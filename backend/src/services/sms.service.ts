@@ -6,6 +6,7 @@
 
 import { env } from '../config/env';
 import { errorMessage } from '../utils/errors';
+import { logger } from '../utils/logger';
 
 interface Fast2SmsResponse {
   return?: boolean;
@@ -72,13 +73,13 @@ class SmsService {
 
         const data = (await response.json()) as { sid?: string; message?: string };
         if (response.ok) {
-          console.log(`📡 [TWILIO SMS SENT] To: ${e164} | SID: ${data.sid}`);
+          logger.info(`📡 [TWILIO SMS SENT] To: ${e164} | SID: ${data.sid}`);
           return { success: true, provider: 'TWILIO', isLiveGateway: true, messageId: data.sid };
         } else {
-          console.error(`❌ [TWILIO SMS ERROR] ${data.message || response.statusText}`);
+          logger.error(`❌ [TWILIO SMS ERROR] ${data.message || response.statusText}`);
         }
       } catch (err) {
-        console.error(`❌ [TWILIO DISPATCH FAILED] ${errorMessage(err)}`);
+        logger.error(`❌ [TWILIO DISPATCH FAILED] ${errorMessage(err)}`);
       }
     }
 
@@ -101,7 +102,7 @@ class SmsService {
 
         let data = (await response.json()) as Fast2SmsResponse;
         if (data.return) {
-          console.log(`📡 [FAST2SMS SENT (OTP ROUTE)] To: ${raw10} | ReqID: ${data.request_id}`);
+          logger.info(`📡 [FAST2SMS SENT (OTP ROUTE)] To: ${raw10} | ReqID: ${data.request_id}`);
           return { success: true, provider: 'FAST2SMS', isLiveGateway: true, messageId: data.request_id };
         }
 
@@ -122,13 +123,13 @@ class SmsService {
 
         data = (await response.json()) as Fast2SmsResponse;
         if (data.return) {
-          console.log(`📡 [FAST2SMS SENT (QUICK ROUTE)] To: ${raw10} | ReqID: ${data.request_id}`);
+          logger.info(`📡 [FAST2SMS SENT (QUICK ROUTE)] To: ${raw10} | ReqID: ${data.request_id}`);
           return { success: true, provider: 'FAST2SMS', isLiveGateway: true, messageId: data.request_id };
         } else {
-          console.error(`❌ [FAST2SMS ERROR] ${Array.isArray(data.message) ? data.message.join(', ') : data.message || 'Dispatch failed'}`);
+          logger.error(`❌ [FAST2SMS ERROR] ${Array.isArray(data.message) ? data.message.join(', ') : data.message || 'Dispatch failed'}`);
         }
       } catch (err) {
-        console.error(`❌ [FAST2SMS DISPATCH FAILED] ${errorMessage(err)}`);
+        logger.error(`❌ [FAST2SMS DISPATCH FAILED] ${errorMessage(err)}`);
       }
     }
 
@@ -150,11 +151,11 @@ class SmsService {
 
         const data = (await response.json()) as { type?: string; request_id?: string };
         if (data.type === 'success') {
-          console.log(`📡 [MSG91 SMS SENT] To: 91${raw10} | ReqID: ${data.request_id}`);
+          logger.info(`📡 [MSG91 SMS SENT] To: 91${raw10} | ReqID: ${data.request_id}`);
           return { success: true, provider: 'MSG91', isLiveGateway: true, messageId: data.request_id };
         }
       } catch (err) {
-        console.error(`❌ [MSG91 DISPATCH FAILED] ${errorMessage(err)}`);
+        logger.error(`❌ [MSG91 DISPATCH FAILED] ${errorMessage(err)}`);
       }
     }
 
@@ -167,22 +168,22 @@ class SmsService {
           body: JSON.stringify({ to: e164, rawPhone: raw10, message, otp: otpCode }),
         });
         if (response.ok) {
-          console.log(`📡 [WEBHOOK SMS SENT] To: ${e164}`);
+          logger.info(`📡 [WEBHOOK SMS SENT] To: ${e164}`);
           return { success: true, provider: 'CUSTOM_WEBHOOK', isLiveGateway: true };
         }
       } catch (err) {
-        console.error(`❌ [WEBHOOK SMS FAILED] ${errorMessage(err)}`);
+        logger.error(`❌ [WEBHOOK SMS FAILED] ${errorMessage(err)}`);
       }
     }
 
     // 5. Default Enterprise Mock Logger with Carrier Simulation
-    console.log('\n======================================================');
-    console.log('📱 [BLACKSQUAD SMS GATEWAY DISPATCH]');
-    console.log(`   To: ${e164} (India Mobile)`);
-    console.log(`   Carrier Route: OTP Transactional High-Priority`);
-    if (env.NODE_ENV === 'development') console.log(`   Message Content: "${message}"`);
-    if (otpCode && env.NODE_ENV === 'development') console.log(`   Security Token: ${otpCode}`);
-    console.log('======================================================\n');
+    logger.info('\n======================================================');
+    logger.info('📱 [BLACKSQUAD SMS GATEWAY DISPATCH]');
+    logger.info(`   To: ${e164} (India Mobile)`);
+    logger.info(`   Carrier Route: OTP Transactional High-Priority`);
+    if (env.NODE_ENV === 'development') logger.info(`   Message Content: "${message}"`);
+    if (otpCode && env.NODE_ENV === 'development') logger.info(`   Security Token: ${otpCode}`);
+    logger.info('======================================================\n');
 
     return {
       success: true,

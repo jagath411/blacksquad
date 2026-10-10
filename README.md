@@ -78,12 +78,19 @@ npm run migrate:phase1 -- --apply
 
 Set `DATA_ENCRYPTION_KEY` before running it, and keep that key safe: without it, stored account numbers cannot be read.
 
+## Logs, errors and load
+
+- Server logs are one JSON line per event in production (readable in development). Every response carries an `X-Request-Id` that matches its log line.
+- Set `SENTRY_DSN` to send server errors to Sentry.
+- `GET /api/health` answers 503 when the database is down, for uptime checks.
+- Load test against a test database: `npm run load-test -- --url http://localhost:5000 --drivers 1000 --seconds 30`. On a laptop, 1,000 drivers sending every 3 seconds were all delivered to their owner, p50 11 ms and p95 448 ms.
+
 ## Checks
 
 ```bash
 cd backend  && npx tsc --noEmit && npm run lint && npm run build
 cd backend  && MONGODB_URI=mongodb://127.0.0.1:27017/blacksquad_test JWT_SECRET=<32+ chars> npm test
-cd frontend && npm run typecheck && npm run lint && npx expo-doctor
+cd frontend && npm run typecheck && npm run lint && npm test && npx expo-doctor
 ```
 
 The backend tests (concurrency and security) delete and create records, so they refuse to run unless the database name contains `test`. Tests never read `.env`, so they cannot reach a real SMS provider or database.

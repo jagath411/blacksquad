@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { logger } from '../utils/logger';
 
 // Load environment variables from .env file. Tests never read .env, so they cannot
 // pick up real SMS keys or a real database by accident.
@@ -44,6 +45,9 @@ const envSchema = z.object({
   // Push notifications through Expo's push service.
   PUSH_ENABLED: z.enum(['true', 'false']).default('true'),
   EXPO_ACCESS_TOKEN: z.string().optional(),
+  // Error tracking; off when unset.
+  SENTRY_DSN: z.string().url().optional(),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -51,8 +55,7 @@ const parsedEnv = envSchema.safeParse(process.env);
 if (!parsedEnv.success) {
   // Format errors without leaking sensitive data
   const issues = parsedEnv.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
-  // eslint-disable-next-line no-console
-  console.error('❌ Invalid environment variables configuration:\n', issues.join('\n'));
+  logger.error({ detail: issues.join('\n') }, '❌ Invalid environment variables configuration:\n');
   process.exit(1);
 }
 

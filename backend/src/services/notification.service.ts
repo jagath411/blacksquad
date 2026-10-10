@@ -2,6 +2,7 @@ import { env } from '../config/env';
 import { UserModel } from '../models/User';
 import type { BookingStatus } from '../models/Booking';
 import { errorMessage } from '../utils/errors';
+import { logger } from '../utils/logger';
 
 export interface NotificationPayload {
   title: string;
@@ -59,7 +60,7 @@ export class NotificationService {
         ),
       });
       if (!response.ok) {
-        console.error(`[Push] Expo push failed with ${response.status}`);
+        logger.error(`[Push] Expo push failed with ${response.status}`);
         return;
       }
 
@@ -70,7 +71,7 @@ export class NotificationService {
         .filter(Boolean);
       if (stale.length > 0) await UserModel.updateMany({ _id: { $in: stale } }, { $unset: { pushToken: 1 } });
     } catch (error) {
-      console.error('[Push] failed:', errorMessage(error));
+      logger.error({ detail: errorMessage(error) }, '[Push] failed');
     }
   }
 

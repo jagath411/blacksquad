@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { env } from './env';
+import { logger } from '../utils/logger';
 
 export interface DatabaseHealthStatus {
   status: 'connected' | 'connecting' | 'disconnected' | 'disconnecting' | 'uninitialized';
@@ -30,27 +31,20 @@ class DatabaseService {
 
   private registerMongooseEvents(): void {
     mongoose.connection.on('connected', () => {
-      // eslint-disable-next-line no-console
-      console.log('✅ MongoDB connection established successfully');
+      logger.info('✅ MongoDB connection established successfully');
     });
 
     mongoose.connection.on('error', (err) => {
       // Safe error log without exposing credentials
-      // eslint-disable-next-line no-console
-      console.error(
-        '❌ MongoDB connection error:',
-        err instanceof Error ? err.message : 'Unknown error',
-      );
+      logger.error({ detail: err instanceof Error ? err.message : 'Unknown error' }, '❌ MongoDB connection error');
     });
 
     mongoose.connection.on('disconnected', () => {
-      // eslint-disable-next-line no-console
-      console.warn('⚠️ MongoDB connection lost. Disconnected from database.');
+      logger.warn('⚠️ MongoDB connection lost. Disconnected from database.');
     });
 
     mongoose.connection.on('reconnected', () => {
-      // eslint-disable-next-line no-console
-      console.log('🔄 MongoDB reconnected successfully');
+      logger.info('🔄 MongoDB reconnected successfully');
     });
   }
 
@@ -66,8 +60,7 @@ class DatabaseService {
     this.isConnecting = true;
 
     try {
-      // eslint-disable-next-line no-console
-      console.log('⏳ Connecting to MongoDB...');
+      logger.info('⏳ Connecting to MongoDB...');
       await mongoose.connect(env.MONGODB_URI, {
         serverSelectionTimeoutMS: 5000,
         autoIndex: env.NODE_ENV !== 'production',
@@ -76,11 +69,7 @@ class DatabaseService {
       return true;
     } catch (error) {
       this.isConnecting = false;
-      // eslint-disable-next-line no-console
-      console.error(
-        '❌ Initial MongoDB connection failed:',
-        error instanceof Error ? error.message : 'Unknown error',
-      );
+      logger.error({ detail: error instanceof Error ? error.message : 'Unknown error' }, '❌ Initial MongoDB connection failed');
       // Graceful DB failure handling: do not crash the entire process immediately, allow health endpoint to report status
       return false;
     }
@@ -90,15 +79,10 @@ class DatabaseService {
     try {
       if (mongoose.connection.readyState !== 0) {
         await mongoose.disconnect();
-        // eslint-disable-next-line no-console
-        console.log('🔌 MongoDB disconnected gracefully');
+        logger.info('🔌 MongoDB disconnected gracefully');
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(
-        '❌ Error while disconnecting MongoDB:',
-        error instanceof Error ? error.message : 'Unknown error',
-      );
+      logger.error({ detail: error instanceof Error ? error.message : 'Unknown error' }, '❌ Error while disconnecting MongoDB');
     }
   }
 

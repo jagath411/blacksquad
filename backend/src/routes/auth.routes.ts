@@ -17,6 +17,7 @@ import {
   toAuthUser,
 } from '../services/auth.service';
 import { createOtpChallenge, shouldExposeDevOtp, verifyOtpChallenge } from '../services/otp.service';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -230,8 +231,7 @@ router.post('/forgot-password', otpSendLimiter, async (req, res, next) => {
 
     // No email provider is wired up yet, so the link is only available in development.
     if (env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log(`🔐 Password reset link for ${user.email}: ${resetLink}`);
+      logger.info(`🔐 Password reset link for ${user.email}: ${resetLink}`);
       res.json({ ...genericReply, devResetToken: rawToken, devResetLink: resetLink });
       return;
     }

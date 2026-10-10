@@ -10,6 +10,7 @@ import { locationState, type LocationUpdateResult } from '../services/location.s
 import type { AuthUser } from '../types/auth';
 import type { PopulatedRef } from '../types/populated';
 import { errorMessage } from '../utils/errors';
+import { logger } from '../utils/logger';
 
 let io: SocketIOServer | null = null;
 
@@ -79,7 +80,7 @@ function registerHandlers(server: SocketIOServer, socket: Socket): void {
     try {
       if (await canWatchBooking(user, bookingId)) await socket.join(bookingRoom(bookingId));
     } catch (err) {
-      console.error('[Socket] booking:join failed:', errorMessage(err));
+      logger.error({ detail: errorMessage(err) }, '[Socket] booking:join failed');
     }
   });
 
@@ -96,7 +97,7 @@ function registerHandlers(server: SocketIOServer, socket: Socket): void {
       const result = await locationState.update({ ...parsed.data, driverId: user.id });
       broadcastDriverLocation(user.id, result);
     } catch (err) {
-      console.error('[Socket] driver:location failed:', errorMessage(err));
+      logger.error({ detail: errorMessage(err) }, '[Socket] driver:location failed');
     }
   });
 
@@ -122,7 +123,7 @@ function registerHandlers(server: SocketIOServer, socket: Socket): void {
         });
       }
     } catch (err) {
-      console.error('[Socket] driver:status failed:', errorMessage(err));
+      logger.error({ detail: errorMessage(err) }, '[Socket] driver:status failed');
     }
   });
 
@@ -158,7 +159,7 @@ function registerHandlers(server: SocketIOServer, socket: Socket): void {
 
       socket.emit('fleet:snapshot', snapshot);
     } catch (err) {
-      console.error('[Socket] owner:fleet:subscribe failed:', errorMessage(err));
+      logger.error({ detail: errorMessage(err) }, '[Socket] owner:fleet:subscribe failed');
       socket.emit('fleet:snapshot', []);
     }
   });
@@ -198,7 +199,7 @@ export function attachSockets(httpServer: http.Server): SocketIOServer {
         if (driver?.availabilityStatus === 'AVAILABLE') await socket.join(AVAILABLE_DRIVERS_ROOM);
       }
     } catch (err) {
-      console.error('[Socket] room setup failed:', errorMessage(err));
+      logger.error({ detail: errorMessage(err) }, '[Socket] room setup failed');
     }
   });
 

@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import * as Sentry from '@sentry/node';
 import { ZodError } from 'zod';
+import { logger } from '../utils/logger';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -23,12 +25,23 @@ export const errorHandler = (
       ? 'An unexpected server error occurred'
       : err.message || 'Request failed';
 
-  // eslint-disable-next-line no-console
-  console.error(`❌ [Error ${statusCode}]:`, err.message);
+  if (statusCode >= 500) {
+    logger.error({ err }, 'unhandled error');
+    Sentry.captureException(err);
+  }
+
+  const code = isMalformedJson
+    ? 'INVALID_JSON'
+    : err instanceof ZodError
+      ? 'VALIDATION_ERROR'
+      : statusCode >= 500
+        ? 'SERVER_ERROR'
+        : `HTTP_${statusCode}`;
 
   res.status(statusCode).json({
     success: false,
     message,
+    code,
     ...(err instanceof ZodError && {
       issues: err.issues.map((issue) => ({ path: issue.path, message: issue.message })),
     }),
