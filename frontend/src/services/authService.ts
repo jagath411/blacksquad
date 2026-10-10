@@ -86,3 +86,10 @@ export async function logout(): Promise<void> {
   }
   await clearAllStorage();
 }
+
+/** Permanently deletes the signed-in account, then signs out on this device. */
+export async function deleteAccount(): Promise<void> {
+  await apiRequest('/auth/me', { method: 'DELETE' });
+  disconnectFleetSocket();
+  await clearAllStorage();
+}

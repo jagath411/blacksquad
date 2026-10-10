@@ -16,7 +16,10 @@ import { AppButton } from './AppButton';
 import { Icon } from './ui/Icon';
 import { darkColors, radius, spacing } from '../theme';
 import type { UserRole } from '../types';
-import { getCurrentUser, updateUserProfile, type UserProfile } from '../services/authService';
+import Constants from 'expo-constants';
+import { deleteAccount, getCurrentUser, updateUserProfile, type UserProfile } from '../services/authService';
+import { confirmAction } from '../utils/dialogs';
+import { formatUnifiedError } from '../utils/errorHandler';
 import { lookupIfscCode, type VerifiedIfscResult } from '../services/ifscService';
 import { ALL_INDIAN_BANKS, type IndianBankData } from '../utils/allIndianBanks';
 
@@ -37,6 +40,24 @@ interface SavedPlace {
 }
 
 export function ProfileModal({ visible, role, onClose, onLogout }: Props) {
+  const handleDeleteAccount = async () => {
+    const ok = await confirmAction(
+      'Delete your account?',
+      'Your name, phone number and payment details are removed and you are signed out. This cannot be undone.',
+      'Delete',
+    );
+    if (!ok) return;
+    try {
+      await deleteAccount();
+      onClose();
+      onLogout();
+    } catch (cause) {
+      const err = formatUnifiedError(cause);
+      if (Platform.OS === 'web') window.alert(`${err.title}\n\n${err.message}`);
+      else Alert.alert(err.title, err.message);
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<TabType>('account');
   const [user, setUser] = useState<UserProfile | null>(null);
   const [name, setName] = useState('');
@@ -488,21 +509,11 @@ export function ProfileModal({ visible, role, onClose, onLogout }: Props) {
             {/* 6. Settings & Logout */}
             {activeTab === 'settings' && (
               <View style={s.section}>
-                <Text style={s.sectionTitle}>App Preferences</Text>
+                <Text style={s.sectionTitle}>App</Text>
                 <View style={s.settingsCard}>
                   <View style={s.settingRow}>
-                    <Text style={s.settingLabel}>App Version</Text>
-                    <Text style={s.settingValue}>2.4.0 (Pilot Production)</Text>
-                  </View>
-                  <View style={s.settingDivider} />
-                  <View style={s.settingRow}>
-                    <Text style={s.settingLabel}>Telemetry Mode</Text>
-                    <Text style={s.settingValue}>Sub-second Live Sockets</Text>
-                  </View>
-                  <View style={s.settingDivider} />
-                  <View style={s.settingRow}>
-                    <Text style={s.settingLabel}>Security Protocol</Text>
-                    <Text style={s.settingValue}>TLS 1.3 + JWT Bearer</Text>
+                    <Text style={s.settingLabel}>App version</Text>
+                    <Text style={s.settingValue}>{Constants.expoConfig?.version ?? 'unknown'}</Text>
                   </View>
                 </View>
 
@@ -515,7 +526,16 @@ export function ProfileModal({ visible, role, onClose, onLogout }: Props) {
                   }}
                 >
                   <Icon name="log-out" size={18} color="#EF4444" />
-                  <Text style={s.logoutActionText}>Sign Out of Workspace</Text>
+                  <Text style={s.logoutActionText}>Sign out</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  style={[s.logoutActionBtn, { marginTop: 12 }]}
+                  onPress={() => void handleDeleteAccount()}
+                >
+                  <Icon name="trash" size={18} color="#EF4444" />
+                  <Text style={s.logoutActionText}>Delete my account</Text>
                 </Pressable>
               </View>
             )}

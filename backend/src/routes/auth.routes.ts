@@ -5,6 +5,9 @@ import { z } from 'zod';
 import { OAuth2Client } from 'google-auth-library';
 import { env } from '../config/env';
 import { UserModel, type UserDocument } from '../models/User';
+import { BookingModel } from '../models/Booking';
+import { DriverModel } from '../models/Driver';
+import { DriverLocationModel } from '../models/DriverLocation';
 import { requireAuth } from '../middleware/auth';
 import { createRateLimiter } from '../middleware/rateLimiter';
 import type { AuthenticatedRequest } from '../types/auth';
@@ -193,6 +196,61 @@ router.patch('/me', requireAuth, async (req: AuthenticatedRequest, res, next) =>
       return;
     }
     res.json({ success: true, user: publicUser(user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Deletes the signed-in account (required by Google Play and the App Store).
+ * Personal details are removed; trip records stay, unlinked from the person, for accounting.
+ */
+router.delete('/me', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const user = await UserModel.findById(req.user!.id);
+    if (!user || !user.isActive) {
+      res.status(404).json({ success: false, message: 'Account not found' });
+      return;
+    }
+    if (user.role === 'OWNER') {
+      res.status(409).json({
+        success: false,
+        message: 'Fleet owner accounts are closed by BlackSquad support so drivers and payouts are handed over safely.',
+      });
+      return;
+    }
+
+    const driver = user.role === 'DRIVER' ? await DriverModel.findOne({ userId: user._id }).select('_id').lean() : null;
+    const activeTrip = await BookingModel.exists({
+      status: { $in: ['REQUESTED', 'ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'TRIP_STARTED'] },
+      ...(driver ? { driverId: driver._id } : { customerId: user._id }),
+    });
+    if (activeTrip) {
+      res.status(409).json({ success: false, message: 'Finish or cancel your current trip before deleting your account.' });
+      return;
+    }
+
+    await UserModel.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          name: 'Deleted user',
+          email: `deleted_${user.id}@blacksquad.internal`,
+          isActive: false,
+          passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10),
+        },
+        $unset: { phoneNumber: 1, pushToken: 1, resetToken: 1, resetTokenExpiry: 1 },
+      },
+    );
+    if (driver) {
+      await DriverModel.updateOne(
+        { _id: driver._id },
+        { $set: { availabilityStatus: 'OFFLINE' }, $unset: { bankDetails: 1, licenseNumber: 1, currentLocation: 1 } },
+      );
+      await DriverLocationModel.deleteMany({ driverId: driver._id });
+    }
+    await revokeAllSessions(user.id);
+    res.json({ success: true, message: 'Your account has been deleted.' });
   } catch (error) {
     next(error);
   }

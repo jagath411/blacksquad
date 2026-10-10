@@ -310,3 +310,32 @@ describe('live tracking', () => {
     for (const event of events) assert.equal(event.booking?.startOtp, undefined);
   });
 });
+
+describe('account deletion', () => {
+  test('a customer can delete their account; personal details go and sessions end', async () => {
+    const customer = await makeUser('CUSTOMER');
+    const res = await call('DELETE', '/auth/me', undefined, customer.token);
+    assert.equal(res.status, 200);
+    const stored = await UserModel.findById(customer.user._id).lean();
+    assert.equal(stored?.isActive, false);
+    assert.equal(stored?.phoneNumber, undefined);
+    assert.equal(stored?.name, 'Deleted user');
+    assert.equal((await call('POST', '/auth/refresh', { refreshToken: customer.refreshToken })).status, 401);
+  });
+
+  test('a driver’s bank details and location trail are removed', async () => {
+    const driver = await makeUser('DRIVER');
+    await call('PATCH', '/drivers/me', { bankDetails: { accountNumber: '123456789012' } }, driver.token);
+    await call('POST', '/drivers/location', { latitude: 12.97, longitude: 77.59, timestamp: Date.now() }, driver.token);
+    assert.equal((await call('DELETE', '/auth/me', undefined, driver.token)).status, 200);
+    const profile = await DriverModel.findById(driver.driver!._id).lean();
+    assert.equal(profile?.bankDetails?.accountNumber, undefined);
+  });
+
+  test('deletion waits until the current trip is over', async () => {
+    const customer = await makeUser('CUSTOMER');
+    await call('POST', '/bookings', trip, customer.token);
+    assert.equal((await call('DELETE', '/auth/me', undefined, customer.token)).status, 409);
+  });
+});
+

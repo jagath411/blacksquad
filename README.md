@@ -8,6 +8,13 @@ Ride booking and live fleet tracking for customers, drivers and fleet owners.
 | `frontend/` | Expo (React Native) app for Android, iOS and web; app code lives in `frontend/src` |
 | `.github/workflows/` | `ci.yml` runs checks and tests; `android-preview.yml` builds a signed pilot APK |
 
+## Run with Docker
+
+```bash
+cp backend/.env.example backend/.env   # set JWT_SECRET and DATA_ENCRYPTION_KEY
+docker compose up --build              # API on http://localhost:5000, MongoDB in a volume
+```
+
 ## Run it locally
 
 You need Node 22 and a local MongoDB.
