@@ -47,48 +47,49 @@ if (!TaskManager.isTaskDefined(BACKGROUND_TASK)) {
   });
 }
 
-export async function getCurrentDeviceLocation(): Promise<{
+export interface DeviceLocation {
   latitude: number;
   longitude: number;
   heading?: number;
+  /** Metres per second, as reported by the device. */
   speed?: number;
-}> {
-  const fallback = { latitude: 12.9716, longitude: 77.5946, heading: 0, speed: 0 };
+}
+
+/** The device's current position, or null when location is off, denied or unavailable. */
+export async function getCurrentDeviceLocation(): Promise<DeviceLocation | null> {
   try {
     if (Platform.OS === 'web') {
-      return new Promise((resolve) => {
+      return await new Promise((resolve) => {
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
-          return resolve(fallback);
+          resolve(null);
+          return;
         }
         navigator.geolocation.getCurrentPosition(
           (pos) =>
             resolve({
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude,
-              heading: pos.coords.heading || 0,
-              speed: pos.coords.speed || 0,
+              heading: pos.coords.heading ?? undefined,
+              speed: pos.coords.speed ?? undefined,
             }),
-          () => resolve(fallback),
-          { timeout: 5000, enableHighAccuracy: true, maximumAge: 10000 }
+          () => resolve(null),
+          { timeout: 8000, enableHighAccuracy: true, maximumAge: 10000 },
         );
       });
     }
 
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return fallback;
+    if (status !== 'granted') return null;
 
-    const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-
+    const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     return {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
-      heading: location.coords.heading || 0,
-      speed: location.coords.speed || 0,
+      heading: location.coords.heading ?? undefined,
+      speed: location.coords.speed ?? undefined,
     };
-  } catch (err) {
-    return fallback;
+  } catch {
+    return null;
   }
 }
 

@@ -4,6 +4,7 @@ import { env } from './config/env';
 import { dbService } from './config/database';
 import { locationState } from './services/location.service';
 import { attachSockets } from './sockets';
+import { startRequestExpiry } from './services/dispatch.service';
 
 const startServer = async (): Promise<http.Server> => {
   await dbService.connect();
@@ -11,6 +12,7 @@ const startServer = async (): Promise<http.Server> => {
   const app = createApp();
   const server = http.createServer(app);
   attachSockets(server);
+  startRequestExpiry();
 
   if (dbService.isConnected()) {
     await locationState.loadFromDatabase();

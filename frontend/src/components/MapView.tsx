@@ -2,8 +2,16 @@ import React, { useEffect, useRef } from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as maplibreModule from 'maplibre-gl';
 import { NativeMapView } from './NativeMapView';
+import { MAP_STYLE_URL } from '../constants/map';
 
 const maplibregl: any = (maplibreModule as any).default || maplibreModule;
+
+// The bundler cannot locate maplibre's web worker on its own, and without the worker vector
+// tiles never render. Point it at the published worker for the installed version.
+const MAPLIBRE_VERSION = '6.3.0';
+if (Platform.OS === 'web' && typeof maplibregl.setWorkerUrl === 'function') {
+  maplibregl.setWorkerUrl(`https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl-worker.mjs`);
+}
 
 export interface LocationCoordinate {
   latitude: number;
@@ -36,71 +44,6 @@ interface MapViewProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const STYLES: Record<string, any> = {
-  light: {
-    version: 8,
-    sources: {
-      carto_voyager: {
-        type: 'raster',
-        tiles: [
-          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-        ],
-        tileSize: 256,
-        maxzoom: 19,
-        attribution: '© OpenStreetMap © CARTO',
-      },
-    },
-    layers: [
-      {
-        id: 'bg-layer',
-        type: 'background',
-        paint: { 'background-color': '#F1F5F9' },
-      },
-      {
-        id: 'carto-voyager-tiles',
-        type: 'raster',
-        source: 'carto_voyager',
-        minzoom: 0,
-        maxzoom: 19,
-      },
-    ],
-  },
-  dark: {
-    version: 8,
-    sources: {
-      carto_dark: {
-        type: 'raster',
-        tiles: [
-          'https://a.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png',
-          'https://b.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png',
-          'https://c.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png',
-          'https://d.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png',
-        ],
-        tileSize: 256,
-        maxzoom: 19,
-        attribution: '© OpenStreetMap © CARTO',
-      },
-    },
-    layers: [
-      {
-        id: 'bg-layer',
-        type: 'background',
-        paint: { 'background-color': '#07100D' },
-      },
-      {
-        id: 'carto-dark-tiles',
-        type: 'raster',
-        source: 'carto_dark',
-        minzoom: 0,
-        maxzoom: 19,
-      },
-    ],
-  },
-};
-
 export function MapView({
   center = { latitude: 12.9716, longitude: 77.5946 },
   zoom = 13,
@@ -122,21 +65,21 @@ export function MapView({
       const link = document.createElement('link');
       link.id = 'maplibre-gl-css';
       link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+      // Must match the installed maplibre-gl version.
+      link.href = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
       document.head.appendChild(link);
     }
 
-    const selectedStyle = STYLES[styleMode] || STYLES.dark;
-
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: selectedStyle,
+      style: MAP_STYLE_URL,
       center: [center.longitude, center.latitude],
       zoom,
       minZoom: 2,
       maxZoom: 18.5,
       interactive,
-      attributionControl: false,
+      // OpenStreetMap data requires visible attribution.
+      attributionControl: { compact: true },
     });
 
     mapRef.current = map;

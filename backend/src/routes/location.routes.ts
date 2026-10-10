@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { locationState } from '../services/location.service';
 import { ownerDriverUserIds } from '../services/fleet.service';
+import { broadcastDriverLocation } from '../sockets';
 import type { AuthenticatedRequest } from '../types/auth';
 
 const router = Router();
@@ -23,6 +24,7 @@ router.post(
     try {
       const parsed = locationSchema.parse(req.body);
       const result = await locationState.update({ ...parsed, driverId: req.user!.id });
+      broadcastDriverLocation(req.user!.id, result);
       if (!result.accepted) {
         res.status(result.reason === 'driver_not_found' ? 409 : 202).json({
           success: false,

@@ -27,9 +27,11 @@ export function shouldExposeDevOtp(config: { NODE_ENV: string; SHOW_DEV_OTP: str
 /** Creates a fresh code for a phone number, replacing any earlier one. */
 export async function createOtpChallenge(phoneNumber: string, purpose: OtpPurpose): Promise<string> {
   const existing = await OtpChallengeModel.findOne({ phoneNumber }).lean();
+  // The cooldown limits repeated login codes. An invite never blocks a login code, so a
+  // driver who just got their invite can still request a fresh code straight away.
   if (
     purpose === 'LOGIN' &&
-    existing &&
+    existing?.purpose === 'LOGIN' &&
     Date.now() - existing.lastSentAt.getTime() < OTP_RESEND_COOLDOWN_MS
   ) {
     throw new OtpError('Please wait a minute before requesting another code.', 429);

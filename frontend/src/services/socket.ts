@@ -102,3 +102,11 @@ export function onNewBookingRequest(
   socket.on('booking:new:request', handler);
   return () => socket.off('booking:new:request', handler);
 }
+
+export function onBookingRequestTaken(socket: FleetSocket, callback: (bookingId: string) => void): () => void {
+  const handler = (payload: { bookingId?: string }) => {
+    if (payload?.bookingId) callback(payload.bookingId);
+  };
+  socket.on('booking:request:taken', handler);
+  return () => socket.off('booking:request:taken', handler);
+}

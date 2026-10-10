@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "seed": "npx tsx src/scripts/seed.ts",
     "test:concurrency": "NODE_ENV=test tsx src/tests/concurrency.test.ts",
-    "test": "npm run test:concurrency && npm run test:security",
+    "test": "npm run test:concurrency && npm run test:api",
     "build": "rimraf dist && tsc",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
@@ -16,7 +16,8 @@
     "format:check": "prettier --check \"src/**/*.ts\"",
     "create-owner": "tsx src/scripts/create-owner.ts",
     "migrate:phase1": "tsx src/scripts/migrate-phase1.ts",
-    "test:security": "NODE_ENV=test tsx --test src/tests/security.test.ts"
+    "db:indexes": "tsx src/scripts/sync-indexes.ts",
+    "test:api": "NODE_ENV=test tsx --test --test-concurrency=1 src/tests/security.test.ts src/tests/flows.test.ts"
   },
   "keywords": [
     "vehicle-booking",

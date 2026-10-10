@@ -44,6 +44,19 @@ npm run create-owner -- --name "Ravi Fleet" --phone 9876543210
 
 Phone sign-in needs an SMS provider (`FAST2SMS_API_KEY`, `MSG91_*` or `TWILIO_*`). For local development without one, set `NODE_ENV=development` and `SHOW_DEV_OTP=true` and the app shows the code on screen.
 
+## Database indexes
+
+The server does not build indexes itself in production. Nearest-driver search, sign-in code expiry and session expiry depend on them, so run this after every deploy that changes a model:
+
+```bash
+cd backend
+npm run db:indexes
+```
+
+## Maps
+
+The app uses OpenFreeMap (OpenStreetMap data), which needs no API key. To use another provider, set `EXPO_PUBLIC_MAP_STYLE_URL` in `frontend/.env` to its style URL. Address search and routing still use the public Nominatim and OSRM demo services, which are fine for testing but not allowed for production traffic: pick a provider before launch.
+
 ## Upgrading an existing database
 
 Phase 1 added fleet ownership to vehicles and encrypts bank account numbers. Run once after deploying:

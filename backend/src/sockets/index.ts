@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { env } from '../config/env';
 import { BookingModel } from '../models/Booking';
 import { DriverModel } from '../models/Driver';
-import { locationState } from '../services/location.service';
+import { locationState, type LocationUpdateResult } from '../services/location.service';
 import type { AuthUser } from '../types/auth';
 import type { PopulatedRef } from '../types/populated';
 import { errorMessage } from '../utils/errors';
@@ -46,6 +46,31 @@ async function canWatchBooking(user: AuthUser, bookingId: string): Promise<boole
   return driver.ownerId?.toString() === user.id;
 }
 
+/**
+ * Sends an accepted GPS fix to the driver's owner and, during a trip, to the trip's room.
+ * Used by both the socket handler and the REST endpoint the background tracker calls.
+ */
+export function broadcastDriverLocation(driverUserId: string, result: LocationUpdateResult): void {
+  if (!io || !result.accepted) return;
+  if (result.ownerId) io.to(ownerRoom(result.ownerId)).emit('fleet:location', result.location);
+  // Only the server decides which trip a driver is on.
+  if (result.activeBookingId) {
+    io.to(bookingRoom(result.activeBookingId)).emit('booking:location:update', {
+      bookingId: result.activeBookingId,
+      driverId: driverUserId,
+      driverName: result.location.driverName,
+      latitude: result.location.latitude,
+      longitude: result.location.longitude,
+      speed: result.location.speed,
+      heading: result.location.heading,
+      accuracy: result.location.accuracy,
+      etaMinutes: result.etaMinutes,
+      distanceKm: result.distanceKm,
+      timestamp: result.location.timestamp,
+    });
+  }
+}
+
 function registerHandlers(server: SocketIOServer, socket: Socket): void {
   const user = socket.data.user as AuthUser;
 
@@ -69,26 +94,7 @@ function registerHandlers(server: SocketIOServer, socket: Socket): void {
 
     try {
       const result = await locationState.update({ ...parsed.data, driverId: user.id });
-      if (!result.accepted) return;
-
-      if (result.ownerId) server.to(ownerRoom(result.ownerId)).emit('fleet:location', result.location);
-
-      // Only the server decides which trip a driver is on.
-      if (result.activeBookingId) {
-        server.to(bookingRoom(result.activeBookingId)).emit('booking:location:update', {
-          bookingId: result.activeBookingId,
-          driverId: user.id,
-          driverName: result.location.driverName,
-          latitude: result.location.latitude,
-          longitude: result.location.longitude,
-          speed: result.location.speed,
-          heading: result.location.heading,
-          accuracy: result.location.accuracy,
-          etaMinutes: result.etaMinutes,
-          distanceKm: result.distanceKm,
-          timestamp: result.location.timestamp,
-        });
-      }
+      broadcastDriverLocation(user.id, result);
     } catch (err) {
       console.error('[Socket] driver:location failed:', errorMessage(err));
     }

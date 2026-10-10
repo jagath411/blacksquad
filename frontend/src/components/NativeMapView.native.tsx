@@ -1,34 +1,9 @@
 import React from 'react';
-import { Camera, Map, Marker, UserLocation } from '@maplibre/maplibre-react-native';
+import { Camera, GeoJSONSource, Layer, Map, Marker, UserLocation } from '@maplibre/maplibre-react-native';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Icon } from './ui/Icon';
 import type { MapMarker, RoutePolyline } from './MapView';
-
-const ESRI_DARK_STYLE = {
-  version: 8,
-  sources: {
-    esri_dark_base: {
-      type: 'raster',
-      tiles: [
-        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-      ],
-      tileSize: 256,
-      attribution: '© Esri, OpenStreetMap contributors',
-    },
-    esri_dark_labels: {
-      type: 'raster',
-      tiles: [
-        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-      ],
-      tileSize: 256,
-    },
-  },
-  layers: [
-    { id: 'bg', type: 'background', paint: { 'background-color': '#0B1120' } },
-    { id: 'esri-dark-base', type: 'raster', source: 'esri_dark_base', minzoom: 0, maxzoom: 19 },
-    { id: 'esri-dark-labels', type: 'raster', source: 'esri_dark_labels', minzoom: 0, maxzoom: 19 },
-  ],
-} as any;
+import { MAP_STYLE_URL } from '../constants/map';
 
 interface Props {
   center: { latitude: number; longitude: number };
@@ -39,11 +14,11 @@ interface Props {
   style?: StyleProp<ViewStyle>;
 }
 
-export function NativeMapView({ center, zoom, markers, interactive, style }: Props) {
+export function NativeMapView({ center, zoom, markers, route, interactive, style }: Props) {
   return (
     <Map
       style={[styles.map, style]}
-      mapStyle={ESRI_DARK_STYLE}
+      mapStyle={MAP_STYLE_URL}
       dragPan={interactive}
       touchZoom={interactive}
       touchRotate={interactive}
@@ -51,6 +26,19 @@ export function NativeMapView({ center, zoom, markers, interactive, style }: Pro
     >
       <Camera center={[center.longitude, center.latitude]} zoom={zoom} duration={500} />
       <UserLocation animated accuracy heading minDisplacement={3} />
+      {route && route.coordinates.length > 1 ? (
+        <GeoJSONSource
+          id="trip-route"
+          data={{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.coordinates } }}
+        >
+          <Layer
+            id="trip-route-line"
+            type="line"
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{ 'line-color': route.color || '#00D084', 'line-width': 5 }}
+          />
+        </GeoJSONSource>
+      ) : null}
       {markers.map((marker) => {
         const isVehicle = marker.isVehicle;
         return (

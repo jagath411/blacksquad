@@ -10,6 +10,7 @@ import { locationState } from '../services/location.service';
 import { FARE_TIERS, findTier, quoteFare } from '../services/pricing.service';
 import { findBookingForView, withoutStartPin } from '../services/booking.view';
 import { ownerDriverIds } from '../services/fleet.service';
+import { offerRide, REQUEST_TIMEOUT_MS } from '../services/dispatch.service';
 import { AVAILABLE_DRIVERS_ROOM, bookingRoom, customerRoom, getIO } from '../sockets';
 import type { AuthenticatedRequest } from '../types/auth';
 import { safeEqual } from '../utils/crypto';
@@ -65,15 +66,16 @@ router.get('/tiers', requireAuth, (_req, res) => {
   res.json({ success: true, tiers: FARE_TIERS });
 });
 
+// Prices for every tier, so the app can show them before the customer books.
 router.post('/quote', requireAuth, (req, res, next) => {
   try {
-    const data = tripSchema.parse(req.body);
-    const tier = findTier(data.serviceTier);
-    if (!tier) {
-      res.status(400).json({ success: false, message: 'Unknown service tier' });
-      return;
-    }
-    res.json({ success: true, tier: tier.id, ...quoteFare(tier, data.pickupCoordinates, data.dropCoordinates) });
+    const { pickupCoordinates, dropCoordinates } = tripSchema.omit({ serviceTier: true }).parse(req.body);
+    const quotes = FARE_TIERS.map((tier) => ({
+      tier: tier.id,
+      name: tier.name,
+      ...quoteFare(tier, pickupCoordinates, dropCoordinates),
+    }));
+    res.json({ success: true, quotes, requestTimeoutSeconds: REQUEST_TIMEOUT_MS / 1000 });
   } catch (error) {
     next(error);
   }
@@ -123,9 +125,8 @@ router.post('/', requireAuth, requireRole('CUSTOMER'), async (req: Authenticated
       status: 'REQUESTED',
     });
 
-    getIO()
-      ?.to(AVAILABLE_DRIVERS_ROOM)
-      .emit('booking:new:request', {
+    const offeredTo = await offerRide(
+      {
         _id: booking._id.toString(),
         pickupAddress: booking.pickupAddress,
         dropAddress: booking.dropAddress,
@@ -135,9 +136,11 @@ router.post('/', requireAuth, requireRole('CUSTOMER'), async (req: Authenticated
         fare: booking.fare,
         distanceKm: booking.distanceKm,
         createdAt: booking.createdAt,
-      });
+      },
+      data.pickupCoordinates,
+    );
 
-    res.status(201).json({ success: true, booking });
+    res.status(201).json({ success: true, booking, driversNotified: offeredTo });
   } catch (error) {
     next(error);
   } finally {

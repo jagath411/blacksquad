@@ -122,7 +122,7 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
               <View style={styles.row}>
                 <Text style={styles.label}>GPS Coordinate</Text>
                 <Text style={styles.value}>
-                  {driver.lat?.toFixed(4)}, {driver.lng?.toFixed(4)}
+                  {driver.lat != null && driver.lng != null ? `${driver.lat.toFixed(4)}, ${driver.lng.toFixed(4)}` : 'No location yet'}
                 </Text>
               </View>
             </View>

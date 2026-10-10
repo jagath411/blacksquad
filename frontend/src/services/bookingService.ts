@@ -7,8 +7,6 @@ export async function createBooking(payload: {
   pickupCoordinates: [number, number];
   dropCoordinates: [number, number];
   serviceTier: string;
-  fare: number;
-  distanceKm?: number;
 }): Promise<BookingData> {
   const response = await apiRequest<{ success: boolean; booking: BookingData }>('/bookings', {
     method: 'POST',
@@ -17,15 +15,29 @@ export async function createBooking(payload: {
   return response.booking;
 }
 
+/** The signed-in user's current trip, or null. Throws when the server cannot be reached. */
 export async function getActiveBooking(): Promise<BookingData | null> {
-  try {
-    const response = await apiRequest<{ success: boolean; booking: BookingData | null }>(
-      '/bookings/active',
-    );
-    return response.booking;
-  } catch {
-    return null;
-  }
+  const response = await apiRequest<{ success: boolean; booking: BookingData | null }>('/bookings/active');
+  return response.booking;
+}
+
+export interface FareQuote {
+  tier: string;
+  name: string;
+  fare: number;
+  distanceKm: number;
+}
+
+/** Server prices for every service tier between two points ([lng, lat]). */
+export async function getFareQuotes(
+  pickupCoordinates: [number, number],
+  dropCoordinates: [number, number],
+): Promise<FareQuote[]> {
+  const response = await apiRequest<{ success: boolean; quotes: FareQuote[] }>('/bookings/quote', {
+    method: 'POST',
+    body: JSON.stringify({ pickupCoordinates, dropCoordinates }),
+  });
+  return response.quotes;
 }
 
 export async function acceptBooking(bookingId: string): Promise<BookingData> {

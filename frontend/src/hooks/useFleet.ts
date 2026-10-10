@@ -14,8 +14,9 @@ export interface FleetDriverSummary {
   licenseNumber: string;
   state: 'Online' | 'On Trip' | 'Offline';
   color: string;
-  lat: number;
-  lng: number;
+  /** Null until the driver has sent a GPS position. */
+  lat: number | null;
+  lng: number | null;
   speed: number | null;
   heading: number | null;
   lastUpdated: string;
@@ -123,7 +124,7 @@ export function useFleet() {
 
   // 3. Merge Database Drivers + Live Socket Telemetry into Consolidated Drivers List
   const drivers: FleetDriverSummary[] = useMemo(() => {
-    return dbDrivers.map((d, index) => {
+    return dbDrivers.map((d) => {
       const driverUserId = d.userId?._id?.toString() || (d.userId as any)?.toString() || d._id;
       const live = liveLocations[driverUserId] || (d.liveLocation as any);
       const dynamicStatus = driverStatuses[driverUserId] || d.availabilityStatus || 'OFFLINE';
@@ -142,12 +143,8 @@ export function useFleet() {
 
       const color = isOnTrip ? '#38BDF8' : isOnline ? '#00D084' : '#64748B';
 
-      // Default fallbacks with Bangalore city center spread if no GPS logged yet
-      const fallbackLat = 12.9716 + (index % 4) * 0.008 * (index % 2 === 0 ? 1 : -1);
-      const fallbackLng = 77.5946 + ((index + 1) % 4) * 0.008 * (index % 2 === 0 ? -1 : 1);
-
-      const lat = live?.latitude || d.currentLocation?.coordinates?.[1] || fallbackLat;
-      const lng = live?.longitude || d.currentLocation?.coordinates?.[0] || fallbackLng;
+      const lat = live?.latitude ?? d.currentLocation?.coordinates?.[1] ?? null;
+      const lng = live?.longitude ?? d.currentLocation?.coordinates?.[0] ?? null;
 
       const vehiclePlate = d.vehicleId?.registrationNumber || 'No Vehicle Linked';
       const vehicleModel = d.vehicleId?.model || d.vehicleId?.vehicleType || 'Fleet Pool';
