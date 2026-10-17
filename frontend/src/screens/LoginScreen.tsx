@@ -316,7 +316,7 @@ export function LoginScreen({ navigation, route }: Props) {
           <View
             style={[
               s.statusDot,
-              { backgroundColor: apiOnline ? '#FFC21A' : '#C8372D' },
+              { backgroundColor: apiOnline ? '#1F3FB8' : '#C8372D' },
             ]}
           />
           <Text style={[s.status, { color: apiOnline ? '#1E8E5A' : '#C8372D' }]}>
@@ -434,7 +434,7 @@ export function LoginScreen({ navigation, route }: Props) {
                     style={({ pressed }) => [s.smsAutoFillBtn, pressed && { opacity: 0.8 }]}
                     onPress={() => handleAutoFillAndVerify(devOtp)}
                   >
-                    <Icon name="flash" size={13} color="#1D232B" />
+                    <Icon name="flash" size={13} color="#FFFFFF" />
                     <Text style={s.smsAutoFillText}>Use code and sign in</Text>
                   </Pressable>
                 </View>
@@ -658,13 +658,13 @@ const s = StyleSheet.create<{
   header: { alignItems: 'flex-start', marginTop: 12, marginBottom: 20 },
   logoImage: { width: 44, height: 44, borderRadius: 11, marginBottom: 20 },
   roleBadge: {
-    backgroundColor: 'rgba(255, 194, 26, 0.19)',
+    backgroundColor: 'rgba(31, 63, 184, 0.10)',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
     marginBottom: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 194, 26, 0.40)',
+    borderColor: 'rgba(31, 63, 184, 0.22)',
   },
   kicker: {
     color: '#1E8E5A',
@@ -731,12 +731,12 @@ const s = StyleSheet.create<{
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(255, 194, 26, 0.13)',
+    backgroundColor: 'rgba(31, 63, 184, 0.07)',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 194, 26, 0.40)',
+    borderColor: 'rgba(31, 63, 184, 0.22)',
   },
   phoneSentLabel: {
     color: '#5B6573',
@@ -767,12 +767,12 @@ const s = StyleSheet.create<{
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 194, 26, 0.16)',
+    backgroundColor: 'rgba(31, 63, 184, 0.09)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 194, 26, 0.48)',
+    borderColor: 'rgba(31, 63, 184, 0.26)',
   },
   liveGatewayText: {
     color: '#1E8E5A',
@@ -826,7 +826,7 @@ const s = StyleSheet.create<{
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#FFC21A',
+    backgroundColor: '#1F3FB8',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -834,7 +834,7 @@ const s = StyleSheet.create<{
     cursor: 'pointer' as any,
   },
   smsAutoFillText: {
-    color: '#1D232B',
+    color: '#FFFFFF',
     fontSize: 12,
     fontFamily: fonts.w700,
   },
@@ -851,7 +851,7 @@ const s = StyleSheet.create<{
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 194, 26, 0.60)',
+    borderColor: 'rgba(31, 63, 184, 0.33)',
     
   },
   resendRow: {

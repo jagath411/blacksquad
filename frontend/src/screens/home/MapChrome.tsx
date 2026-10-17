@@ -47,7 +47,7 @@ export function RecenterButton({ isLocating, onPress }: { isLocating: boolean; o
 export function TripPill({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View style={s.floatingEtaPill}>
-      <Icon name="navigate" size={18} color="#FFC21A" />
+      <Icon name="navigate" size={18} color="#9DB2FF" />
       <View style={s.floatingEtaContent}>
         <Text style={s.floatingEtaText}>{title}</Text>
         {subtitle ? (

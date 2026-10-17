@@ -23,7 +23,7 @@ export function AppButton({ label, variant = 'primary', tone = 'dark', loading =
       : variant === 'secondary'
         ? { backgroundColor: theme.surface, borderColor: theme.text }
         : { backgroundColor: 'transparent', borderColor: 'transparent' };
-  const labelColor = variant === 'danger' ? '#FFFFFF' : theme.text;
+  const labelColor = variant === 'primary' || variant === 'danger' ? '#FFFFFF' : theme.text;
 
   return (
     <Pressable

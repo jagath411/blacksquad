@@ -30,7 +30,7 @@ import { lookupIfscCode, type VerifiedIfscResult } from '../services/ifscService
 import { callNumber, confirmAction } from '../utils/dialogs';
 import { formatUnifiedError } from '../utils/errorHandler';
 import { fonts } from '../theme/fonts';
-import { go, ink, line, paper, stop, subtle, surface, text2, text3 } from '../theme/palette';
+import { brand, go, ink, line, paper, stop, subtle, surface, text2, text3 } from '../theme/palette';
 
 interface Props {
   visible: boolean;
@@ -421,7 +421,7 @@ const s = StyleSheet.create<{
   closeBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: surface, alignItems: 'center', justifyContent: 'center' },
   tabs: { gap: 8, paddingHorizontal: 20, paddingVertical: 16, alignItems: 'center' },
   tab: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: surface, borderWidth: 1, borderColor: line },
-  tabActive: { backgroundColor: ink, borderColor: ink },
+  tabActive: { backgroundColor: brand, borderColor: brand },
   tabText: { fontFamily: fonts.w600, fontSize: 15, color: ink },
   tabTextActive: { color: '#FFFFFF' },
   notice: {

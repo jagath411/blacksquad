@@ -8,7 +8,7 @@ import { ApiError } from '../services/api/client';
 import { getCurrentUser } from '../services/authService';
 import type { RootStackParamList } from '../types';
 import { fonts } from '../theme/fonts';
-import { ink, marigold, paper, text2 } from '../theme/palette';
+import { ink, paper, text2 } from '../theme/palette';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
@@ -77,8 +77,6 @@ export function WelcomeScreen({ navigation }: Props) {
         </Text>
       </View>
 
-      <View style={s.roadLine} />
-
       <View style={s.footer}>
         <AppButton label="Get started" onPress={() => navigation.navigate('Role')} />
       </View>
@@ -95,7 +93,6 @@ const s = StyleSheet.create<{
   center: ViewStyle;
   title: TextStyle;
   body: TextStyle;
-  roadLine: ViewStyle;
   footer: ViewStyle;
 }>({
   splash: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: paper },
@@ -106,7 +103,5 @@ const s = StyleSheet.create<{
   center: { flex: 1, justifyContent: 'center', paddingVertical: 40 },
   title: { fontFamily: fonts.w700, fontSize: 46, lineHeight: 48, color: ink, letterSpacing: -1 },
   body: { fontFamily: fonts.w400, fontSize: 17, lineHeight: 26, color: text2, marginTop: 20, maxWidth: 360 },
-  // A dashed lane marking: the one decorative touch on this screen.
-  roadLine: { height: 0, borderTopWidth: 4, borderStyle: 'dashed', borderColor: marigold, marginBottom: 28, opacity: 0.9 },
   footer: { paddingBottom: 8 },
 });

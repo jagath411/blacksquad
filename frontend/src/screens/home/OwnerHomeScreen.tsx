@@ -95,7 +95,7 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
             style={s.ownerQuickCard}
             onPress={() => setExpensesModalVisible(true)}
           >
-            <View style={[s.ownerQuickIconBox, { backgroundColor: 'rgba(255, 194, 26, 0.24)' }]}>
+            <View style={[s.ownerQuickIconBox, { backgroundColor: 'rgba(31, 63, 184, 0.13)' }]}>
               <Icon name="receipt" size={16} color="#B7791F" />
             </View>
             <View style={{ flex: 1 }}>
@@ -118,7 +118,7 @@ export function OwnerHomeScreen({ onLogout }: { onLogout: () => void }) {
             style={s.addDriverBtn}
             onPress={() => setAddDriverModalVisible(true)}
           >
-            <Icon name="person-add" size={14} color="#1D232B" />
+            <Icon name="person-add" size={14} color="#FFFFFF" />
             <Text style={s.addDriverBtnText}>Add driver</Text>
           </Pressable>
         </View>

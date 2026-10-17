@@ -278,7 +278,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
 
                     {/* Fuel & Fleet Expenses */}
                     <View style={s.kpiCard}>
-                      <View style={[s.kpiIconBox, { backgroundColor: 'rgba(255, 194, 26, 0.24)' }]}>
+                      <View style={[s.kpiIconBox, { backgroundColor: 'rgba(31, 63, 184, 0.13)' }]}>
                         <Icon name="speedometer" size={18} color="#B7791F" />
                       </View>
                       <Text style={s.kpiLabel}>Fuel & expenses</Text>
@@ -320,7 +320,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                           <Text style={s.legendText}>Revenue</Text>
                         </View>
                         <View style={s.legendItem}>
-                          <View style={[s.legendDot, { backgroundColor: '#FFC21A' }]} />
+                          <View style={[s.legendDot, { backgroundColor: '#1F3FB8' }]} />
                           <Text style={s.legendText}>Expenses</Text>
                         </View>
                       </View>
@@ -351,7 +351,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                                   s.bar,
                                   {
                                     height: expHeight,
-                                    backgroundColor: '#FFC21A',
+                                    backgroundColor: '#1F3FB8',
                                   },
                                 ]}
                               />
@@ -826,8 +826,8 @@ const s = StyleSheet.create<{
     borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   tabPillActive: {
-    backgroundColor: '#1D232B',
-    borderColor: '#1D232B',
+    backgroundColor: '#1F3FB8',
+    borderColor: '#1F3FB8',
   },
   tabPillText: { color: '#5B6573', fontSize: 12, fontFamily: fonts.w600,},
   tabPillTextActive: { color: '#FFFFFF', fontFamily: fonts.w700 },

@@ -5,7 +5,7 @@ import { Screen } from '../components/Screen';
 import { Icon } from '../components/ui/Icon';
 import type { RootStackParamList, UserRole } from '../types';
 import { fonts } from '../theme/fonts';
-import { ink, line, marigold, surface, text2, text3 } from '../theme/palette';
+import { ink, line, brand, surface, text2, text3 } from '../theme/palette';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Role'>;
 
@@ -61,7 +61,7 @@ export function RoleScreen({ navigation }: Props) {
             style={({ pressed }) => [s.row, pressed && s.rowPressed]}
           >
             <View style={s.iconBox}>
-              <Icon name={item.icon} family={item.iconFamily} size={24} color={ink} />
+              <Icon name={item.icon} family={item.iconFamily} size={24} color="#FFFFFF" />
             </View>
             <View style={s.rowBody}>
               <Text style={s.rowTitle}>{item.title}</Text>
@@ -102,7 +102,7 @@ const s = StyleSheet.create<{
     borderColor: line,
   },
   rowPressed: { borderColor: ink },
-  iconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: marigold, alignItems: 'center', justifyContent: 'center' },
+  iconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: brand, alignItems: 'center', justifyContent: 'center' },
   rowBody: { flex: 1 },
   rowTitle: { fontFamily: fonts.w700, fontSize: 19, color: ink },
   rowDesc: { fontFamily: fonts.w400, fontSize: 15, lineHeight: 21, color: text2, marginTop: 3 },

@@ -66,7 +66,7 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
                     <View
                       style={[
                         styles.statusDot,
-                        { backgroundColor: isOnline ? '#FFC21A' : '#C8372D' },
+                        { backgroundColor: isOnline ? '#1F3FB8' : '#C8372D' },
                       ]}
                     />
                     <Text
@@ -98,7 +98,7 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
                 <Text style={styles.contactPhone}>{driver.phone || 'No phone on file'}</Text>
               </View>
               <Pressable style={styles.callFab} onPress={handleCallDriver}>
-                <Icon name="call" size={16} color="#1D232B" />
+                <Icon name="call" size={16} color="#FFFFFF" />
                 <Text style={styles.callFabText}>Call Driver</Text>
               </Pressable>
             </View>
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 194, 26, 0.48)',
+    borderColor: 'rgba(31, 63, 184, 0.26)',
   },
   contactLabel: {
     color: '#5B6573',
@@ -303,13 +303,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FFC21A',
+    backgroundColor: '#1F3FB8',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
   },
   callFabText: {
-    color: '#1D232B',
+    color: '#FFFFFF',
     fontSize: 12,
     fontFamily: fonts.w700,
   },
@@ -352,8 +352,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 194, 26, 0.24)',
-    borderColor: '#E0A800',
+    backgroundColor: 'rgba(31, 63, 184, 0.13)',
+    borderColor: '#172F8A',
     borderWidth: 1,
     padding: 10,
     borderRadius: 8,
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   },
   activePayoutTag: {
     color: '#1E8E5A',
-    backgroundColor: 'rgba(255, 194, 26, 0.24)',
+    backgroundColor: 'rgba(31, 63, 184, 0.13)',
     fontSize: 9,
     fontFamily: fonts.w700,
     paddingHorizontal: 6,

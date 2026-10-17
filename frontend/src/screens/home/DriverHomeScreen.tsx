@@ -341,7 +341,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
             )}
             {activeBooking.status === 'TRIP_STARTED' && (
               <Pressable accessibilityRole="button"
-                style={[s.actionPrimaryBtn, { backgroundColor: '#1D232B' }]}
+                style={[s.actionPrimaryBtn, { backgroundColor: '#172F8A' }]}
                 disabled={busy}
                 onPress={() => void setStatus('TRIP_COMPLETED')}
               >
@@ -372,7 +372,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
                     : 'Go online to receive ride requests'}
                 </Text>
               </View>
-              <View style={[s.dutyStatusDot, { backgroundColor: isOnline ? '#FFC21A' : '#D5DBE2' }]} />
+              <View style={[s.dutyStatusDot, { backgroundColor: isOnline ? '#1F3FB8' : '#D5DBE2' }]} />
             </View>
 
             {isOnline && location && (
@@ -401,8 +401,8 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
               disabled={busy}
               onPress={() => void handleToggleDuty()}
             >
-              <Icon name={isOnline ? 'power' : 'radio'} size={20} color="#1D232B" />
-              <Text style={s.toggleDutyBtnText}>{isOnline ? 'Go offline' : 'Go online'}</Text>
+              <Icon name={isOnline ? 'power' : 'radio'} size={20} color={isOnline ? '#1D232B' : '#FFFFFF'} />
+              <Text style={[s.toggleDutyBtnText, !isOnline && { color: '#FFFFFF' }]}>{isOnline ? 'Go offline' : 'Go online'}</Text>
             </Pressable>
           </View>
         )}

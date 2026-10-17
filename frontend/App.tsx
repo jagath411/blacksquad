@@ -14,7 +14,7 @@ import {
   Barlow_700Bold,
 } from '@expo-google-fonts/barlow';
 import { BarlowCondensed_600SemiBold, BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed';
-import { ink, marigold, paper } from './src/theme/palette';
+import { ink, brand, paper } from './src/theme/palette';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { RoleScreen } from './src/screens/RoleScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -65,7 +65,7 @@ export default function App() {
       ref={navigationRef}
       theme={{
         ...DefaultTheme,
-        colors: { ...DefaultTheme.colors, background: paper, primary: marigold, text: ink },
+        colors: { ...DefaultTheme.colors, background: paper, primary: brand, text: ink },
       }}
     >
       <StatusBar style="dark" />

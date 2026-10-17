@@ -17,7 +17,7 @@ export function buildTripMap(
     markers.push({ id: 'pickup', longitude: pickup[0], latitude: pickup[1], title: `Pickup: ${booking.pickupAddress}`, color: '#1D232B' });
   }
   if (drop) {
-    markers.push({ id: 'drop', longitude: drop[0], latitude: drop[1], title: `Destination: ${booking.dropAddress}`, color: '#FFC21A' });
+    markers.push({ id: 'drop', longitude: drop[0], latitude: drop[1], title: `Destination: ${booking.dropAddress}`, color: '#C8372D' });
   }
   if (driver) {
     markers.push({

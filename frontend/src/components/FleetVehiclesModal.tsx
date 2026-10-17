@@ -330,8 +330,8 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                                 {
                                   backgroundColor:
                                     veh.status === 'ACTIVE'
-                                      ? 'rgba(255, 194, 26, 0.19)'
-                                      : 'rgba(255, 194, 26, 0.19)',
+                                      ? 'rgba(31, 63, 184, 0.10)'
+                                      : 'rgba(31, 63, 184, 0.10)',
                                   borderColor:
                                     veh.status === 'ACTIVE' ? '#1E8E5A' : '#B7791F',
                                 },
@@ -675,11 +675,11 @@ const s = StyleSheet.create<{
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: 'rgba(255, 194, 26, 0.19)',
+    backgroundColor: 'rgba(31, 63, 184, 0.10)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 194, 26, 0.40)',
+    borderColor: 'rgba(31, 63, 184, 0.22)',
   },
   title: {
     color: '#1D232B',
@@ -739,7 +739,7 @@ const s = StyleSheet.create<{
   activeTab: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 194, 26, 0.48)',
+    borderColor: 'rgba(31, 63, 184, 0.26)',
   },
   tabText: {
     color: '#7A8592',
@@ -763,8 +763,8 @@ const s = StyleSheet.create<{
     borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   filterPillActive: {
-    backgroundColor: 'rgba(255, 194, 26, 0.24)',
-    borderColor: '#E0A800',
+    backgroundColor: 'rgba(31, 63, 184, 0.13)',
+    borderColor: '#172F8A',
   },
   filterPillText: {
     color: '#7A8592',
@@ -795,11 +795,11 @@ const s = StyleSheet.create<{
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 194, 26, 0.19)',
+    backgroundColor: 'rgba(31, 63, 184, 0.10)',
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E0A800',
+    borderColor: '#172F8A',
     marginBottom: 12,
   },
   successText: {
@@ -979,13 +979,13 @@ const s = StyleSheet.create<{
   },
   emptyAddBtn: {
     marginTop: 16,
-    backgroundColor: '#FFC21A',
+    backgroundColor: '#1F3FB8',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   emptyAddBtnText: {
-    color: '#1D232B',
+    color: '#FFFFFF',
     fontSize: 12,
     fontFamily: fonts.w700,
   },
@@ -1029,8 +1029,8 @@ const s = StyleSheet.create<{
     borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   typeCardActive: {
-    backgroundColor: 'rgba(255, 194, 26, 0.19)',
-    borderColor: '#E0A800',
+    backgroundColor: 'rgba(31, 63, 184, 0.10)',
+    borderColor: '#172F8A',
   },
   typeCardLabel: {
     color: '#5B6573',
@@ -1058,8 +1058,8 @@ const s = StyleSheet.create<{
     borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   driverPillActive: {
-    backgroundColor: 'rgba(255, 194, 26, 0.24)',
-    borderColor: '#E0A800',
+    backgroundColor: 'rgba(31, 63, 184, 0.13)',
+    borderColor: '#172F8A',
   },
   driverPillText: {
     color: '#7A8592',
