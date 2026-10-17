@@ -25,8 +25,15 @@ import { getHealth } from '../services/api/health';
 import { googleLogin, login, register, sendPhoneOtp, verifyPhoneOtp, type UserProfile } from '../services/authService';
 import type { RootStackParamList } from '../types';
 import { formatUnifiedError, type FormattedError } from '../utils/errorHandler';
+import { fonts } from '../theme/fonts';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const ROLE_TITLES: Record<string, string> = {
+  CUSTOMER: 'Sign in to book a ride',
+  DRIVER: 'Sign in to drive',
+  OWNER: 'Sign in to your fleet',
+};
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -93,13 +100,13 @@ export function LoginScreen({ navigation, route }: Props) {
     setApi('Checking server...');
     try {
       await getHealth();
-      setApi('Server online');
+      setApi('Connected');
       setApiOnline(true);
       if (error?.title === 'Connection Unavailable' || error?.title === 'Server Temporarily Unavailable') {
         setError(null);
       }
     } catch {
-      setApi('Server offline / Reconnecting');
+      setApi("Can't reach BlackSquad. Tap to try again.");
       setApiOnline(false);
     } finally {
       setCheckingApi(false);
@@ -294,31 +301,29 @@ export function LoginScreen({ navigation, route }: Props) {
           style={s.logoImage}
           resizeMode="cover"
         />
-        <View style={s.roleBadge}>
-          <Text style={s.kicker}>{role} WORKSPACE</Text>
-        </View>
         <Text style={s.title}>
           {authMethod === 'phone'
             ? phoneStep === 'input'
-              ? 'Sign in with Mobile'
-              : 'Verify Phone OTP'
+              ? ROLE_TITLES[role]
+              : 'Enter your code'
             : createMode
-            ? 'Create Account'
-            : 'Welcome Back'}
+            ? 'Create your account'
+            : ROLE_TITLES[role]}
         </Text>
 
+        {!apiOnline && !checkingApi ? (
         <Pressable style={s.statusRow} onPress={checkBackendHealth}>
           <View
             style={[
               s.statusDot,
-              { backgroundColor: apiOnline ? '#00D084' : '#EF4444' },
+              { backgroundColor: apiOnline ? '#FFC21A' : '#C8372D' },
             ]}
           />
-          <Text style={[s.status, { color: apiOnline ? '#00D084' : '#FCA5A5' }]}>
+          <Text style={[s.status, { color: apiOnline ? '#1E8E5A' : '#C8372D' }]}>
             {api}
           </Text>
-          {checkingApi && <ActivityIndicator size="small" color="#00D084" style={{ marginLeft: 4 }} />}
         </Pressable>
+        ) : null}
       </View>
 
       {/* Auth Method Tabs */}
@@ -330,9 +335,9 @@ export function LoginScreen({ navigation, route }: Props) {
             setError(null);
           }}
         >
-          <Icon name="call" size={14} color={authMethod === 'phone' ? '#00D084' : '#64748B'} />
+          <Icon name="call" size={15} color={authMethod === 'phone' ? '#1D232B' : '#5B6573'} />
           <Text style={[s.tabBtnText, authMethod === 'phone' && s.tabBtnTextActive]}>
-            Phone OTP
+            Phone
           </Text>
         </Pressable>
 
@@ -343,9 +348,9 @@ export function LoginScreen({ navigation, route }: Props) {
             setError(null);
           }}
         >
-          <Icon name="mail" size={14} color={authMethod === 'email' ? '#00D084' : '#64748B'} />
+          <Icon name="mail" size={15} color={authMethod === 'email' ? '#1D232B' : '#5B6573'} />
           <Text style={[s.tabBtnText, authMethod === 'email' && s.tabBtnTextActive]}>
-            Email / Password
+            Email
           </Text>
         </Pressable>
       </View>
@@ -358,7 +363,7 @@ export function LoginScreen({ navigation, route }: Props) {
           phoneStep === 'input' ? (
             <>
               <View style={s.phoneInputContainer}>
-                <Text style={s.inputLabel}>Mobile Phone Number</Text>
+                <Text style={s.inputLabel}>Mobile number</Text>
                 <View style={s.phoneRow}>
                   <View style={s.countryPill}>
                     <Text style={s.countryFlag}>🇮🇳</Text>
@@ -372,7 +377,7 @@ export function LoginScreen({ navigation, route }: Props) {
                       setError(null);
                     }}
                     placeholder="98765 43210"
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor="#7A8592"
                     keyboardType="phone-pad"
                     autoFocus
                   />
@@ -380,7 +385,7 @@ export function LoginScreen({ navigation, route }: Props) {
               </View>
 
               <AppButton
-                label={sendingOtp ? 'Sending OTP...' : 'Send OTP Code →'}
+                label={sendingOtp ? 'Sending code…' : 'Send code'}
                 loading={sendingOtp}
                 disabled={sendingOtp || !phone.trim()}
                 onPress={handleSendPhoneOtp}
@@ -389,9 +394,9 @@ export function LoginScreen({ navigation, route }: Props) {
           ) : (
             <>
               <View style={s.phoneSentBadge}>
-                <Icon name="chatbubble" size={15} color="#00D084" />
+                <Icon name="chatbubble" size={15} color="#1E8E5A" />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.phoneSentLabel}>SMS Verification Code Sent To</Text>
+                  <Text style={s.phoneSentLabel}>Code sent by SMS to</Text>
                   <Text style={s.phoneSentNumber}>{formatPhoneDisplay(phone)}</Text>
                 </View>
                 <Pressable
@@ -402,7 +407,7 @@ export function LoginScreen({ navigation, route }: Props) {
                   }}
                   style={s.editPhoneBtn}
                 >
-                  <Icon name="create-outline" size={13} color="#38BDF8" />
+                  <Icon name="create-outline" size={13} color="#2457D6" />
                   <Text style={s.editPhoneText}>Change</Text>
                 </Pressable>
               </View>
@@ -410,19 +415,16 @@ export function LoginScreen({ navigation, route }: Props) {
               {/* Live vs Simulator SMS Status Banner */}
               {isLiveGateway ? (
                 <View style={s.liveGatewayBadge}>
-                  <Icon name="checkmark-circle" size={15} color="#00D084" />
+                  <Icon name="checkmark-circle" size={15} color="#1E8E5A" />
                   <Text style={s.liveGatewayText}>
-                    Live SMS sent to your phone carrier via {smsProvider || 'telecom gateway'}.
+                    Check your messages for a 6-digit code.
                   </Text>
                 </View>
               ) : devOtp ? (
                 <View style={s.smsSimulatorCard}>
                   <View style={s.smsSimulatorHeader}>
-                    <Icon name="chatbubble-ellipses" size={15} color="#38BDF8" />
-                    <Text style={s.smsSimulatorTitle}>CARRIER SMS PREVIEW</Text>
-                    <View style={s.simTag}>
-                      <Text style={s.simTagText}>SIMULATED</Text>
-                    </View>
+                    <Icon name="chatbubble-ellipses" size={15} color="#2457D6" />
+                    <Text style={s.smsSimulatorTitle}>Development code</Text>
                   </View>
                   <Text style={s.smsSimulatorBody}>
                     &ldquo;Your BlackSquad verification code is{' '}
@@ -432,14 +434,14 @@ export function LoginScreen({ navigation, route }: Props) {
                     style={({ pressed }) => [s.smsAutoFillBtn, pressed && { opacity: 0.8 }]}
                     onPress={() => handleAutoFillAndVerify(devOtp)}
                   >
-                    <Icon name="flash" size={13} color="#07100D" />
-                    <Text style={s.smsAutoFillText}>⚡ Auto-Fill & Sign In ({devOtp})</Text>
+                    <Icon name="flash" size={13} color="#1D232B" />
+                    <Text style={s.smsAutoFillText}>Use code and sign in</Text>
                   </Pressable>
                 </View>
               ) : null}
 
               <View style={s.otpInputWrap}>
-                <Text style={s.inputLabel}>6-Digit OTP Code</Text>
+                <Text style={s.inputLabel}>6-digit code</Text>
                 <TextInput
                   style={s.otpLargeInput}
                   value={otp}
@@ -452,7 +454,7 @@ export function LoginScreen({ navigation, route }: Props) {
                     }
                   }}
                   placeholder="• • • • • •"
-                  placeholderTextColor="#475569"
+                  placeholderTextColor="#7A8592"
                   keyboardType="number-pad"
                   maxLength={6}
                   autoFocus
@@ -460,7 +462,7 @@ export function LoginScreen({ navigation, route }: Props) {
               </View>
 
               <AppButton
-                label={verifyingOtp ? 'Verifying OTP...' : 'Verify & Sign In'}
+                label={verifyingOtp ? 'Checking code…' : 'Sign in'}
                 loading={verifyingOtp}
                 disabled={verifyingOtp || otp.trim().length < 4}
                 onPress={() => handleVerifyPhoneOtp()}
@@ -468,10 +470,10 @@ export function LoginScreen({ navigation, route }: Props) {
 
               <View style={s.resendRow}>
                 {resendTimer > 0 ? (
-                  <Text style={s.resendTimerText}>Resend code via SMS in {resendTimer}s</Text>
+                  <Text style={s.resendTimerText}>You can ask for a new code in {resendTimer}s</Text>
                 ) : (
                   <Pressable onPress={handleSendPhoneOtp}>
-                    <Text style={s.resendLinkText}>Resend OTP Code via SMS</Text>
+                    <Text style={s.resendLinkText}>Send a new code</Text>
                   </Pressable>
                 )}
               </View>
@@ -492,15 +494,15 @@ export function LoginScreen({ navigation, route }: Props) {
                 (loading || googleLoading) && s.btnDisabled,
               ]}
             >
-              <Icon name="logo-google" size={18} color="#FFFFFF" />
+              <Icon name="logo-google" size={18} color="#1D232B" />
               <Text style={s.googleBtnText}>
-                {googleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+                {googleLoading ? 'Opening Google…' : 'Continue with Google'}
               </Text>
             </Pressable>
 
             <View style={s.dividerRow}>
               <View style={s.dividerLine} />
-              <Text style={s.divider}>OR WITH EMAIL</Text>
+              <Text style={s.divider}>or use your email</Text>
               <View style={s.dividerLine} />
             </View>
 
@@ -512,7 +514,7 @@ export function LoginScreen({ navigation, route }: Props) {
                   setName(t);
                   setError(null);
                 }}
-                placeholder="John Doe"
+                placeholder="Your name"
                 autoCapitalize="words"
                 tone="dark"
               />
@@ -548,12 +550,12 @@ export function LoginScreen({ navigation, route }: Props) {
                 style={s.forgotPasswordBtn}
                 onPress={() => navigation.navigate('ForgotPassword')}
               >
-                <Text style={s.forgotPasswordText}>Forgot Password?</Text>
+                <Text style={s.forgotPasswordText}>Forgot password?</Text>
               </Pressable>
             )}
 
             <AppButton
-              label={createMode ? 'Create account' : 'Sign in to workspace'}
+              label={createMode ? 'Create account' : 'Sign in'}
               loading={loading}
               disabled={loading || googleLoading}
               onPress={submitEmail}
@@ -568,7 +570,7 @@ export function LoginScreen({ navigation, route }: Props) {
               style={s.switchPressable}
             >
               <Text style={s.switch}>
-                {createMode ? 'Already registered? Sign in' : 'Need an account? Create one now'}
+                {createMode ? 'Already have an account? Sign in' : 'New here? Create an account'}
               </Text>
             </Pressable>
           </>
@@ -577,18 +579,17 @@ export function LoginScreen({ navigation, route }: Props) {
         {/* Error Notification Box */}
         {error ? (
           <View accessible accessibilityRole="alert" style={s.errorBox}>
-            <Icon name="alert-circle" size={20} color="#F87171" />
+            <Icon name="alert-circle" size={20} color="#C8372D" />
             <View style={s.errorContent}>
               <Text style={s.errorTitle}>{error.title}</Text>
               <Text style={s.errorText}>{error.message}</Text>
             </View>
             <Pressable onPress={() => setError(null)} hitSlop={8} style={{ padding: 4 }}>
-              <Icon name="close" size={16} color="#94A3B8" />
+              <Icon name="close" size={16} color="#5B6573" />
             </Pressable>
           </View>
         ) : null}
 
-        <Text style={s.note}>End-to-end encrypted BlackSquad transport operations security.</Text>
       </View>
     </Screen>
   );
@@ -654,50 +655,33 @@ const s = StyleSheet.create<{
   forgotPasswordBtn: ViewStyle;
   forgotPasswordText: TextStyle;
 }>({
-  header: {
-    alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 16,
-  },
-  logoImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: 'rgba(0, 208, 132, 0.3)',
-  },
+  header: { alignItems: 'flex-start', marginTop: 12, marginBottom: 20 },
+  logoImage: { width: 44, height: 44, borderRadius: 11, marginBottom: 20 },
   roleBadge: {
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
     marginBottom: 6,
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.25)',
+    borderColor: 'rgba(255, 194, 26, 0.40)',
   },
   kicker: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '900',
-    marginBottom: 8,
-  },
+    fontFamily: fonts.w700,
+    },
+  title: { color: '#1D232B', fontSize: 30, lineHeight: 34, fontFamily: fonts.w700, letterSpacing: -0.5 },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   statusDot: {
     width: 6,
@@ -706,17 +690,9 @@ const s = StyleSheet.create<{
   },
   status: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
+  tabContainer: { flexDirection: 'row', backgroundColor: '#E9EDF1', borderRadius: 12, padding: 4, marginBottom: 20 },
   tabBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -726,126 +702,90 @@ const s = StyleSheet.create<{
     paddingVertical: 10,
     borderRadius: 8,
   },
-  tabBtnActive: {
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.3)',
-  },
-  tabBtnText: {
-    color: '#64748B',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  tabBtnTextActive: {
-    color: '#00D084',
-  },
+  tabBtnActive: { backgroundColor: '#FFFFFF', shadowColor: '#1D232B', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  tabBtnText: { color: '#5B6573', fontSize: 15, fontFamily: fonts.w600 },
+  tabBtnTextActive: { color: '#1D232B' },
   form: {
     gap: 12,
   },
   phoneInputContainer: {
     gap: 6,
   },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#94A3B8',
-  },
+  inputLabel: { fontSize: 14, fontFamily: fonts.w600, color: '#1D232B' },
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  countryPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
+  countryPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#9AA4B0' },
   countryFlag: {
-    fontSize: 16,
+    fontSize: 16, fontFamily: fonts.w400,
   },
   countryCode: {
-    color: '#F1F5F9',
+    color: '#1D232B',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
-  phoneTextInput: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
+  phoneTextInput: { flex: 1, backgroundColor: '#FFFFFF', color: '#1D232B', fontSize: 18, fontFamily: fonts.w500, paddingHorizontal: 14, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#9AA4B0' },
   phoneSentBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(0, 208, 132, 0.08)',
+    backgroundColor: 'rgba(255, 194, 26, 0.13)',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.25)',
+    borderColor: 'rgba(255, 194, 26, 0.40)',
   },
   phoneSentLabel: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
+    fontFamily: fonts.w600,
+    },
   phoneSentNumber: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 15,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
     letterSpacing: 0.5,
   },
   editPhoneBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    backgroundColor: 'rgba(36, 87, 214, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   editPhoneText: {
-    color: '#38BDF8',
+    color: '#2457D6',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   liveGatewayBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(0, 208, 132, 0.1)',
+    backgroundColor: 'rgba(255, 194, 26, 0.16)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.3)',
+    borderColor: 'rgba(255, 194, 26, 0.48)',
   },
   liveGatewayText: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
     flex: 1,
   },
   smsSimulatorCard: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
+    borderColor: 'rgba(36, 87, 214, 0.40)',
     gap: 8,
   },
   smsSimulatorHeader: {
@@ -854,40 +794,39 @@ const s = StyleSheet.create<{
     gap: 6,
   },
   smsSimulatorTitle: {
-    color: '#38BDF8',
+    color: '#2457D6',
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    fontFamily: fonts.w700,
     flex: 1,
   },
   simTag: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    backgroundColor: 'rgba(36, 87, 214, 0.20)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   simTagText: {
-    color: '#7DD3FC',
+    color: '#2457D6',
     fontSize: 9,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
   },
   smsSimulatorBody: {
-    color: '#CBD5E1',
-    fontSize: 13,
+    color: '#3A4350',
+    fontSize: 13, fontFamily: fonts.w400,
     lineHeight: 18,
   },
   smsCodeHighlight: {
-    color: '#38BDF8',
-    fontWeight: '900',
+    color: '#2457D6',
+    fontFamily: fonts.figuresBold,
     fontSize: 15,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    
   },
   smsAutoFillBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#00D084',
+    backgroundColor: '#FFC21A',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -895,63 +834,62 @@ const s = StyleSheet.create<{
     cursor: 'pointer' as any,
   },
   smsAutoFillText: {
-    color: '#07100D',
+    color: '#1D232B',
     fontSize: 12,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
   },
   otpInputWrap: {
     gap: 6,
   },
   otpLargeInput: {
-    backgroundColor: '#0F172A',
-    color: '#00D084',
+    backgroundColor: '#FFFFFF',
+    color: '#1E8E5A',
     fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 8,
+    fontFamily: fonts.figuresBold,
     textAlign: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 208, 132, 0.4)',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    borderColor: 'rgba(255, 194, 26, 0.60)',
+    
   },
   resendRow: {
     alignItems: 'center',
     paddingVertical: 4,
   },
   resendTimerText: {
-    color: '#64748B',
-    fontSize: 12,
+    color: '#7A8592',
+    fontSize: 12, fontFamily: fonts.w400,
   },
   resendLinkText: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
     textDecorationLine: 'underline',
   },
   googleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 12,
     paddingVertical: 14,
     gap: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(29, 35, 43, 0.12)',
   },
   googleBtnPressed: {
-    backgroundColor: '#334155',
+    backgroundColor: '#D5DBE2',
     transform: [{ scale: 0.99 }],
   },
   btnDisabled: {
     opacity: 0.6,
   },
   googleBtnText: {
-    color: '#FFFFFF',
+    color: '#1D232B',
     fontSize: 14,
-    fontWeight: '800',
+    fontFamily: fonts.w700,
   },
   dividerRow: {
     flexDirection: 'row',
@@ -962,21 +900,20 @@ const s = StyleSheet.create<{
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(29, 35, 43, 0.08)',
   },
   divider: {
-    color: '#64748B',
+    color: '#7A8592',
     fontSize: 10,
-    letterSpacing: 1.5,
-    fontWeight: '800',
+    fontFamily: fonts.w700,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EF4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: '#C8372D',
+    backgroundColor: 'rgba(200, 55, 45, 0.12)',
     padding: 12,
     gap: 10,
   },
@@ -984,13 +921,13 @@ const s = StyleSheet.create<{
     flex: 1,
   },
   errorTitle: {
-    color: '#F87171',
-    fontWeight: '800',
+    color: '#C8372D',
+    fontFamily: fonts.w700,
     fontSize: 12,
   },
   errorText: {
-    color: '#FECACA',
-    fontSize: 12,
+    color: '#C8372D',
+    fontSize: 12, fontFamily: fonts.w400,
     lineHeight: 16,
     marginTop: 2,
   },
@@ -998,14 +935,14 @@ const s = StyleSheet.create<{
     paddingVertical: 6,
   },
   switch: {
-    color: '#00D084',
+    color: '#1E8E5A',
     textAlign: 'center',
-    fontWeight: '800',
+    fontFamily: fonts.w700,
     fontSize: 13,
   },
   note: {
-    color: '#64748B',
-    fontSize: 11,
+    color: '#7A8592',
+    fontSize: 11, fontFamily: fonts.w400,
     lineHeight: 16,
     textAlign: 'center',
     marginTop: 4,
@@ -1018,8 +955,8 @@ const s = StyleSheet.create<{
     marginBottom: 2,
   },
   forgotPasswordText: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fonts.w600,
   },
 });

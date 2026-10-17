@@ -26,12 +26,22 @@ import {
   type DriverPayoutStatement,
 } from '../services/analyticsService';
 import { formatUnifiedError } from '../utils/errorHandler';
+import { fonts } from '../theme/fonts';
 
 interface FleetAnalyticsModalProps {
   visible: boolean;
   onClose: () => void;
   onShowNotification: (title: string, body: string, type: 'info' | 'success' | 'warning' | 'error') => void;
 }
+
+const CATEGORY_NAMES: Record<string, string> = {
+  FUEL: 'Fuel',
+  MAINTENANCE: 'Maintenance',
+  TOLL: 'Toll',
+  INSURANCE: 'Insurance',
+  PERMIT: 'Permit',
+  OTHER: 'Other',
+};
 
 type TabType = 'OVERVIEW' | 'EXPENSES' | 'PAYOUTS';
 
@@ -161,7 +171,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
       });
 
       onShowNotification(
-        'Payout Settled! 💵',
+        'Payout recorded',
         `₹${numAmount.toLocaleString()} paid to ${settleModalDriver.driverName} via ${settleMethod}.`,
         'success',
       );
@@ -191,21 +201,21 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
           <View style={s.headerRow}>
             <View style={s.headerLeft}>
               <View style={s.headerBadge}>
-                <Icon name="stats-chart" size={16} color="#10B981" />
-                <Text style={s.headerBadgeText}>FLEET ANALYTICS & REVENUE</Text>
+                <Icon name="stats-chart" size={16} color="#1E8E5A" />
+                <Text style={s.headerBadgeText}>Earnings and costs</Text>
               </View>
-              <Text style={s.headerTitle}>Financial Overview</Text>
+              <Text style={s.headerTitle}>This week</Text>
             </View>
             <View style={s.headerRight}>
               <Pressable style={s.iconBtn} onPress={() => loadData(true)} disabled={refreshing}>
                 {refreshing ? (
-                  <ActivityIndicator size="small" color="#10B981" />
+                  <ActivityIndicator size="small" color="#1E8E5A" />
                 ) : (
-                  <Icon name="refresh" size={18} color="#94A3B8" />
+                  <Icon name="refresh" size={18} color="#5B6573" />
                 )}
               </Pressable>
               <Pressable style={s.iconBtn} onPress={onClose}>
-                <Icon name="close" size={20} color="#94A3B8" />
+                <Icon name="close" size={20} color="#5B6573" />
               </Pressable>
             </View>
           </View>
@@ -216,9 +226,9 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
               style={[s.tabPill, activeTab === 'OVERVIEW' && s.tabPillActive]}
               onPress={() => setActiveTab('OVERVIEW')}
             >
-              <Icon name="pie-chart" size={14} color={activeTab === 'OVERVIEW' ? '#07100D' : '#94A3B8'} />
+              <Icon name="pie-chart" size={14} color={activeTab === 'OVERVIEW' ? '#FFFFFF' : '#5B6573'} />
               <Text style={[s.tabPillText, activeTab === 'OVERVIEW' && s.tabPillTextActive]}>
-                Overview & Charts
+                Overview
               </Text>
             </Pressable>
 
@@ -226,9 +236,9 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
               style={[s.tabPill, activeTab === 'EXPENSES' && s.tabPillActive]}
               onPress={() => setActiveTab('EXPENSES')}
             >
-              <Icon name="speedometer" size={14} color={activeTab === 'EXPENSES' ? '#07100D' : '#94A3B8'} />
+              <Icon name="speedometer" size={14} color={activeTab === 'EXPENSES' ? '#FFFFFF' : '#5B6573'} />
               <Text style={[s.tabPillText, activeTab === 'EXPENSES' && s.tabPillTextActive]}>
-                Fuel & Expenses
+                Expenses
               </Text>
             </Pressable>
 
@@ -236,9 +246,9 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
               style={[s.tabPill, activeTab === 'PAYOUTS' && s.tabPillActive]}
               onPress={() => setActiveTab('PAYOUTS')}
             >
-              <Icon name="cash" size={14} color={activeTab === 'PAYOUTS' ? '#07100D' : '#94A3B8'} />
+              <Icon name="cash" size={14} color={activeTab === 'PAYOUTS' ? '#FFFFFF' : '#5B6573'} />
               <Text style={[s.tabPillText, activeTab === 'PAYOUTS' && s.tabPillTextActive]}>
-                Driver Payouts
+                Payouts
               </Text>
             </Pressable>
           </View>
@@ -246,7 +256,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
           {/* Main Scrollable Content */}
           {loading ? (
             <View style={s.loadingContainer}>
-              <ActivityIndicator size="large" color="#10B981" />
+              <ActivityIndicator size="large" color="#1E8E5A" />
               <Text style={s.loadingText}>Aggregating fleet financial telemetry...</Text>
             </View>
           ) : (
@@ -259,41 +269,41 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                     {/* Gross Revenue */}
                     <View style={s.kpiCard}>
                       <View style={s.kpiIconBox}>
-                        <Icon name="trending-up" size={18} color="#10B981" />
+                        <Icon name="trending-up" size={18} color="#1E8E5A" />
                       </View>
-                      <Text style={s.kpiLabel}>GROSS REVENUE</Text>
+                      <Text style={s.kpiLabel}>Gross revenue</Text>
                       <Text style={s.kpiValue}>₹{summary.grossRevenue.toLocaleString()}</Text>
-                      <Text style={s.kpiSub}>{summary.totalTrips} Completed Trips</Text>
+                      <Text style={s.kpiSub}>{summary.totalTrips} completed trips</Text>
                     </View>
 
                     {/* Fuel & Fleet Expenses */}
                     <View style={s.kpiCard}>
-                      <View style={[s.kpiIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                        <Icon name="speedometer" size={18} color="#F59E0B" />
+                      <View style={[s.kpiIconBox, { backgroundColor: 'rgba(255, 194, 26, 0.24)' }]}>
+                        <Icon name="speedometer" size={18} color="#B7791F" />
                       </View>
-                      <Text style={s.kpiLabel}>FUEL & EXPENSES</Text>
-                      <Text style={[s.kpiValue, { color: '#F59E0B' }]}>₹{summary.totalExpenses.toLocaleString()}</Text>
-                      <Text style={s.kpiSub}>₹{summary.fuelExpenses.toLocaleString()} Fuel Spent</Text>
+                      <Text style={s.kpiLabel}>Fuel & expenses</Text>
+                      <Text style={[s.kpiValue, { color: '#B7791F' }]}>₹{summary.totalExpenses.toLocaleString()}</Text>
+                      <Text style={s.kpiSub}>₹{summary.fuelExpenses.toLocaleString()} on fuel</Text>
                     </View>
 
                     {/* Net Fleet Profit */}
                     <View style={s.kpiCard}>
                       <View style={[s.kpiIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                        <Icon name="wallet" size={18} color="#3B82F6" />
+                        <Icon name="wallet" size={18} color="#2457D6" />
                       </View>
-                      <Text style={s.kpiLabel}>NET FLEET PROFIT</Text>
-                      <Text style={[s.kpiValue, { color: '#3B82F6' }]}>₹{summary.netFleetProfit.toLocaleString()}</Text>
-                      <Text style={s.kpiSub}>After Driver Cut & Costs</Text>
+                      <Text style={s.kpiLabel}>Net fleet profit</Text>
+                      <Text style={[s.kpiValue, { color: '#2457D6' }]}>₹{summary.netFleetProfit.toLocaleString()}</Text>
+                      <Text style={s.kpiSub}>After driver share and costs</Text>
                     </View>
 
                     {/* Pending Driver Payouts */}
                     <View style={s.kpiCard}>
-                      <View style={[s.kpiIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                        <Icon name="people" size={18} color="#EF4444" />
+                      <View style={[s.kpiIconBox, { backgroundColor: 'rgba(200, 55, 45, 0.15)' }]}>
+                        <Icon name="people" size={18} color="#C8372D" />
                       </View>
-                      <Text style={s.kpiLabel}>PENDING PAYOUTS</Text>
-                      <Text style={[s.kpiValue, { color: '#EF4444' }]}>₹{summary.pendingDriverPayouts.toLocaleString()}</Text>
-                      <Text style={s.kpiSub}>₹{summary.settledPayoutsTotal.toLocaleString()} Settled</Text>
+                      <Text style={s.kpiLabel}>Pending payouts</Text>
+                      <Text style={[s.kpiValue, { color: '#C8372D' }]}>₹{summary.pendingDriverPayouts.toLocaleString()}</Text>
+                      <Text style={s.kpiSub}>₹{summary.settledPayoutsTotal.toLocaleString()} paid so far</Text>
                     </View>
                   </View>
 
@@ -301,16 +311,16 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                   <View style={s.chartCard}>
                     <View style={s.chartHeader}>
                       <View>
-                        <Text style={s.chartTitle}>7-Day Revenue vs Expenses</Text>
-                        <Text style={s.chartSubtitle}>Daily breakdown of bookings and fleet operational cost</Text>
+                        <Text style={s.chartTitle}>Last 7 days</Text>
+                        <Text style={s.chartSubtitle}>Fares earned and money spent each day</Text>
                       </View>
                       <View style={s.chartLegend}>
                         <View style={s.legendItem}>
-                          <View style={[s.legendDot, { backgroundColor: '#10B981' }]} />
+                          <View style={[s.legendDot, { backgroundColor: '#1E8E5A' }]} />
                           <Text style={s.legendText}>Revenue</Text>
                         </View>
                         <View style={s.legendItem}>
-                          <View style={[s.legendDot, { backgroundColor: '#F59E0B' }]} />
+                          <View style={[s.legendDot, { backgroundColor: '#FFC21A' }]} />
                           <Text style={s.legendText}>Expenses</Text>
                         </View>
                       </View>
@@ -331,7 +341,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                                   s.bar,
                                   {
                                     height: revHeight,
-                                    backgroundColor: '#10B981',
+                                    backgroundColor: '#1E8E5A',
                                   },
                                 ]}
                               />
@@ -341,7 +351,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                                   s.bar,
                                   {
                                     height: expHeight,
-                                    backgroundColor: '#F59E0B',
+                                    backgroundColor: '#FFC21A',
                                   },
                                 ]}
                               />
@@ -373,7 +383,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                           onPress={() => setExpenseCategory(cat)}
                         >
                           <Text style={[s.catPillText, expenseCategory === cat && s.catPillTextActive]}>
-                            {cat === 'FUEL' ? '⛽ FUEL' : cat === 'MAINTENANCE' ? '🛠️ MAINT' : cat === 'TOLL' ? '🛣️ TOLL' : cat}
+                            {CATEGORY_NAMES[cat]}
                           </Text>
                         </Pressable>
                       ))}
@@ -386,7 +396,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                         <TextInput
                           style={s.textInput}
                           placeholder="e.g. 2500"
-                          placeholderTextColor="#64748B"
+                          placeholderTextColor="#7A8592"
                           keyboardType="numeric"
                           value={expenseAmount}
                           onChangeText={setExpenseAmount}
@@ -395,11 +405,11 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
 
                       {expenseCategory === 'FUEL' && (
                         <View style={{ flex: 1 }}>
-                          <Text style={s.inputLabel}>LITERS</Text>
+                          <Text style={s.inputLabel}>Liters</Text>
                           <TextInput
                             style={s.textInput}
                             placeholder="e.g. 25.5"
-                            placeholderTextColor="#64748B"
+                            placeholderTextColor="#7A8592"
                             keyboardType="numeric"
                             value={expenseLiters}
                             onChangeText={setExpenseLiters}
@@ -410,11 +420,11 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
 
                     <View style={s.inputGrid}>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.inputLabel}>ODOMETER (KM)</Text>
+                        <Text style={s.inputLabel}>Odometer (KM)</Text>
                         <TextInput
                           style={s.textInput}
                           placeholder="e.g. 42150"
-                          placeholderTextColor="#64748B"
+                          placeholderTextColor="#7A8592"
                           keyboardType="numeric"
                           value={expenseOdometer}
                           onChangeText={setExpenseOdometer}
@@ -425,18 +435,18 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                         <TextInput
                           style={s.textInput}
                           placeholder="e.g. HP-9941"
-                          placeholderTextColor="#64748B"
+                          placeholderTextColor="#7A8592"
                           value={expenseReceipt}
                           onChangeText={setExpenseReceipt}
                         />
                       </View>
                     </View>
 
-                    <Text style={s.inputLabel}>NOTES / REMARKS</Text>
+                    <Text style={s.inputLabel}>Notes / remarks</Text>
                     <TextInput
                       style={[s.textInput, { height: 44 }]}
                       placeholder="e.g. Shell Petrol Bunk Koramangala"
-                      placeholderTextColor="#64748B"
+                      placeholderTextColor="#7A8592"
                       value={expenseNotes}
                       onChangeText={setExpenseNotes}
                     />
@@ -447,7 +457,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                       disabled={submittingExpense}
                     >
                       {submittingExpense ? (
-                        <ActivityIndicator size="small" color="#07100D" />
+                        <ActivityIndicator size="small" color="#1D232B" />
                       ) : (
                         <Text style={s.submitBtnText}>+ Record Expense Entry</Text>
                       )}
@@ -461,7 +471,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
 
                   {expenses.length === 0 ? (
                     <View style={s.emptyBox}>
-                      <Icon name="receipt-outline" size={32} color="#64748B" />
+                      <Icon name="receipt-outline" size={32} color="#7A8592" />
                       <Text style={s.emptyTitle}>No Expenses Logged</Text>
                       <Text style={s.emptySub}>Record fuel and maintenance receipts to track true net profits.</Text>
                     </View>
@@ -469,9 +479,11 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                     expenses.map((exp) => (
                       <View key={exp._id} style={s.expenseRowCard}>
                         <View style={s.expenseIconBox}>
-                          <Text style={{ fontSize: 18 }}>
-                            {exp.category === 'FUEL' ? '⛽' : exp.category === 'MAINTENANCE' ? '🛠️' : exp.category === 'TOLL' ? '🛣️' : '📄'}
-                          </Text>
+                          <Icon
+                            name={exp.category === 'FUEL' ? 'water' : exp.category === 'MAINTENANCE' ? 'build' : exp.category === 'TOLL' ? 'git-merge' : 'document-text'}
+                            size={18}
+                            color="#1D232B"
+                          />
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -493,7 +505,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                             style={s.deleteBtn}
                             onPress={() => handleDeleteExpense(exp._id, exp.amount)}
                           >
-                            <Icon name="trash-outline" size={14} color="#EF4444" />
+                            <Icon name="trash-outline" size={14} color="#C8372D" />
                           </Pressable>
                         </View>
                       </View>
@@ -512,7 +524,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
 
                   {payouts.length === 0 ? (
                     <View style={s.emptyBox}>
-                      <Icon name="people-outline" size={32} color="#64748B" />
+                      <Icon name="people-outline" size={32} color="#7A8592" />
                       <Text style={s.emptyTitle}>No Drivers Found</Text>
                       <Text style={s.emptySub}>Assigned fleet drivers will appear here with automated earnings.</Text>
                     </View>
@@ -526,11 +538,11 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                           <View style={{ flex: 1, marginLeft: 10 }}>
                             <Text style={s.driverName}>{driver.driverName}</Text>
                             <Text style={s.driverMeta}>
-                              {driver.vehicle?.registrationNumber || 'No Vehicle'} • {driver.totalTrips} Completed Trips
+                              {driver.vehicle?.registrationNumber || 'No vehicle'} • {driver.totalTrips} completed trips
                             </Text>
                           </View>
                           <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={s.pendingLabel}>PENDING BALANCE</Text>
+                            <Text style={s.pendingLabel}>Pending balance</Text>
                             <Text style={s.pendingVal}>₹{driver.pendingBalance.toLocaleString()}</Text>
                           </View>
                         </View>
@@ -543,18 +555,18 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                           </View>
                           <View style={s.breakdownCol}>
                             <Text style={s.breakdownLabel}>Driver Share (80%)</Text>
-                            <Text style={[s.breakdownVal, { color: '#10B981' }]}>₹{driver.totalEarnings.toLocaleString()}</Text>
+                            <Text style={[s.breakdownVal, { color: '#1E8E5A' }]}>₹{driver.totalEarnings.toLocaleString()}</Text>
                           </View>
                           <View style={s.breakdownCol}>
                             <Text style={s.breakdownLabel}>Paid to Date</Text>
-                            <Text style={[s.breakdownVal, { color: '#94A3B8' }]}>₹{driver.settledAmount.toLocaleString()}</Text>
+                            <Text style={[s.breakdownVal, { color: '#5B6573' }]}>₹{driver.settledAmount.toLocaleString()}</Text>
                           </View>
                         </View>
 
                         {/* Bank / UPI Info */}
                         {driver.bankDetails?.ifscCode || driver.bankDetails?.upiId ? (
                           <View style={s.bankDetailStrip}>
-                            <Icon name="card-outline" size={14} color="#10B981" />
+                            <Icon name="card-outline" size={14} color="#1E8E5A" />
                             <Text style={s.bankDetailText}>
                               {driver.bankDetails.bankName || 'Bank'}: {driver.bankDetails.accountNumber ? `••••${driver.bankDetails.accountNumber.slice(-4)}` : ''} ({driver.bankDetails.ifscCode})
                               {driver.bankDetails.upiId ? ` • UPI: ${driver.bankDetails.upiId}` : ''}
@@ -570,7 +582,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                             setSettleAmount(driver.pendingBalance > 0 ? driver.pendingBalance.toString() : '');
                           }}
                         >
-                          <Icon name="checkmark-done" size={16} color="#07100D" />
+                          <Icon name="checkmark-done" size={16} color="#1D232B" />
                           <Text style={s.settleBtnText}>Settle Driver Payout</Text>
                         </Pressable>
                       </View>
@@ -589,25 +601,25 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                   <View style={s.settleCardHeader}>
                     <Text style={s.settleCardTitle}>💵 Settle Driver Earnings</Text>
                     <Pressable onPress={() => setSettleModalDriver(null)}>
-                      <Icon name="close" size={20} color="#94A3B8" />
+                      <Icon name="close" size={20} color="#5B6573" />
                     </Pressable>
                   </View>
 
                   <Text style={s.settleRecipient}>
-                    Recipient: <Text style={{ color: '#10B981', fontWeight: '800' }}>{settleModalDriver.driverName}</Text>
+                    Recipient: <Text style={{ color: '#1E8E5A', fontFamily: fonts.w700 }}>{settleModalDriver.driverName}</Text>
                   </Text>
 
                   <Text style={s.inputLabel}>PAYOUT AMOUNT (₹) *</Text>
                   <TextInput
                     style={s.textInput}
                     placeholder="Amount to settle"
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor="#7A8592"
                     keyboardType="numeric"
                     value={settleAmount}
                     onChangeText={setSettleAmount}
                   />
 
-                  <Text style={s.inputLabel}>PAYMENT METHOD</Text>
+                  <Text style={s.inputLabel}>Payment method</Text>
                   <View style={s.methodRow}>
                     {(['UPI', 'BANK_TRANSFER', 'CASH'] as const).map((m) => (
                       <Pressable
@@ -624,7 +636,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                   <TextInput
                     style={s.textInput}
                     placeholder="e.g. UTR20260825991823"
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor="#7A8592"
                     value={settleRef}
                     onChangeText={setSettleRef}
                   />
@@ -635,7 +647,7 @@ export function FleetAnalyticsModal({ visible, onClose, onShowNotification }: Fl
                     disabled={submittingSettle}
                   >
                     {submittingSettle ? (
-                      <ActivityIndicator size="small" color="#07100D" />
+                      <ActivityIndicator size="small" color="#1D232B" />
                     ) : (
                       <Text style={s.confirmSettleBtnText}>Confirm Settlement & Issue Receipt</Text>
                     )}
@@ -748,7 +760,7 @@ const s = StyleSheet.create<{
 }>({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(29, 35, 43, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 12,
@@ -757,10 +769,10 @@ const s = StyleSheet.create<{
     width: '100%',
     maxWidth: 680,
     maxHeight: '92%',
-    backgroundColor: '#07100D',
+    backgroundColor: '#F3F5F7',
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'rgba(30, 142, 90, 0.30)',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
@@ -773,7 +785,7 @@ const s = StyleSheet.create<{
     paddingTop: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: 'rgba(29, 35, 43, 0.08)',
   },
   headerLeft: { flex: 1 },
   headerBadge: {
@@ -781,16 +793,16 @@ const s = StyleSheet.create<{
     alignItems: 'center',
     gap: 6,
   },
-  headerBadgeText: { color: '#10B981', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  headerTitle: { color: '#F8FAFC', fontSize: 20, fontWeight: '900', marginTop: 2 },
+  headerBadgeText: { color: '#1E8E5A', fontSize: 11, fontFamily: fonts.w700, },
+  headerTitle: { color: '#1D232B', fontSize: 20, fontFamily: fonts.w700, marginTop: 2 },
   headerRight: { flexDirection: 'row', gap: 8 },
   iconBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#D5DBE2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -799,7 +811,7 @@ const s = StyleSheet.create<{
     paddingHorizontal: 20,
     paddingVertical: 12,
     gap: 8,
-    backgroundColor: '#0A1512',
+    backgroundColor: '#F3F5F7',
   },
   tabPill: {
     flex: 1,
@@ -809,18 +821,18 @@ const s = StyleSheet.create<{
     gap: 6,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   tabPillActive: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
+    backgroundColor: '#1D232B',
+    borderColor: '#1D232B',
   },
-  tabPillText: { color: '#94A3B8', fontSize: 12, fontWeight: '700' },
-  tabPillTextActive: { color: '#07100D', fontWeight: '900' },
+  tabPillText: { color: '#5B6573', fontSize: 12, fontFamily: fonts.w600,},
+  tabPillTextActive: { color: '#FFFFFF', fontFamily: fonts.w700 },
   loadingContainer: { padding: 48, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { color: '#94A3B8', fontSize: 13, fontWeight: '500' },
+  loadingText: { color: '#5B6573', fontSize: 13, fontFamily: fonts.w500,},
   contentScroll: { flex: 1, paddingHorizontal: 20, paddingVertical: 16 },
   tabSection: { paddingBottom: 24 },
   kpiGrid: {
@@ -832,30 +844,30 @@ const s = StyleSheet.create<{
   kpiCard: {
     flex: 1,
     minWidth: 140,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   kpiIconBox: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(30, 142, 90, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
-  kpiLabel: { color: '#94A3B8', fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
-  kpiValue: { color: '#10B981', fontSize: 20, fontWeight: '900', marginTop: 4 },
-  kpiSub: { color: '#64748B', fontSize: 11, marginTop: 4, fontWeight: '500' },
+  kpiLabel: { color: '#5B6573', fontSize: 10, fontFamily: fonts.w700, },
+  kpiValue: { color: '#1E8E5A', fontSize: 20, fontFamily: fonts.w700, marginTop: 4 },
+  kpiSub: { color: '#7A8592', fontSize: 11, marginTop: 4, fontFamily: fonts.w500,},
   chartCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   chartHeader: {
     flexDirection: 'row',
@@ -863,12 +875,12 @@ const s = StyleSheet.create<{
     alignItems: 'center',
     marginBottom: 20,
   },
-  chartTitle: { color: '#F8FAFC', fontSize: 15, fontWeight: '800' },
-  chartSubtitle: { color: '#64748B', fontSize: 11, marginTop: 2 },
+  chartTitle: { color: '#1D232B', fontSize: 15, fontFamily: fonts.w700,},
+  chartSubtitle: { color: '#7A8592', fontSize: 11, fontFamily: fonts.w400, marginTop: 2 },
   chartLegend: { flexDirection: 'row', gap: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { color: '#94A3B8', fontSize: 11, fontWeight: '600' },
+  legendText: { color: '#5B6573', fontSize: 11, fontFamily: fonts.w600,},
   barContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -876,7 +888,7 @@ const s = StyleSheet.create<{
     height: 140,
     paddingTop: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(29, 35, 43, 0.10)',
     paddingBottom: 6,
   },
   barColumn: { alignItems: 'center', flex: 1 },
@@ -888,139 +900,139 @@ const s = StyleSheet.create<{
     marginBottom: 6,
   },
   bar: { width: 10, borderRadius: 5 },
-  barDayLabel: { color: '#94A3B8', fontSize: 11, fontWeight: '700' },
-  barValLabel: { color: '#64748B', fontSize: 9, marginTop: 2, fontWeight: '600' },
+  barDayLabel: { color: '#5B6573', fontSize: 11, fontFamily: fonts.w600,},
+  barValLabel: { color: '#7A8592', fontSize: 9, marginTop: 2, fontFamily: fonts.w600,},
   formCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
+    borderColor: 'rgba(30, 142, 90, 0.20)',
     marginBottom: 20,
   },
-  formCardTitle: { color: '#F8FAFC', fontSize: 16, fontWeight: '800' },
-  formCardSubtitle: { color: '#94A3B8', fontSize: 11, marginTop: 2, marginBottom: 14 },
+  formCardTitle: { color: '#1D232B', fontSize: 16, fontFamily: fonts.w700,},
+  formCardSubtitle: { color: '#5B6573', fontSize: 11, fontFamily: fonts.w400, marginTop: 2, marginBottom: 14 },
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   catPill: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#D5DBE2',
   },
-  catPillActive: { backgroundColor: '#10B981', borderColor: '#10B981' },
-  catPillText: { color: '#94A3B8', fontSize: 11, fontWeight: '700' },
-  catPillTextActive: { color: '#07100D', fontWeight: '900' },
+  catPillActive: { backgroundColor: '#1E8E5A', borderColor: '#1E8E5A' },
+  catPillText: { color: '#5B6573', fontSize: 11, fontFamily: fonts.w600,},
+  catPillTextActive: { color: '#1D232B', fontFamily: fonts.w700 },
   inputGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  inputLabel: { color: '#94A3B8', fontSize: 10, fontWeight: '800', marginBottom: 4, letterSpacing: 0.5 },
+  inputLabel: { color: '#5B6573', fontSize: 10, fontFamily: fonts.w700, marginBottom: 4, letterSpacing: 0.5 },
   textInput: {
-    backgroundColor: '#07100D',
+    backgroundColor: '#F3F5F7',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#D5DBE2',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    color: '#F8FAFC',
-    fontSize: 13,
+    color: '#1D232B',
+    fontSize: 13, fontFamily: fonts.w400,
   },
   submitBtn: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#1E8E5A',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
   },
-  submitBtnText: { color: '#07100D', fontSize: 13, fontWeight: '900' },
+  submitBtnText: { color: '#1D232B', fontSize: 13, fontFamily: fonts.w700,},
   listHeaderRow: { marginBottom: 12 },
-  listSectionTitle: { color: '#F8FAFC', fontSize: 16, fontWeight: '800' },
-  listSubText: { color: '#64748B', fontSize: 11, marginTop: 2 },
+  listSectionTitle: { color: '#1D232B', fontSize: 16, fontFamily: fonts.w700,},
+  listSubText: { color: '#7A8592', fontSize: 11, fontFamily: fonts.w400, marginTop: 2 },
   emptyBox: { padding: 32, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { color: '#F8FAFC', fontSize: 14, fontWeight: '800', marginTop: 8 },
-  emptySub: { color: '#64748B', fontSize: 12, textAlign: 'center', marginTop: 4 },
+  emptyTitle: { color: '#1D232B', fontSize: 14, fontFamily: fonts.w700, marginTop: 8 },
+  emptySub: { color: '#7A8592', fontSize: 12, fontFamily: fonts.w400, textAlign: 'center', marginTop: 4 },
   expenseRowCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   expenseIconBox: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  expenseCatTitle: { color: '#F8FAFC', fontSize: 13, fontWeight: '800' },
-  receiptBadge: { backgroundColor: '#334155', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  receiptBadgeText: { color: '#94A3B8', fontSize: 9, fontWeight: '700' },
-  expenseSub: { color: '#64748B', fontSize: 11, marginTop: 2 },
-  expenseNote: { color: '#94A3B8', fontSize: 11, marginTop: 4, fontStyle: 'italic' },
-  expenseAmountText: { color: '#EF4444', fontSize: 14, fontWeight: '900' },
+  expenseCatTitle: { color: '#1D232B', fontSize: 13, fontFamily: fonts.w700,},
+  receiptBadge: { backgroundColor: '#D5DBE2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  receiptBadgeText: { color: '#5B6573', fontSize: 9, fontFamily: fonts.w600,},
+  expenseSub: { color: '#7A8592', fontSize: 11, fontFamily: fonts.w400, marginTop: 2 },
+  expenseNote: { color: '#5B6573', fontSize: 11, fontFamily: fonts.w400, marginTop: 4, fontStyle: 'italic' },
+  expenseAmountText: { color: '#C8372D', fontSize: 14, fontFamily: fonts.w700,},
   deleteBtn: { padding: 4, marginTop: 4 },
   driverPayoutCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   driverHeader: { flexDirection: 'row', alignItems: 'center' },
   driverAvatar: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  driverAvatarText: { fontSize: 18 },
-  driverName: { color: '#F8FAFC', fontSize: 15, fontWeight: '800' },
-  driverMeta: { color: '#64748B', fontSize: 11, marginTop: 2 },
-  pendingLabel: { color: '#94A3B8', fontSize: 9, fontWeight: '800' },
-  pendingVal: { color: '#EF4444', fontSize: 16, fontWeight: '900', marginTop: 2 },
+  driverAvatarText: { fontSize: 18 , fontFamily: fonts.w400,},
+  driverName: { color: '#1D232B', fontSize: 15, fontFamily: fonts.w700,},
+  driverMeta: { color: '#7A8592', fontSize: 11, fontFamily: fonts.w400, marginTop: 2 },
+  pendingLabel: { color: '#5B6573', fontSize: 9, fontFamily: fonts.w700,},
+  pendingVal: { color: '#C8372D', fontSize: 16, fontFamily: fonts.w700, marginTop: 2 },
   payoutBreakdownGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#07100D',
+    backgroundColor: '#F3F5F7',
     borderRadius: 12,
     padding: 10,
     marginTop: 12,
   },
   breakdownCol: { alignItems: 'center', flex: 1 },
-  breakdownLabel: { color: '#64748B', fontSize: 10, fontWeight: '600' },
-  breakdownVal: { color: '#F8FAFC', fontSize: 13, fontWeight: '800', marginTop: 2 },
+  breakdownLabel: { color: '#7A8592', fontSize: 10, fontFamily: fonts.w600,},
+  breakdownVal: { color: '#1D232B', fontSize: 13, fontFamily: fonts.w700, marginTop: 2 },
   bankDetailStrip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(30, 142, 90, 0.10)',
     borderRadius: 8,
     padding: 8,
     marginTop: 10,
   },
-  bankDetailText: { color: '#34D399', fontSize: 11, fontWeight: '600', flex: 1 },
+  bankDetailText: { color: '#1E8E5A', fontSize: 11, fontFamily: fonts.w600, flex: 1 },
   settleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#10B981',
+    backgroundColor: '#1E8E5A',
     borderRadius: 12,
     paddingVertical: 10,
     marginTop: 12,
   },
-  settleBtnText: { color: '#07100D', fontSize: 12, fontWeight: '900' },
+  settleBtnText: { color: '#1D232B', fontSize: 12, fontFamily: fonts.w700,},
   settleOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(29, 35, 43, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -1028,35 +1040,35 @@ const s = StyleSheet.create<{
   settleCard: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1.5,
-    borderColor: '#10B981',
+    borderColor: '#1E8E5A',
   },
   settleCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  settleCardTitle: { color: '#F8FAFC', fontSize: 17, fontWeight: '900' },
-  settleRecipient: { color: '#94A3B8', fontSize: 13, marginBottom: 14 },
+  settleCardTitle: { color: '#1D232B', fontSize: 17, fontFamily: fonts.w700,},
+  settleRecipient: { color: '#5B6573', fontSize: 13, fontFamily: fonts.w400, marginBottom: 14 },
   methodRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   methodPill: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
     borderRadius: 8,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#D5DBE2',
   },
-  methodPillActive: { backgroundColor: '#10B981', borderColor: '#10B981' },
-  methodPillText: { color: '#94A3B8', fontSize: 11, fontWeight: '800' },
-  methodPillTextActive: { color: '#07100D', fontWeight: '900' },
+  methodPillActive: { backgroundColor: '#1E8E5A', borderColor: '#1E8E5A' },
+  methodPillText: { color: '#5B6573', fontSize: 11, fontFamily: fonts.w700,},
+  methodPillTextActive: { color: '#1D232B', fontFamily: fonts.w700 },
   confirmSettleBtn: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#1E8E5A',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
   },
-  confirmSettleBtnText: { color: '#07100D', fontSize: 13, fontWeight: '900' },
+  confirmSettleBtnText: { color: '#1D232B', fontSize: 13, fontFamily: fonts.w700,},
 });

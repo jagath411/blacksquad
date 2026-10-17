@@ -47,7 +47,15 @@ export async function findNearbyDriverUserIds(pickup: [number, number]): Promise
 /** Offers a new ride to the nearest drivers. Returns how many were offered it. */
 export async function offerRide(offer: RideOffer, pickup: [number, number]): Promise<number> {
   const io = getIO();
-  const driverUserIds = await findNearbyDriverUserIds(pickup);
+  let driverUserIds: string[];
+  try {
+    driverUserIds = await findNearbyDriverUserIds(pickup);
+  } catch (error) {
+    // The booking is already saved; a failed search (for example a missing geo index) must not fail it.
+    // The request stays open and expires on its own if nobody is found.
+    logger.error({ detail: error instanceof Error ? error.message : error }, '[Dispatch] nearby driver search failed');
+    return 0;
+  }
   if (io) {
     for (const userId of driverUserIds) io.to(driverRoom(userId)).emit('booking:new:request', offer);
   }

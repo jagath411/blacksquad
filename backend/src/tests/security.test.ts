@@ -339,3 +339,26 @@ describe('account deletion', () => {
   });
 });
 
+describe('profile', () => {
+  test('saved places and an emergency contact are stored, returned, and can be cleared', async () => {
+    const customer = await makeUser('CUSTOMER');
+    const res = await call(
+      'PATCH',
+      '/auth/me',
+      {
+        savedPlaces: [{ label: 'Home', address: 'Indiranagar, Bengaluru', coordinates: [77.6408, 12.9784] }],
+        emergencyContact: { name: 'Asha', phoneNumber: '9876500001' },
+      },
+      customer.token,
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.body.user.savedPlaces[0].label, 'Home');
+    assert.deepEqual(res.body.user.savedPlaces[0].coordinates, [77.6408, 12.9784]);
+    assert.equal(res.body.user.emergencyContact.phoneNumber, '+919876500001');
+
+    const cleared = await call('PATCH', '/auth/me', { emergencyContact: null }, customer.token);
+    assert.equal(cleared.body.user.emergencyContact, null);
+    assert.equal(cleared.body.user.savedPlaces.length, 1);
+  });
+});
+

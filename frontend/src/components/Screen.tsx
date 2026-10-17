@@ -11,7 +11,7 @@ export interface ScreenProps extends PropsWithChildren {
   contentContainerStyle?: StyleProp<ViewStyle>;
 }
 
-export function Screen({ children, tone = 'dark', scroll = true, padded = true, maxWidth = 560, decorative = true, contentContainerStyle }: ScreenProps) {
+export function Screen({ children, tone = 'dark', scroll = true, padded = true, maxWidth = 560, decorative = false, contentContainerStyle }: ScreenProps) {
   const theme = tone === 'light' ? lightColors : darkColors;
   const contentStyle: StyleProp<ViewStyle> = [styles.content, padded && styles.padded, { maxWidth }, contentContainerStyle];
   return (

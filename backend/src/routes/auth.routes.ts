@@ -50,6 +50,12 @@ const publicUser = (user: UserDocument) => ({
   email: user.email,
   phoneNumber: user.phoneNumber,
   role: user.role,
+  savedPlaces: (user.savedPlaces ?? []).map((p) => ({
+    label: p.label,
+    address: p.address,
+    coordinates: p.location.coordinates,
+  })),
+  emergencyContact: user.emergencyContact?.phoneNumber ? user.emergencyContact : null,
 });
 
 async function sessionResponse(user: UserDocument) {
@@ -171,26 +177,62 @@ router.get('/me', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
+const profileUpdate = z.object({
+  name: z.string().min(2).max(120).optional(),
+  phoneNumber: z.string().min(8).max(20).optional(),
+  // Someone to call or share a trip with; null removes it.
+  emergencyContact: z
+    .object({ name: z.string().max(120).optional(), phoneNumber: z.string().min(8).max(20) })
+    .nullable()
+    .optional(),
+  savedPlaces: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(40),
+        address: z.string().trim().min(2).max(300),
+        coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
+      }),
+    )
+    .max(10)
+    .optional(),
+});
+
 router.patch('/me', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const data = z
-      .object({
-        name: z.string().min(2).max(120).optional(),
-        phoneNumber: z.string().min(8).max(20).optional(),
-      })
-      .parse(req.body);
-    const update = {
-      ...(data.name ? { name: data.name } : {}),
-      ...(data.phoneNumber ? { phoneNumber: normalizePhoneNumber(data.phoneNumber) } : {}),
-    };
-    if (update.phoneNumber) {
-      const taken = await UserModel.exists({ phoneNumber: update.phoneNumber, _id: { $ne: req.user!.id } });
+    const data = profileUpdate.parse(req.body);
+    const set: Record<string, unknown> = {};
+    const unset: Record<string, 1> = {};
+    if (data.name) set.name = data.name;
+    if (data.phoneNumber) {
+      const phoneNumber = normalizePhoneNumber(data.phoneNumber);
+      const taken = await UserModel.exists({ phoneNumber, _id: { $ne: req.user!.id } });
       if (taken) {
         res.status(409).json({ success: false, message: 'That phone number belongs to another account' });
         return;
       }
+      set.phoneNumber = phoneNumber;
     }
-    const user = await UserModel.findByIdAndUpdate(req.user!.id, { $set: update }, { new: true, runValidators: true });
+    if (data.savedPlaces) {
+      set.savedPlaces = data.savedPlaces.map((p) => ({
+        label: p.label,
+        address: p.address,
+        location: { type: 'Point', coordinates: p.coordinates },
+      }));
+    }
+    if (data.emergencyContact) {
+      set.emergencyContact = {
+        name: data.emergencyContact.name,
+        phoneNumber: normalizePhoneNumber(data.emergencyContact.phoneNumber),
+      };
+    } else if (data.emergencyContact === null) {
+      unset.emergencyContact = 1;
+    }
+
+    const user = await UserModel.findByIdAndUpdate(
+      req.user!.id,
+      { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+      { new: true, runValidators: true },
+    );
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found' });
       return;
@@ -238,8 +280,9 @@ router.delete('/me', requireAuth, async (req: AuthenticatedRequest, res, next) =
           email: `deleted_${user.id}@blacksquad.internal`,
           isActive: false,
           passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10),
+          savedPlaces: [],
         },
-        $unset: { phoneNumber: 1, pushToken: 1, resetToken: 1, resetTokenExpiry: 1 },
+        $unset: { phoneNumber: 1, pushToken: 1, resetToken: 1, resetTokenExpiry: 1, emergencyContact: 1 },
       },
     );
     if (driver) {

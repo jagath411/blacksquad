@@ -67,7 +67,7 @@ export async function lookupIfscCode(ifsc: string): Promise<VerifiedIfscResult |
       upiSupported: data.UPI ?? true,
       bankMeta: matchedBank,
       logoUrl: matchedBank?.logoUrl,
-      brandColor: matchedBank?.brandColor || '#2563EB',
+      brandColor: matchedBank?.brandColor || '#2457D6',
     };
 
     ifscCache.set(cleanIfsc, result);

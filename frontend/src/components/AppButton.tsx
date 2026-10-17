@@ -21,9 +21,9 @@ export function AppButton({ label, variant = 'primary', tone = 'dark', loading =
     : variant === 'danger'
       ? { backgroundColor: theme.danger, borderColor: theme.danger }
       : variant === 'secondary'
-        ? { backgroundColor: theme.surface, borderColor: theme.primary }
+        ? { backgroundColor: theme.surface, borderColor: theme.text }
         : { backgroundColor: 'transparent', borderColor: 'transparent' };
-  const labelColor = variant === 'primary' || variant === 'danger' ? theme.textInverse : theme.primary;
+  const labelColor = variant === 'danger' ? '#FFFFFF' : theme.text;
 
   return (
     <Pressable
@@ -40,7 +40,7 @@ export function AppButton({ label, variant = 'primary', tone = 'dark', loading =
 }
 
 const styles = StyleSheet.create<{ base: ViewStyle; fullWidth: ViewStyle; pressed: ViewStyle; disabled: ViewStyle; label: TextStyle }>({
-  base: { minHeight: 48, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.lg },
+  base: { minHeight: 52, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.lg },
   fullWidth: { width: '100%' },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.5 },

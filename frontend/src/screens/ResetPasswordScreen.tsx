@@ -16,6 +16,7 @@ import { Icon } from '../components/ui/Icon';
 import { apiRequest } from '../services/api/client';
 import type { RootStackParamList } from '../types';
 import { formatUnifiedError } from '../utils/errorHandler';
+import { fonts } from '../theme/fonts';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ResetPassword'>;
 
@@ -64,12 +65,12 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
   return (
     <Screen tone="dark">
       <Pressable style={s.back} onPress={() => navigation.goBack()}>
-        <Icon name="arrow-back" size={20} color="#94A3B8" />
+        <Icon name="arrow-back" size={20} color="#5B6573" />
         <Text style={s.backText}>Back</Text>
       </Pressable>
 
       <View style={s.iconWrap}>
-        <Icon name="key" size={38} color="#00D084" />
+        <Icon name="key" size={38} color="#1E8E5A" />
       </View>
       <Text style={s.title}>Set New Password</Text>
       <Text style={s.subtitle}>
@@ -118,7 +119,7 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
 
           {!!errorMsg && (
             <View style={s.errorBox}>
-              <Icon name="alert-circle" size={16} color="#EF4444" />
+              <Icon name="alert-circle" size={16} color="#C8372D" />
               <Text style={s.errorText}>{errorMsg}</Text>
             </View>
           )}
@@ -129,11 +130,11 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
             disabled={loading}
             style={s.btn}
           />
-          {loading && <ActivityIndicator style={{ marginTop: 8 }} color="#00D084" />}
+          {loading && <ActivityIndicator style={{ marginTop: 8 }} color="#1E8E5A" />}
         </View>
       ) : (
         <View style={s.successBox}>
-          <Icon name="checkmark-circle" size={44} color="#00D084" />
+          <Icon name="checkmark-circle" size={44} color="#1E8E5A" />
           <Text style={s.successTitle}>Password Updated!</Text>
           <Text style={s.successMsg}>
             Your password has been changed successfully. You can now sign in with your new credentials.
@@ -173,39 +174,39 @@ const s = StyleSheet.create<Styles>({
     marginBottom: 28,
   },
   backText: {
-    color: '#94A3B8',
-    fontSize: 14,
+    color: '#5B6573',
+    fontSize: 14, fontFamily: fonts.w400,
   },
   iconWrap: {
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.25)',
+    borderColor: 'rgba(255, 194, 26, 0.40)',
   },
   title: {
     fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontFamily: fonts.w700,
+    color: '#1D232B',
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 13,
-    color: '#94A3B8',
+    fontSize: 13, fontFamily: fonts.w400,
+    color: '#5B6573',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
     paddingHorizontal: 12,
   },
   emailHighlight: {
-    color: '#00D084',
-    fontWeight: '700',
+    color: '#1E8E5A',
+    fontFamily: fonts.w600,
   },
   form: {
     gap: 12,
@@ -214,16 +215,16 @@ const s = StyleSheet.create<Styles>({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(200, 55, 45, 0.12)',
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: 'rgba(200, 55, 45, 0.30)',
   },
   errorText: {
     flex: 1,
-    color: '#F87171',
-    fontSize: 13,
+    color: '#C8372D',
+    fontSize: 13, fontFamily: fonts.w400,
     lineHeight: 18,
   },
   btn: {
@@ -236,12 +237,12 @@ const s = StyleSheet.create<Styles>({
   },
   successTitle: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontFamily: fonts.w700,
+    color: '#1D232B',
   },
   successMsg: {
-    fontSize: 13,
-    color: '#94A3B8',
+    fontSize: 13, fontFamily: fonts.w400,
+    color: '#5B6573',
     textAlign: 'center',
     lineHeight: 20,
   },

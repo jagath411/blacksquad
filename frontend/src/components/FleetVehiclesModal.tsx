@@ -26,6 +26,7 @@ import {
 } from '../services/vehicleService';
 import { useFleet } from '../hooks/useFleet';
 import { formatUnifiedError } from '../utils/errorHandler';
+import { fonts } from '../theme/fonts';
 
 interface Props {
   visible: boolean;
@@ -200,7 +201,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
           <View style={s.headerRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={s.headerIconWrap}>
-                <Icon name="car" size={20} color="#00D084" />
+                <Icon name="car" size={20} color="#1E8E5A" />
               </View>
               <View>
                 <Text style={s.title}>Fleet Vehicle Registry</Text>
@@ -208,7 +209,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
               </View>
             </View>
             <Pressable onPress={onClose} hitSlop={12} style={s.closeBtn}>
-              <Icon name="close" size={20} color="#94A3B8" />
+              <Icon name="close" size={20} color="#5B6573" />
             </Pressable>
           </View>
 
@@ -220,15 +221,15 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
             </View>
             <View style={s.metricBox}>
               <Text style={s.metricLabel}>Active on Road</Text>
-              <Text style={[s.metricValue, { color: '#00D084' }]}>{activeCount}</Text>
+              <Text style={[s.metricValue, { color: '#1E8E5A' }]}>{activeCount}</Text>
             </View>
             <View style={s.metricBox}>
               <Text style={s.metricLabel}>In Service</Text>
-              <Text style={[s.metricValue, { color: '#F59E0B' }]}>{maintCount}</Text>
+              <Text style={[s.metricValue, { color: '#B7791F' }]}>{maintCount}</Text>
             </View>
             <View style={s.metricBox}>
               <Text style={s.metricLabel}>Driver Assigned</Text>
-              <Text style={[s.metricValue, { color: '#38BDF8' }]}>{assignedCount}</Text>
+              <Text style={[s.metricValue, { color: '#2457D6' }]}>{assignedCount}</Text>
             </View>
           </View>
 
@@ -241,7 +242,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                 setErrorMsg(null);
               }}
             >
-              <Icon name="car" size={14} color={activeTab === 'list' ? '#00D084' : '#64748B'} />
+              <Icon name="car" size={14} color={activeTab === 'list' ? '#1E8E5A' : '#7A8592'} />
               <Text style={[s.tabText, activeTab === 'list' && s.activeTabText]}>
                 Vehicle Inventory ({vehicles.length})
               </Text>
@@ -253,7 +254,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                 setErrorMsg(null);
               }}
             >
-              <Icon name="add-circle" size={14} color={activeTab === 'create' ? '#00D084' : '#64748B'} />
+              <Icon name="add-circle" size={14} color={activeTab === 'create' ? '#1E8E5A' : '#7A8592'} />
               <Text style={[s.tabText, activeTab === 'create' && s.activeTabText]}>
                 + Add New Vehicle
               </Text>
@@ -263,21 +264,21 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
           {/* Alerts */}
           {errorMsg ? (
             <View style={s.errorBanner}>
-              <Icon name="alert-circle" size={16} color="#F87171" />
+              <Icon name="alert-circle" size={16} color="#C8372D" />
               <Text style={s.errorText}>{errorMsg}</Text>
             </View>
           ) : null}
 
           {successMsg ? (
             <View style={s.successBanner}>
-              <Icon name="checkmark-circle" size={16} color="#00D084" />
+              <Icon name="checkmark-circle" size={16} color="#1E8E5A" />
               <Text style={s.successText}>{successMsg}</Text>
             </View>
           ) : null}
 
           {loading ? (
             <View style={s.loadingContainer}>
-              <ActivityIndicator size="large" color="#00D084" />
+              <ActivityIndicator size="large" color="#1E8E5A" />
               <Text style={s.loadingText}>Loading fleet registry...</Text>
             </View>
           ) : activeTab === 'list' ? (
@@ -302,7 +303,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
 
               {filteredVehicles.length === 0 ? (
                 <View style={s.emptyBox}>
-                  <Icon name="car-outline" size={44} color="#334155" />
+                  <Icon name="car-outline" size={44} color="#5B6573" />
                   <Text style={s.emptyTitle}>No Vehicles Found</Text>
                   <Text style={s.emptyDesc}>
                     Add your fleet cars, vans, or trucks to track driver assignments and maintenance.
@@ -329,23 +330,23 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                                 {
                                   backgroundColor:
                                     veh.status === 'ACTIVE'
-                                      ? 'rgba(0, 208, 132, 0.12)'
-                                      : 'rgba(245, 158, 11, 0.12)',
+                                      ? 'rgba(255, 194, 26, 0.19)'
+                                      : 'rgba(255, 194, 26, 0.19)',
                                   borderColor:
-                                    veh.status === 'ACTIVE' ? '#00D084' : '#F59E0B',
+                                    veh.status === 'ACTIVE' ? '#1E8E5A' : '#B7791F',
                                 },
                               ]}
                             >
                               <View
                                 style={[
                                   s.statusDot,
-                                  { backgroundColor: veh.status === 'ACTIVE' ? '#00D084' : '#F59E0B' },
+                                  { backgroundColor: veh.status === 'ACTIVE' ? '#1E8E5A' : '#B7791F' },
                                 ]}
                               />
                               <Text
                                 style={[
                                   s.statusBadgeText,
-                                  { color: veh.status === 'ACTIVE' ? '#00D084' : '#F59E0B' },
+                                  { color: veh.status === 'ACTIVE' ? '#1E8E5A' : '#B7791F' },
                                 ]}
                               >
                                 {veh.status}
@@ -362,12 +363,12 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                               <Icon
                                 name={isMaint ? 'play-circle' : 'build'}
                                 size={14}
-                                color={isMaint ? '#00D084' : '#F59E0B'}
+                                color={isMaint ? '#1E8E5A' : '#B7791F'}
                               />
                               <Text
                                 style={[
                                   s.maintToggleText,
-                                  { color: isMaint ? '#00D084' : '#F59E0B' },
+                                  { color: isMaint ? '#1E8E5A' : '#B7791F' },
                                 ]}
                               >
                                 {isMaint ? 'Set Active' : 'Service'}
@@ -379,7 +380,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                               disabled={actionVehicleId === veh._id}
                               onPress={() => handleDelete(veh)}
                             >
-                              <Icon name="trash-outline" size={16} color="#EF4444" />
+                              <Icon name="trash-outline" size={16} color="#C8372D" />
                             </Pressable>
                           </View>
                         </View>
@@ -405,7 +406,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
 
                         {/* Driver Assignment Card */}
                         <View style={s.driverAssignCard}>
-                          <Icon name="person" size={14} color={assignedDriverName ? '#38BDF8' : '#64748B'} />
+                          <Icon name="person" size={14} color={assignedDriverName ? '#2457D6' : '#7A8592'} />
                           <View style={{ flex: 1 }}>
                             <Text style={s.driverAssignLabel}>Assigned Driver</Text>
                             <Text style={s.driverAssignName}>
@@ -451,14 +452,14 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
               {/* Registration Number */}
               <Text style={s.inputLabel}>Registration Plate Number *</Text>
               <TextInput
-                style={[s.textInput, { textTransform: 'uppercase', letterSpacing: 2, fontWeight: '900' }]}
+                style={[s.textInput, { fontFamily: fonts.w700 }]}
                 value={regNumber}
                 onChangeText={(t) => {
                   setRegNumber(t);
                   setErrorMsg(null);
                 }}
                 placeholder="e.g. KA 01 AB 1234"
-                placeholderTextColor="#475569"
+                placeholderTextColor="#7A8592"
                 autoCapitalize="characters"
               />
 
@@ -469,7 +470,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                 value={model}
                 onChangeText={setModel}
                 placeholder="e.g. Hyundai Aura Prime 2024"
-                placeholderTextColor="#475569"
+                placeholderTextColor="#7A8592"
               />
 
               {/* Vehicle Type Grid */}
@@ -483,8 +484,8 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                       style={[s.typeCard, isSelected && s.typeCardActive]}
                       onPress={() => setVehicleType(t.id)}
                     >
-                      <Icon name={t.icon as any} size={18} color={isSelected ? '#00D084' : '#64748B'} />
-                      <Text style={[s.typeCardLabel, isSelected && { color: '#00D084', fontWeight: '800' }]}>
+                      <Icon name={t.icon as any} size={18} color={isSelected ? '#1E8E5A' : '#7A8592'} />
+                      <Text style={[s.typeCardLabel, isSelected && { color: '#1E8E5A', fontFamily: fonts.w700 }]}>
                         {t.label}
                       </Text>
                     </Pressable>
@@ -503,8 +504,8 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                       style={[s.typeCard, isSelected && s.typeCardActive]}
                       onPress={() => setFuelType(f.id)}
                     >
-                      <Icon name={f.icon as any} size={18} color={isSelected ? '#00D084' : '#64748B'} />
-                      <Text style={[s.typeCardLabel, isSelected && { color: '#00D084', fontWeight: '800' }]}>
+                      <Icon name={f.icon as any} size={18} color={isSelected ? '#1E8E5A' : '#7A8592'} />
+                      <Text style={[s.typeCardLabel, isSelected && { color: '#1E8E5A', fontFamily: fonts.w700 }]}>
                         {f.label}
                       </Text>
                     </Pressable>
@@ -521,7 +522,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                     value={capacity}
                     onChangeText={setCapacity}
                     placeholder="4"
-                    placeholderTextColor="#475569"
+                    placeholderTextColor="#7A8592"
                     keyboardType="numeric"
                   />
                 </View>
@@ -532,7 +533,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                     value={odometerKm}
                     onChangeText={setOdometerKm}
                     placeholder="e.g. 12500"
-                    placeholderTextColor="#475569"
+                    placeholderTextColor="#7A8592"
                     keyboardType="numeric"
                   />
                 </View>
@@ -555,7 +556,7 @@ export function FleetVehiclesModal({ visible, onClose, onVehicleUpdated }: Props
                     style={[s.driverPill, assignedDriverId === d.id && s.driverPillActive]}
                     onPress={() => setAssignedDriverId(d.id)}
                   >
-                    <Icon name="person" size={12} color={assignedDriverId === d.id ? '#00D084' : '#64748B'} />
+                    <Icon name="person" size={12} color={assignedDriverId === d.id ? '#1E8E5A' : '#7A8592'} />
                     <Text style={[s.driverPillText, assignedDriverId === d.id && s.driverPillTextActive]}>
                       {d.name}
                     </Text>
@@ -649,7 +650,7 @@ const s = StyleSheet.create<{
 }>({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(7, 16, 13, 0.85)',
+    backgroundColor: 'rgba(29, 35, 43, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -658,10 +659,10 @@ const s = StyleSheet.create<{
     width: '100%',
     maxWidth: 680,
     maxHeight: '92%',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(29, 35, 43, 0.10)',
     padding: 20,
   },
   headerRow: {
@@ -674,20 +675,20 @@ const s = StyleSheet.create<{
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.25)',
+    borderColor: 'rgba(255, 194, 26, 0.40)',
   },
   title: {
-    color: '#FFFFFF',
+    color: '#1D232B',
     fontSize: 18,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
   },
   subtitle: {
-    color: '#64748B',
-    fontSize: 12,
+    color: '#7A8592',
+    fontSize: 12, fontFamily: fonts.w400,
     marginTop: 2,
   },
   closeBtn: {
@@ -700,32 +701,31 @@ const s = StyleSheet.create<{
   },
   metricBox: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   metricLabel: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
+    fontFamily: fonts.w600,
+    },
   metricValue: {
-    color: '#FFFFFF',
+    color: '#1D232B',
     fontSize: 14,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
     marginTop: 3,
   },
   tabsRow: {
     flexDirection: 'row',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 10,
     padding: 4,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   tab: {
     flex: 1,
@@ -737,17 +737,17 @@ const s = StyleSheet.create<{
     borderRadius: 8,
   },
   activeTab: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.3)',
+    borderColor: 'rgba(255, 194, 26, 0.48)',
   },
   tabText: {
-    color: '#64748B',
+    color: '#7A8592',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   activeTabText: {
-    color: '#00D084',
+    color: '#1E8E5A',
   },
   filterRow: {
     flexDirection: 'row',
@@ -755,57 +755,57 @@ const s = StyleSheet.create<{
     marginBottom: 12,
   },
   filterPill: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   filterPillActive: {
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
-    borderColor: '#00D084',
+    backgroundColor: 'rgba(255, 194, 26, 0.24)',
+    borderColor: '#E0A800',
   },
   filterPillText: {
-    color: '#64748B',
+    color: '#7A8592',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   filterPillTextActive: {
-    color: '#00D084',
+    color: '#1E8E5A',
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(200, 55, 45, 0.12)',
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#EF4444',
+    borderColor: '#C8372D',
     marginBottom: 12,
   },
   errorText: {
-    color: '#FCA5A5',
+    color: '#C8372D',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fonts.w600,
     flex: 1,
   },
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#00D084',
+    borderColor: '#E0A800',
     marginBottom: 12,
   },
   successText: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
     flex: 1,
   },
   loadingContainer: {
@@ -814,19 +814,19 @@ const s = StyleSheet.create<{
     gap: 10,
   },
   loadingText: {
-    color: '#64748B',
-    fontSize: 13,
+    color: '#7A8592',
+    fontSize: 13, fontFamily: fonts.w400,
   },
   listScroll: {
     flex: 1,
   },
   vehicleCard: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
     gap: 8,
   },
   vehicleCardTop: {
@@ -840,16 +840,15 @@ const s = StyleSheet.create<{
     gap: 10,
   },
   plateNumber: {
-    color: '#FFFFFF',
+    color: '#1D232B',
     fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 1.5,
-    backgroundColor: '#0F172A',
+    fontFamily: fonts.w700,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(29, 35, 43, 0.10)',
   },
   statusBadge: {
     flexDirection: 'row',
@@ -867,7 +866,7 @@ const s = StyleSheet.create<{
   },
   statusBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: fonts.w700,
   },
   actionBtnsRow: {
     flexDirection: 'row',
@@ -878,16 +877,16 @@ const s = StyleSheet.create<{
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(29, 35, 43, 0.05)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   maintToggleText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   deleteBtn: {
     padding: 4,
@@ -898,68 +897,67 @@ const s = StyleSheet.create<{
     gap: 6,
   },
   modelText: {
-    color: '#F1F5F9',
+    color: '#1D232B',
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   specDivider: {
-    color: '#475569',
-    fontSize: 12,
+    color: '#7A8592',
+    fontSize: 12, fontFamily: fonts.w400,
   },
   specBadgeText: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: fonts.w600,
   },
   driverAssignCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: 'rgba(29, 35, 43, 0.45)',
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(29, 35, 43, 0.04)',
     marginTop: 2,
   },
   driverAssignLabel: {
-    color: '#64748B',
+    color: '#7A8592',
     fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
+    fontFamily: fonts.w600,
+    },
   driverAssignName: {
-    color: '#38BDF8',
+    color: '#2457D6',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
     marginTop: 1,
   },
   unassignBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(200, 55, 45, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: 'rgba(200, 55, 45, 0.30)',
   },
   unassignBtnText: {
-    color: '#F87171',
+    color: '#C8372D',
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: fonts.w700,
   },
   quickDriverPill: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     marginRight: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   quickDriverPillText: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   emptyBox: {
     padding: 40,
@@ -967,50 +965,50 @@ const s = StyleSheet.create<{
     justifyContent: 'center',
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: '#1D232B',
     fontSize: 16,
-    fontWeight: '800',
+    fontFamily: fonts.w700,
     marginTop: 10,
   },
   emptyDesc: {
-    color: '#64748B',
-    fontSize: 12,
+    color: '#7A8592',
+    fontSize: 12, fontFamily: fonts.w400,
     textAlign: 'center',
     marginTop: 4,
     maxWidth: 320,
   },
   emptyAddBtn: {
     marginTop: 16,
-    backgroundColor: '#00D084',
+    backgroundColor: '#FFC21A',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   emptyAddBtnText: {
-    color: '#07100D',
+    color: '#1D232B',
     fontSize: 12,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
   },
   formScroll: {
     flex: 1,
   },
   inputLabel: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
     marginBottom: 6,
     marginTop: 8,
   },
   textInput: {
-    backgroundColor: '#1E293B',
-    color: '#FFFFFF',
+    backgroundColor: '#E9EDF1',
+    color: '#1D232B',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fonts.w600,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(29, 35, 43, 0.10)',
     marginBottom: 4,
   },
   typeGrid: {
@@ -1021,23 +1019,23 @@ const s = StyleSheet.create<{
   },
   typeCard: {
     width: '48.5%',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 10,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   typeCardActive: {
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
-    borderColor: '#00D084',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
+    borderColor: '#E0A800',
   },
   typeCardLabel: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   dualRow: {
     flexDirection: 'row',
@@ -1051,24 +1049,24 @@ const s = StyleSheet.create<{
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     marginRight: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   driverPillActive: {
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
-    borderColor: '#00D084',
+    backgroundColor: 'rgba(255, 194, 26, 0.24)',
+    borderColor: '#E0A800',
   },
   driverPillText: {
-    color: '#64748B',
+    color: '#7A8592',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   driverPillTextActive: {
-    color: '#00D084',
+    color: '#1E8E5A',
   },
 });

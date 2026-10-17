@@ -1,12 +1,20 @@
 import './src/utils/cryptoPolyfill';
 import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
-import { NavigationContainer, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { ActivityIndicator, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather, MaterialIcons } from '@expo/vector-icons';
+import {
+  Barlow_400Regular,
+  Barlow_500Medium,
+  Barlow_600SemiBold,
+  Barlow_700Bold,
+} from '@expo-google-fonts/barlow';
+import { BarlowCondensed_600SemiBold, BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed';
+import { ink, marigold, paper } from './src/theme/palette';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { RoleScreen } from './src/screens/RoleScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -36,12 +44,18 @@ export default function App() {
     ...MaterialCommunityIcons.font,
     ...Feather.font,
     ...MaterialIcons.font,
+    Barlow_400Regular,
+    Barlow_500Medium,
+    Barlow_600SemiBold,
+    Barlow_700Bold,
+    BarlowCondensed_600SemiBold,
+    BarlowCondensed_700Bold,
   });
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#07100D', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#00D084" />
+      <View style={{ flex: 1, backgroundColor: paper, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={ink} />
       </View>
     );
   }
@@ -50,11 +64,11 @@ export default function App() {
     <NavigationContainer
       ref={navigationRef}
       theme={{
-        ...DarkTheme,
-        colors: { ...DarkTheme.colors, background: '#07100D' },
+        ...DefaultTheme,
+        colors: { ...DefaultTheme.colors, background: paper, primary: marigold, text: ink },
       }}
     >
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Role" component={RoleScreen} />

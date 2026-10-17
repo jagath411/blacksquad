@@ -72,7 +72,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
           heading: location.heading ?? 0,
           isVehicle: true,
           title: isOnline ? 'You (online)' : 'You (offline)',
-          color: isOnline ? '#00D084' : '#64748B',
+          color: isOnline ? '#1E8E5A' : '#7A8592',
         },
         ...tripMap.markers,
       ]
@@ -246,7 +246,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
 
       <View style={s.mapWrapper}>
         <MapView center={camera.center} zoom={camera.zoom} markers={markers} route={tripMap.polyline} style={s.mapFrame} />
-        <MapHeader label="DRIVER PORTAL" onHistory={() => setHistoryVisible(true)} onProfile={() => setProfileVisible(true)} />
+        <MapHeader label="Driver" onHistory={() => setHistoryVisible(true)} onProfile={() => setProfileVisible(true)} />
         <RecenterButton isLocating={isLocating} onPress={() => void locate(true)} />
         {activeBooking && (
           <TripPill
@@ -267,7 +267,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
           <View style={s.incomingCard}>
             <View style={s.incomingTop}>
               <View style={s.incomingBadge}>
-                <Text style={s.incomingBadgeText}>NEW RIDE REQUEST</Text>
+                <Text style={s.incomingBadgeText}>New ride request</Text>
               </View>
               <Text style={s.incomingTimerText}>{offerSeconds}s</Text>
             </View>
@@ -294,7 +294,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
                 <Text style={s.declineBtnText}>Decline</Text>
               </Pressable>
               <Pressable accessibilityRole="button" style={s.acceptBtn} disabled={busy} onPress={() => void handleAccept(offer._id)}>
-                <Text style={s.acceptBtnText}>ACCEPT RIDE</Text>
+                <Text style={s.acceptBtnText}>Accept ride</Text>
               </Pressable>
             </View>
           </View>
@@ -308,12 +308,12 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
           <View style={s.activeTripContent}>
             <View style={s.tripHeader}>
               <View>
-                <Text style={s.tripKicker}>{rider?.name ? `RIDER: ${rider.name.toUpperCase()}` : 'ACTIVE TRIP'}</Text>
+                <Text style={s.tripKicker}>{rider?.name ? `Rider: ${rider.name}` : 'Current trip'}</Text>
                 <Text style={s.tripFare}>₹{activeBooking.fare}</Text>
               </View>
               {rider?.phoneNumber ? (
                 <Pressable accessibilityRole="button" accessibilityLabel="Call rider" style={s.profileAvatarBtn} onPress={() => callNumber(rider.phoneNumber!)}>
-                  <Icon name="call" size={16} color="#FFFFFF" />
+                  <Icon name="call" size={16} color="#1D232B" />
                 </Pressable>
               ) : null}
             </View>
@@ -331,26 +331,26 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
 
             {activeBooking.status === 'DRIVER_ACCEPTED' && (
               <Pressable accessibilityRole="button" style={s.actionPrimaryBtn} disabled={busy} onPress={() => void setStatus('DRIVER_ARRIVING')}>
-                <Text style={s.actionPrimaryText}>I HAVE ARRIVED AT PICKUP</Text>
+                <Text style={s.actionPrimaryText}>I&apos;ve arrived at pickup</Text>
               </Pressable>
             )}
             {activeBooking.status === 'DRIVER_ARRIVING' && (
               <Pressable accessibilityRole="button" style={s.actionPrimaryBtn} disabled={busy} onPress={() => setPinModal(true)}>
-                <Text style={s.actionPrimaryText}>ENTER RIDER PIN & START TRIP</Text>
+                <Text style={s.actionPrimaryText}>Enter rider&apos;s PIN to start</Text>
               </Pressable>
             )}
             {activeBooking.status === 'TRIP_STARTED' && (
               <Pressable accessibilityRole="button"
-                style={[s.actionPrimaryBtn, { backgroundColor: '#10B981' }]}
+                style={[s.actionPrimaryBtn, { backgroundColor: '#1D232B' }]}
                 disabled={busy}
                 onPress={() => void setStatus('TRIP_COMPLETED')}
               >
-                <Text style={s.actionPrimaryText}>COMPLETE TRIP</Text>
+                <Text style={[s.actionPrimaryText, { color: '#FFFFFF' }]}>Complete trip</Text>
               </Pressable>
             )}
             {(activeBooking.status === 'DRIVER_ACCEPTED' || activeBooking.status === 'DRIVER_ARRIVING') && (
               <Pressable accessibilityRole="button" style={[s.cancelBtn, { marginTop: 10 }]} disabled={busy} onPress={() => void handleDropTrip()}>
-                <Icon name="close-circle" size={16} color="#EF4444" />
+                <Icon name="close-circle" size={16} color="#C8372D" />
                 <Text style={s.cancelBtnText}>Cancel trip</Text>
               </Pressable>
             )}
@@ -359,7 +359,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
           <View style={s.dutyContainer}>
             <View style={s.dutyHeader}>
               <View>
-                <Text style={s.dutyTitle}>{isOnline ? 'You are ONLINE' : 'You are OFFLINE'}</Text>
+                <Text style={s.dutyTitle}>{isOnline ? "You're online" : "You're offline"}</Text>
                 <Text style={s.dutySub}>
                   {isOnline
                     ? trackerStatus === 'online'
@@ -372,25 +372,25 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
                     : 'Go online to receive ride requests'}
                 </Text>
               </View>
-              <View style={[s.dutyStatusDot, { backgroundColor: isOnline ? '#00D084' : '#64748B' }]} />
+              <View style={[s.dutyStatusDot, { backgroundColor: isOnline ? '#FFC21A' : '#D5DBE2' }]} />
             </View>
 
             {isOnline && location && (
               <View style={s.telemetryCard}>
                 <View style={s.telemetryItem}>
-                  <Text style={s.telemetryLabel}>SPEED</Text>
+                  <Text style={s.telemetryLabel}>Speed</Text>
                   <Text style={s.telemetryValue}>{toKmh(location.speed)} km/h</Text>
                 </View>
                 <View style={s.telemetryDivider} />
                 <View style={s.telemetryItem}>
-                  <Text style={s.telemetryLabel}>HEADING</Text>
+                  <Text style={s.telemetryLabel}>Heading</Text>
                   <Text style={s.telemetryValue}>{Math.round(location.heading ?? 0)}°</Text>
                 </View>
                 <View style={s.telemetryDivider} />
                 <View style={s.telemetryItem}>
-                  <Text style={s.telemetryLabel}>GPS</Text>
-                  <Text style={[s.telemetryValue, { color: trackerStatus === 'online' ? '#00D084' : '#F59E0B' }]}>
-                    {trackerStatus === 'online' ? 'LIVE' : trackerStatus.toUpperCase()}
+                  <Text style={s.telemetryLabel}>Location</Text>
+                  <Text style={[s.telemetryValue, { color: trackerStatus === 'online' ? '#1E8E5A' : '#B7791F' }]}>
+                    {trackerStatus === 'online' ? 'Live' : trackerStatus === 'denied' ? 'Off' : 'Starting'}
                   </Text>
                 </View>
               </View>
@@ -401,8 +401,8 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
               disabled={busy}
               onPress={() => void handleToggleDuty()}
             >
-              <Icon name={isOnline ? 'power' : 'radio'} size={20} color="#FFFFFF" />
-              <Text style={s.toggleDutyBtnText}>{isOnline ? 'GO OFFLINE' : 'GO ONLINE & ACCEPT RIDES'}</Text>
+              <Icon name={isOnline ? 'power' : 'radio'} size={20} color="#1D232B" />
+              <Text style={s.toggleDutyBtnText}>{isOnline ? 'Go offline' : 'Go online'}</Text>
             </Pressable>
           </View>
         )}
@@ -412,7 +412,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
         <View style={s.modalOverlay}>
           <View style={s.otpModalCard}>
             <View style={s.otpHeader}>
-              <Icon name="location" size={32} color="#00D084" />
+              <Icon name="location" size={32} color="#1D232B" />
               <Text style={s.otpModalTitle}>Share location in the background</Text>
               <Text style={s.otpModalSub}>
                 BlackSquad collects your location while you are online, even when the app is closed or the screen
@@ -436,7 +436,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
         <View style={s.modalOverlay}>
           <View style={s.otpModalCard}>
             <View style={s.otpHeader}>
-              <Icon name="key" size={32} color="#00D084" />
+              <Icon name="key" size={32} color="#1D232B" />
               <Text style={s.otpModalTitle}>Enter rider PIN</Text>
               <Text style={s.otpModalSub}>Ask the rider for the 4-digit PIN shown in their app</Text>
             </View>
@@ -445,7 +445,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
               value={pin}
               onChangeText={setPin}
               placeholder="• • • •"
-              placeholderTextColor="#64748B"
+              placeholderTextColor="#7A8592"
               keyboardType="number-pad"
               maxLength={4}
               autoFocus

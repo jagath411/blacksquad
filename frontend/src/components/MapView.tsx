@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'reac
 import * as maplibreModule from 'maplibre-gl';
 import { NativeMapView } from './NativeMapView';
 import { MAP_STYLE_URL } from '../constants/map';
+import { fonts } from '../theme/fonts';
 
 const maplibregl: any = (maplibreModule as any).default || maplibreModule;
 
@@ -143,9 +144,9 @@ export function MapView({
             'line-cap': 'round',
           },
           paint: {
-            'line-color': '#020617',
-            'line-width': 8,
-            'line-opacity': 0.7,
+            'line-color': '#FFFFFF',
+            'line-width': 9,
+            'line-opacity': 1,
           },
         });
 
@@ -159,7 +160,7 @@ export function MapView({
             'line-cap': 'round',
           },
           paint: {
-            'line-color': route.color || '#00D084',
+            'line-color': route.color || '#1E8E5A',
             'line-width': 5,
             'line-opacity': 0.95,
           },
@@ -216,14 +217,14 @@ export function MapView({
       const isVehicle = marker.isVehicle;
 
       Object.assign(element.style, {
-        backgroundColor: marker.color || (isVehicle ? '#0F172A' : '#2563EB'),
+        backgroundColor: marker.color || (isVehicle ? '#FFFFFF' : '#2457D6'),
         width: isVehicle ? '36px' : '22px',
         height: isVehicle ? '36px' : '22px',
         borderRadius: isVehicle ? '18px' : '11px',
         border: '2px solid #FFFFFF',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
-        color: '#FFFFFF',
-        fontWeight: 'bold',
+        boxShadow: '0 4px 12px rgba(29, 35, 43, 0.45)',
+        color: '#1D232B',
+        fontFamily: fonts.w600,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -232,7 +233,7 @@ export function MapView({
       });
 
       if (isVehicle) {
-        element.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00D084" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>`;
+        element.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E0A800" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>`;
       } else {
         element.innerHTML = `<div style="width:6px;height:6px;border-radius:3px;background:#fff"></div>`;
       }

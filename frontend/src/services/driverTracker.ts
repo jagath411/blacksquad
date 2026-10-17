@@ -170,7 +170,7 @@ export async function startDriverTracking(
       foregroundService: {
         notificationTitle: 'BlackSquad: you are online',
         notificationBody: 'Your location is shared with riders and your fleet while you are online.',
-        notificationColor: '#00D084',
+        notificationColor: '#1E8E5A',
         killServiceOnDestroy: false,
       },
     });

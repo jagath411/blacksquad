@@ -1,10 +1,11 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../components/Screen';
 import { Icon } from '../components/ui/Icon';
-import { colors } from '../constants/theme';
 import type { RootStackParamList, UserRole } from '../types';
+import { fonts } from '../theme/fonts';
+import { ink, line, marigold, surface, text2, text3 } from '../theme/palette';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Role'>;
 
@@ -12,8 +13,6 @@ interface RoleOption {
   role: UserRole;
   icon: string;
   iconFamily: 'ionicons' | 'material' | 'feather';
-  iconColor: string;
-  badge: string;
   title: string;
   description: string;
 }
@@ -23,28 +22,22 @@ const ROLES: RoleOption[] = [
     role: 'CUSTOMER',
     icon: 'car-sport',
     iconFamily: 'ionicons',
-    iconColor: '#00D084',
-    badge: 'RIDER',
-    title: 'Customer / Rider',
-    description: 'Book immediate or scheduled rides, view fare quotes, and live-track your driver on the map.',
+    title: 'Book a ride',
+    description: 'See the price before you book and follow your driver on the map.',
   },
   {
     role: 'DRIVER',
     icon: 'steering',
     iconFamily: 'material',
-    iconColor: '#38BDF8',
-    badge: 'PARTNER',
-    title: 'Driver Partner',
-    description: 'Toggle duty online/offline, accept ride dispatches, navigate routes, and verify OTP boarding.',
+    title: 'Drive with a fleet',
+    description: 'Go online, accept rides near you and get paid by your fleet owner.',
   },
   {
     role: 'OWNER',
     icon: 'business',
     iconFamily: 'ionicons',
-    iconColor: '#F59E0B',
-    badge: 'OPERATIONS',
-    title: 'Fleet Operations Owner',
-    description: 'Live radar overview of all active fleet vehicles, driver duty stats, and transport management.',
+    title: 'Run a fleet',
+    description: 'Add drivers and vehicles, see them live, and track earnings and costs.',
   },
 ];
 
@@ -54,35 +47,27 @@ export function RoleScreen({ navigation }: Props) {
   return (
     <Screen>
       <View style={s.header}>
-        <Image source={require('../assets/logo.png')} style={s.logoImage} resizeMode="contain" />
-        <Text style={s.kicker}>WORKSPACE ACCESS</Text>
-        <Text style={s.title}>Select your portal</Text>
-        <Text style={s.body}>
-          Choose your account workspace to continue. You can switch or sign in with your role-specific credentials.
-        </Text>
+        <Text style={s.title}>How will you use BlackSquad?</Text>
+        <Text style={s.body}>You can sign in to the same account from any of these.</Text>
       </View>
 
-      <View style={s.cards}>
+      <View style={s.list}>
         {ROLES.map((item) => (
           <Pressable
             key={item.role}
             accessibilityRole="button"
+            accessibilityLabel={item.title}
             onPress={() => select(item.role)}
-            style={({ pressed }) => [s.card, pressed && s.cardPressed]}
+            style={({ pressed }) => [s.row, pressed && s.rowPressed]}
           >
-            <View style={[s.iconBox, { backgroundColor: `${item.iconColor}18` }]}>
-              <Icon name={item.icon} family={item.iconFamily} size={24} color={item.iconColor} />
+            <View style={s.iconBox}>
+              <Icon name={item.icon} family={item.iconFamily} size={24} color={ink} />
             </View>
-            <View style={s.cardBody}>
-              <View style={s.titleRow}>
-                <Text style={s.cardTitle}>{item.title}</Text>
-                <View style={[s.badge, { backgroundColor: `${item.iconColor}22` }]}>
-                  <Text style={[s.badgeText, { color: item.iconColor }]}>{item.badge}</Text>
-                </View>
-              </View>
-              <Text style={s.cardDesc}>{item.description}</Text>
+            <View style={s.rowBody}>
+              <Text style={s.rowTitle}>{item.title}</Text>
+              <Text style={s.rowDesc}>{item.description}</Text>
             </View>
-            <Icon name="chevron-forward" size={18} color="#64748B" />
+            <Icon name="chevron-forward" size={20} color={text3} />
           </Pressable>
         ))}
       </View>
@@ -92,103 +77,33 @@ export function RoleScreen({ navigation }: Props) {
 
 const s = StyleSheet.create<{
   header: ViewStyle;
-  logoImage: ImageStyle;
-  kicker: TextStyle;
   title: TextStyle;
   body: TextStyle;
-  cards: ViewStyle;
-  card: ViewStyle;
-  cardPressed: ViewStyle;
+  list: ViewStyle;
+  row: ViewStyle;
+  rowPressed: ViewStyle;
   iconBox: ViewStyle;
-  cardBody: ViewStyle;
-  titleRow: ViewStyle;
-  cardTitle: TextStyle;
-  badge: ViewStyle;
-  badgeText: TextStyle;
-  cardDesc: TextStyle;
+  rowBody: ViewStyle;
+  rowTitle: TextStyle;
+  rowDesc: TextStyle;
 }>({
-  header: {
-    paddingTop: 12,
-    marginBottom: 24,
-  },
-  logoImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    marginBottom: 12,
-  },
-  kicker: {
-    color: colors.green,
-    fontSize: 11,
-    letterSpacing: 2,
-    fontWeight: '800',
-  },
-  title: {
-    color: colors.text,
-    fontSize: 32,
-    lineHeight: 38,
-    fontWeight: '900',
-    marginTop: 6,
-  },
-  body: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 22,
-    marginTop: 8,
-  },
-  cards: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  card: {
+  header: { paddingTop: 24, marginBottom: 28 },
+  title: { fontFamily: fonts.w700, fontSize: 32, lineHeight: 36, color: ink, letterSpacing: -0.5 },
+  body: { fontFamily: fonts.w400, fontSize: 16, lineHeight: 24, color: text2, marginTop: 10 },
+  list: { gap: 12 },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    gap: 16,
+    padding: 18,
     borderRadius: 16,
-    padding: 16,
+    backgroundColor: surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    gap: 14,
+    borderColor: line,
   },
-  cardPressed: {
-    backgroundColor: '#1E293B',
-    borderColor: 'rgba(255,255,255,0.2)',
-    transform: [{ scale: 0.99 }],
-  },
-  iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardBody: {
-    flex: 1,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  cardTitle: {
-    color: '#F8FAFC',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  badge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  cardDesc: {
-    color: '#94A3B8',
-    fontSize: 12,
-    lineHeight: 17,
-  },
+  rowPressed: { borderColor: ink },
+  iconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: marigold, alignItems: 'center', justifyContent: 'center' },
+  rowBody: { flex: 1 },
+  rowTitle: { fontFamily: fonts.w700, fontSize: 19, color: ink },
+  rowDesc: { fontFamily: fonts.w400, fontSize: 15, lineHeight: 21, color: text2, marginTop: 3 },
 });

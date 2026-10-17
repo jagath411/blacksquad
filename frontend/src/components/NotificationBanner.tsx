@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { Icon } from './ui/Icon';
 import { radius, spacing } from '../theme';
+import { fonts } from '../theme/fonts';
 
 export interface NotificationItem {
   id: string;
@@ -28,10 +29,10 @@ export function NotificationBanner({ notification, onDismiss }: NotificationBann
 
   const type = notification.type || 'info';
   const colorMap = {
-    success: '#10B981',
-    error: '#EF4444',
-    warning: '#F59E0B',
-    info: '#3B82F6',
+    success: '#1E8E5A',
+    error: '#C8372D',
+    warning: '#B7791F',
+    info: '#2457D6',
   };
   const iconMap = {
     success: 'checkmark-circle',
@@ -54,7 +55,7 @@ export function NotificationBanner({ notification, onDismiss }: NotificationBann
           <Text style={styles.body}>{notification.body}</Text>
         </View>
         <Pressable style={styles.closeBtn} onPress={onDismiss}>
-          <Icon name="close" size={16} color="#94A3B8" />
+          <Icon name="close" size={16} color="#5B6573" />
         </Pressable>
       </View>
     </View>
@@ -80,14 +81,14 @@ const styles = StyleSheet.create<{
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
-    borderColor: '#00D084',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E0A800',
     borderWidth: 1.5,
     borderRadius: 16,
     padding: 12,
     gap: 10,
     elevation: 8,
-    shadowColor: '#000000',
+    shadowColor: '#D5DBE2',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -96,7 +97,7 @@ const styles = StyleSheet.create<{
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    backgroundColor: 'rgba(255, 194, 26, 0.24)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -104,13 +105,13 @@ const styles = StyleSheet.create<{
     flex: 1,
   },
   title: {
-    color: '#F8FAFC',
-    fontWeight: '900',
+    color: '#1D232B',
+    fontFamily: fonts.w700,
     fontSize: 13,
   },
   body: {
-    color: '#94A3B8',
-    fontSize: 11,
+    color: '#5B6573',
+    fontSize: 11, fontFamily: fonts.w400,
     marginTop: 1,
   },
   closeBtn: {

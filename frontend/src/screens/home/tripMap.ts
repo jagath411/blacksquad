@@ -14,10 +14,10 @@ export function buildTripMap(
   const pickup = booking.pickupLocation?.coordinates;
   const drop = booking.dropLocation?.coordinates;
   if (pickup) {
-    markers.push({ id: 'pickup', longitude: pickup[0], latitude: pickup[1], title: `Pickup: ${booking.pickupAddress}`, color: '#00D084' });
+    markers.push({ id: 'pickup', longitude: pickup[0], latitude: pickup[1], title: `Pickup: ${booking.pickupAddress}`, color: '#1D232B' });
   }
   if (drop) {
-    markers.push({ id: 'drop', longitude: drop[0], latitude: drop[1], title: `Destination: ${booking.dropAddress}`, color: '#EF4444' });
+    markers.push({ id: 'drop', longitude: drop[0], latitude: drop[1], title: `Destination: ${booking.dropAddress}`, color: '#FFC21A' });
   }
   if (driver) {
     markers.push({
@@ -26,14 +26,14 @@ export function buildTripMap(
       longitude: driver.longitude,
       heading: driver.heading ?? 0,
       title: 'Your driver',
-      color: '#0F172A',
+      color: '#1D232B',
       isVehicle: true,
     });
   }
 
   const polyline =
     route && route.coordinates.length > 1
-      ? { coordinates: route.coordinates, color: booking.status === 'TRIP_STARTED' ? '#38BDF8' : '#00D084' }
+      ? { coordinates: route.coordinates, color: '#2457D6' }
       : undefined;
   return { markers, polyline };
 }

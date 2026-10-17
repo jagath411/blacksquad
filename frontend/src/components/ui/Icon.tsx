@@ -15,7 +15,7 @@ export interface IconProps {
 export function Icon({
   name,
   size = 20,
-  color = '#FFFFFF',
+  color = '#1D232B',
   family = 'ionicons',
   style,
 }: IconProps) {

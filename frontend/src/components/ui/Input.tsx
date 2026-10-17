@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle, type ViewStyle } from 'react-native';
 import { darkColors, lightColors, radius, spacing, typography } from '../../theme';
+import { fonts } from '../../theme/fonts';
 
 export interface InputProps extends TextInputProps {
   label?: string;
@@ -52,5 +53,5 @@ const styles = StyleSheet.create<{ group: ViewStyle; label: TextStyle; field: Vi
   field: { minHeight: 48, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md },
   input: { ...typography.body, flex: 1, minHeight: 46, paddingVertical: 0 },
   supporting: typography.caption,
-  visibility: { fontSize: 18, lineHeight: 22, fontWeight: '800' },
+  visibility: { fontSize: 18, lineHeight: 22, fontFamily: fonts.w700,},
 });

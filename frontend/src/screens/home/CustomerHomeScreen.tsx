@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { AppButton } from '../../components/AppButton';
 import { MapView } from '../../components/MapView';
 import { NotificationBanner, type NotificationItem } from '../../components/NotificationBanner';
@@ -9,12 +9,13 @@ import { Icon } from '../../components/ui/Icon';
 import { useActiveTrip, type TripEvent } from '../../hooks/useActiveTrip';
 import { useDeviceLocation } from '../../hooks/useDeviceLocation';
 import { useRoadRoute } from '../../hooks/useRoadRoute';
+import { getCurrentUser, type SavedPlace } from '../../services/authService';
 import { createBooking, getFareQuotes, rateBooking, updateBookingStatus, type FareQuote } from '../../services/bookingService';
 import { geocodeAddress } from '../../services/geocodingService';
 import type { BookingData } from '../../types';
 import { callNumber, confirmAction } from '../../utils/dialogs';
 import { formatUnifiedError } from '../../utils/errorHandler';
-import { MapHeader, RecenterButton, TripPill } from './MapChrome';
+import { MapHeader, NumberPlate, RecenterButton, TripPill } from './MapChrome';
 import { s } from './homeStyles';
 import { buildTripMap, driverPosition } from './tripMap';
 
@@ -45,10 +46,13 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
   const [pickupText, setPickupText] = useState(CURRENT_LOCATION);
   const [destinationText, setDestinationText] = useState('');
   const [plan, setPlan] = useState<PlannedTrip | null>(null);
+  const [pickedDrop, setPickedDrop] = useState<SavedPlace | null>(null);
   const [selectedTier, setSelectedTier] = useState('uberx');
   const [quoting, setQuoting] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [ratingBooking, setRatingBooking] = useState<BookingData | null>(null);
+  const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
+  const [contact, setContact] = useState<{ name?: string; phoneNumber: string } | null>(null);
   const [rating, setRating] = useState(5);
 
   const { location, isLocating, locationDenied, locate, camera } = useDeviceLocation();
@@ -71,11 +75,24 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   const { activeBooking, followBooking, endTrip, driverLiveLoc } = useActiveTrip(onTripEvent);
+  const activeBookingId = activeBooking?._id;
+
+  // Saved places and the emergency contact come from the profile; refresh whenever the booking form opens.
+  useEffect(() => {
+    if (!formOpen && !activeBookingId) return;
+    getCurrentUser()
+      .then((u) => {
+        setSavedPlaces(u.savedPlaces ?? []);
+        setContact(u.emergencyContact ?? null);
+      })
+      .catch(() => undefined);
+  }, [formOpen, activeBookingId]);
+
   const driver = driverPosition(activeBooking, driverLiveLoc);
   const route = useRoadRoute(activeBooking, driver ? [driver.longitude, driver.latitude] : null);
   const tripMap = buildTripMap(activeBooking, driver, route);
   const markers = location
-    ? [{ id: 'self-location', latitude: location.latitude, longitude: location.longitude, title: 'You', color: '#00D084' }, ...tripMap.markers]
+    ? [{ id: 'self-location', latitude: location.latitude, longitude: location.longitude, title: 'You', color: '#2457D6' }, ...tripMap.markers]
     : tripMap.markers;
 
   const resetPlan = () => setPlan(null);
@@ -110,7 +127,10 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
         pickupAddress = pickupQuery;
       }
 
-      const drop = await geocodeAddress(destinationQuery, location);
+      const drop =
+        pickedDrop && pickedDrop.address === destinationQuery
+          ? { longitude: pickedDrop.coordinates[0], latitude: pickedDrop.coordinates[1] }
+          : await geocodeAddress(destinationQuery, location);
       if (!drop) {
         notify('Destination not found', `We couldn't find "${destinationQuery}". Try a fuller address.`, 'warning');
         return;
@@ -164,6 +184,22 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  /** Shares who is driving, the car and where the rider is going, e.g. with their emergency contact. */
+  const shareTrip = async () => {
+    if (!activeBooking) return;
+    const lines = [
+      `I'm on a BlackSquad ride to ${activeBooking.dropAddress}.`,
+      driverUser?.name ? `Driver: ${driverUser.name}${driverUser.phoneNumber ? ` (${driverUser.phoneNumber})` : ''}` : '',
+      vehicle?.registrationNumber ? `Vehicle: ${vehicle.registrationNumber}${vehicle.model ? `, ${vehicle.model}` : ''}` : '',
+    ].filter(Boolean);
+    const message = lines.join('\n');
+    try {
+      await Share.share({ message, title: 'My trip' });
+    } catch {
+      if (contact) callNumber(contact.phoneNumber);
+    }
+  };
+
   const handleSubmitRating = async () => {
     if (!ratingBooking) return;
     try {
@@ -197,7 +233,7 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
 
       <View style={s.mapWrapper}>
         <MapView center={camera.center} zoom={camera.zoom} markers={markers} route={tripMap.polyline} style={s.mapFrame} />
-        <MapHeader label="BLACKSQUAD" onHistory={() => setHistoryVisible(true)} onProfile={() => setProfileVisible(true)} />
+        <MapHeader label="BlackSquad" onHistory={() => setHistoryVisible(true)} onProfile={() => setProfileVisible(true)} />
         <RecenterButton isLocating={isLocating} onPress={() => void locate(true)} />
         {activeBooking && <TripPill title={pillTitle} subtitle={isSearching ? undefined : routeText} />}
       </View>
@@ -208,29 +244,28 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
 
           <View style={s.driverCard}>
             <View style={s.driverAvatarBox}>
-              {isSearching ? <ActivityIndicator color="#00D084" /> : <Icon name="person" size={22} color="#FFFFFF" />}
+              {isSearching ? <ActivityIndicator color="#1D232B" /> : <Icon name="person" size={22} color="#1D232B" />}
             </View>
             <View style={s.driverMeta}>
               <Text style={s.driverName}>{isSearching ? 'Finding a driver' : driverUser?.name || 'Your driver'}</Text>
               <Text style={s.driverVehicle}>
-                {isSearching
-                  ? `₹${activeBooking.fare} • ${activeBooking.dropAddress}`
-                  : [vehicle?.registrationNumber, vehicle?.model].filter(Boolean).join(' • ') || `₹${activeBooking.fare}`}
+                ₹{activeBooking.fare} to {activeBooking.dropAddress}
               </Text>
             </View>
-            {activeBooking.startOtp ? (
-              <View style={s.otpBadge}>
-                <Text style={s.otpLabel}>START PIN</Text>
-                <Text style={s.otpCode}>{activeBooking.startOtp}</Text>
-              </View>
-            ) : null}
+            {activeBooking.startOtp ? <NumberPlate caption="Trip PIN" text={activeBooking.startOtp} /> : null}
           </View>
+          {!isSearching && vehicle?.registrationNumber ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <NumberPlate text={vehicle.registrationNumber} />
+              {vehicle.model ? <Text style={s.driverVehicle}>{vehicle.model}</Text> : null}
+            </View>
+          ) : null}
 
           <View style={s.tripStatusBox}>
             <View style={s.statusStepRow}>
-              <View style={[s.statusDot, { backgroundColor: isSearching ? '#64748B' : '#00D084' }]} />
-              <View style={[s.statusLine, { backgroundColor: activeBooking.status === 'TRIP_STARTED' ? '#00D084' : '#334155' }]} />
-              <View style={[s.statusDot, { backgroundColor: activeBooking.status === 'TRIP_STARTED' ? '#00D084' : '#334155' }]} />
+              <View style={[s.statusDot, { backgroundColor: isSearching ? '#D5DBE2' : '#1D232B' }]} />
+              <View style={[s.statusLine, { backgroundColor: activeBooking.status === 'TRIP_STARTED' ? '#1D232B' : '#D5DBE2' }]} />
+              <View style={[s.statusDot, { backgroundColor: activeBooking.status === 'TRIP_STARTED' ? '#1D232B' : '#D5DBE2' }]} />
             </View>
             <View style={s.statusLabelsRow}>
               <Text style={s.stepLabel}>
@@ -243,13 +278,19 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
           <View style={s.sheetActions}>
             {driverUser?.phoneNumber ? (
               <Pressable accessibilityRole="button" style={s.callBtn} onPress={() => callNumber(driverUser.phoneNumber)}>
-                <Icon name="call" size={16} color="#FFFFFF" />
+                <Icon name="call" size={18} color="#FFFFFF" />
                 <Text style={s.callBtnText}>Call driver</Text>
+              </Pressable>
+            ) : null}
+            {!isSearching ? (
+              <Pressable accessibilityRole="button" style={s.cancelBtn} onPress={() => void shareTrip()}>
+                <Icon name="share-social" size={18} color="#1D232B" />
+                <Text style={[s.cancelBtnText, { color: '#1D232B' }]}>Share trip</Text>
               </Pressable>
             ) : null}
             {activeBooking.status !== 'TRIP_STARTED' && (
               <Pressable accessibilityRole="button" style={s.cancelBtn} onPress={() => void handleCancel()}>
-                <Icon name="close-circle" size={16} color="#EF4444" />
+                <Icon name="close-circle" size={16} color="#C8372D" />
                 <Text style={s.cancelBtnText}>Cancel</Text>
               </Pressable>
             )}
@@ -261,18 +302,15 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
 
           {!formOpen ? (
             <Pressable accessibilityRole="button" style={s.searchBar} onPress={() => setFormOpen(true)}>
-              <Icon name="search" size={18} color="#00D084" />
-              <Text style={s.searchPlaceholder}>Where are you heading today?</Text>
-              <View style={s.searchNowBtn}>
-                <Text style={s.searchNowText}>RIDE</Text>
-              </View>
+              <Icon name="search" size={20} color="#1D232B" />
+              <Text style={s.searchPlaceholder}>Where to?</Text>
             </Pressable>
           ) : (
             <ScrollView style={s.bookingFormScroll} showsVerticalScrollIndicator={false}>
               <View style={s.bookingFormHeader}>
-                <Text style={s.sheetTitle}>Choose transport</Text>
+                <Text style={s.sheetTitle}>Plan your ride</Text>
                 <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setFormOpen(false)}>
-                  <Icon name="close" size={20} color="#94A3B8" />
+                  <Icon name="close" size={20} color="#5B6573" />
                 </Pressable>
               </View>
 
@@ -287,7 +325,7 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
                       resetPlan();
                     }}
                     placeholder="Pickup location"
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor="#7A8592"
                   />
                 </View>
                 <View style={s.inputDivider} />
@@ -302,17 +340,38 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
                     }}
                     onSubmitEditing={() => void handleGetPrices()}
                     placeholder="Enter destination"
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor="#7A8592"
                     autoFocus
                   />
                 </View>
               </View>
 
-              {locationDenied && pickupText === CURRENT_LOCATION ? (
-                <Text style={s.tierDesc}>Location is off. Turn it on or type your pickup address.</Text>
+              {savedPlaces.length > 0 && !plan ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingTop: 12, alignItems: 'center' }}>
+                  {savedPlaces.map((place) => (
+                    <Pressable
+                      key={`${place.label}-${place.address}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Go to ${place.label}`}
+                      onPress={() => {
+                        setPickedDrop(place);
+                        setDestinationText(place.address);
+                        resetPlan();
+                      }}
+                      style={s.placeChip}
+                    >
+                      <Icon name={place.label.toLowerCase() === 'home' ? 'home' : place.label.toLowerCase() === 'work' ? 'briefcase' : 'location'} size={16} color="#1D232B" />
+                      <Text style={s.placeChipText}>{place.label}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
               ) : null}
 
-              <Text style={s.tiersHeading}>{plan ? `PRICES FOR ${plan.quotes[0]?.distanceKm ?? ''} KM` : 'RIDE OPTIONS'}</Text>
+              {locationDenied && pickupText === CURRENT_LOCATION ? (
+                <Text style={[s.tierDesc, { marginTop: 10, color: '#B7791F' }]}>Location is off. Turn it on or type your pickup address.</Text>
+              ) : null}
+
+              <Text style={s.tiersHeading}>{plan ? `Prices for ${plan.quotes[0]?.distanceKm ?? ''} km` : 'Ride options'}</Text>
               <View style={s.tiersList}>
                 {(plan?.quotes ?? Object.keys(TIER_DETAILS).map((tier) => ({ tier, name: '', fare: 0, distanceKm: 0 }))).map(
                   (quote) => {
@@ -325,7 +384,7 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
                         onPress={() => setSelectedTier(quote.tier)}
                       >
                         <View style={s.tierIconBox}>
-                          <Icon name={details.icon} size={22} color={isSelected ? '#00D084' : '#94A3B8'} />
+                          <Icon name={details.icon} size={22} color={isSelected ? '#1D232B' : '#5B6573'} />
                         </View>
                         <View style={s.tierInfo}>
                           <Text style={s.tierName}>{quote.name || details.name}</Text>
@@ -356,14 +415,14 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
         <View style={s.modalOverlay}>
           <View style={s.ratingCard}>
             <View style={s.ratingHeader}>
-              <Icon name="checkmark-circle" size={40} color="#00D084" />
+              <Icon name="checkmark-circle" size={44} color="#1E8E5A" />
               <Text style={s.ratingTitle}>Rate your driver</Text>
               <Text style={s.ratingSub}>How was your ride?</Text>
             </View>
             <View style={s.starsRow}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <Pressable accessibilityRole="button" key={star} accessibilityLabel={`${star} stars`} onPress={() => setRating(star)} style={s.starBtn}>
-                  <Icon name={star <= rating ? 'star' : 'star-outline'} size={28} color="#F59E0B" />
+                  <Icon name={star <= rating ? 'star' : 'star-outline'} size={28} color="#B7791F" />
                 </Pressable>
               ))}
             </View>

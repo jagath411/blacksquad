@@ -23,6 +23,7 @@ import {
 } from '../services/analyticsService';
 import { getFleetVehicles, type FleetVehicle } from '../services/vehicleService';
 import { formatUnifiedError } from '../utils/errorHandler';
+import { fonts } from '../theme/fonts';
 
 interface Props {
   visible: boolean;
@@ -31,12 +32,12 @@ interface Props {
 }
 
 const CATEGORIES = [
-  { id: 'FUEL', label: 'Fuel', icon: 'speedometer', color: '#F59E0B' },
-  { id: 'MAINTENANCE', label: 'Maintenance', icon: 'build', color: '#38BDF8' },
-  { id: 'TOLL', label: 'Toll', icon: 'navigate', color: '#10B981' },
+  { id: 'FUEL', label: 'Fuel', icon: 'speedometer', color: '#B7791F' },
+  { id: 'MAINTENANCE', label: 'Maintenance', icon: 'build', color: '#2457D6' },
+  { id: 'TOLL', label: 'Toll', icon: 'navigate', color: '#1E8E5A' },
   { id: 'INSURANCE', label: 'Insurance', icon: 'shield-checkmark', color: '#8B5CF6' },
   { id: 'PERMIT', label: 'Permit', icon: 'document-text', color: '#EC4899' },
-  { id: 'OTHER', label: 'Other', icon: 'ellipsis-horizontal-circle', color: '#94A3B8' },
+  { id: 'OTHER', label: 'Other', icon: 'ellipsis-horizontal-circle', color: '#5B6573' },
 ];
 
 export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props) {
@@ -171,7 +172,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
           <View style={s.headerRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={s.headerIconWrap}>
-                <Icon name="receipt" size={20} color="#00D084" />
+                <Icon name="receipt" size={20} color="#1E8E5A" />
               </View>
               <View>
                 <Text style={s.title}>Fleet Operating Expenses</Text>
@@ -179,7 +180,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
               </View>
             </View>
             <Pressable onPress={onClose} hitSlop={12} style={s.closeBtn}>
-              <Icon name="close" size={20} color="#94A3B8" />
+              <Icon name="close" size={20} color="#5B6573" />
             </Pressable>
           </View>
 
@@ -191,15 +192,15 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
             </View>
             <View style={s.metricBox}>
               <Text style={s.metricLabel}>Fuel</Text>
-              <Text style={[s.metricValue, { color: '#F59E0B' }]}>₹{fuelSpend.toLocaleString('en-IN')}</Text>
+              <Text style={[s.metricValue, { color: '#B7791F' }]}>₹{fuelSpend.toLocaleString('en-IN')}</Text>
             </View>
             <View style={s.metricBox}>
               <Text style={s.metricLabel}>Maintenance</Text>
-              <Text style={[s.metricValue, { color: '#38BDF8' }]}>₹{maintenanceSpend.toLocaleString('en-IN')}</Text>
+              <Text style={[s.metricValue, { color: '#2457D6' }]}>₹{maintenanceSpend.toLocaleString('en-IN')}</Text>
             </View>
             <View style={s.metricBox}>
               <Text style={s.metricLabel}>Tolls & Permits</Text>
-              <Text style={[s.metricValue, { color: '#10B981' }]}>₹{tollSpend.toLocaleString('en-IN')}</Text>
+              <Text style={[s.metricValue, { color: '#1E8E5A' }]}>₹{tollSpend.toLocaleString('en-IN')}</Text>
             </View>
           </View>
 
@@ -212,7 +213,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                 setErrorMsg(null);
               }}
             >
-              <Icon name="list" size={14} color={activeTab === 'list' ? '#00D084' : '#64748B'} />
+              <Icon name="list" size={14} color={activeTab === 'list' ? '#1E8E5A' : '#7A8592'} />
               <Text style={[s.tabText, activeTab === 'list' && s.activeTabText]}>
                 Expense History ({expenses.length})
               </Text>
@@ -224,7 +225,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                 setErrorMsg(null);
               }}
             >
-              <Icon name="add-circle" size={14} color={activeTab === 'create' ? '#00D084' : '#64748B'} />
+              <Icon name="add-circle" size={14} color={activeTab === 'create' ? '#1E8E5A' : '#7A8592'} />
               <Text style={[s.tabText, activeTab === 'create' && s.activeTabText]}>
                 + Log New Expense
               </Text>
@@ -234,21 +235,21 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
           {/* Alerts */}
           {errorMsg ? (
             <View style={s.errorBanner}>
-              <Icon name="alert-circle" size={16} color="#F87171" />
+              <Icon name="alert-circle" size={16} color="#C8372D" />
               <Text style={s.errorText}>{errorMsg}</Text>
             </View>
           ) : null}
 
           {successMsg ? (
             <View style={s.successBanner}>
-              <Icon name="checkmark-circle" size={16} color="#00D084" />
+              <Icon name="checkmark-circle" size={16} color="#1E8E5A" />
               <Text style={s.successText}>{successMsg}</Text>
             </View>
           ) : null}
 
           {loading ? (
             <View style={s.loadingContainer}>
-              <ActivityIndicator size="large" color="#00D084" />
+              <ActivityIndicator size="large" color="#1E8E5A" />
               <Text style={s.loadingText}>Loading fleet expense ledger...</Text>
             </View>
           ) : activeTab === 'list' ? (
@@ -289,7 +290,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
 
               {filteredExpenses.length === 0 ? (
                 <View style={s.emptyBox}>
-                  <Icon name="receipt-outline" size={44} color="#334155" />
+                  <Icon name="receipt-outline" size={44} color="#5B6573" />
                   <Text style={s.emptyTitle}>No Expenses Recorded</Text>
                   <Text style={s.emptyDesc}>
                     {selectedFilter === 'ALL'
@@ -306,7 +307,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                     const catMeta = CATEGORIES.find((c) => c.id === exp.category) || {
                       label: exp.category,
                       icon: 'receipt',
-                      color: '#94A3B8',
+                      color: '#5B6573',
                     };
                     const dateFormatted = new Date(exp.date || exp.createdAt).toLocaleDateString(
                       'en-IN',
@@ -328,7 +329,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                           <View style={s.expenseDetailsRow}>
                             {exp.vehicleId ? (
                               <View style={s.vehicleBadge}>
-                                <Icon name="car" size={11} color="#38BDF8" />
+                                <Icon name="car" size={11} color="#2457D6" />
                                 <Text style={s.vehicleBadgeText}>
                                   {exp.vehicleId.registrationNumber} {exp.vehicleId.model ? `(${exp.vehicleId.model})` : ''}
                                 </Text>
@@ -359,9 +360,9 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                           onPress={() => handleDelete(exp._id)}
                         >
                           {deletingId === exp._id ? (
-                            <ActivityIndicator size="small" color="#EF4444" />
+                            <ActivityIndicator size="small" color="#C8372D" />
                           ) : (
-                            <Icon name="trash-outline" size={16} color="#EF4444" />
+                            <Icon name="trash-outline" size={16} color="#C8372D" />
                           )}
                         </Pressable>
                       </View>
@@ -389,8 +390,8 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                       ]}
                       onPress={() => setCategory(cat.id)}
                     >
-                      <Icon name={cat.icon as any} size={20} color={isSelected ? cat.color : '#64748B'} />
-                      <Text style={[s.categoryCardLabel, isSelected && { color: cat.color, fontWeight: '800' }]}>
+                      <Icon name={cat.icon as any} size={20} color={isSelected ? cat.color : '#7A8592'} />
+                      <Text style={[s.categoryCardLabel, isSelected && { color: cat.color, fontFamily: fonts.w700 }]}>
                         {cat.label}
                       </Text>
                     </Pressable>
@@ -408,7 +409,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                   setErrorMsg(null);
                 }}
                 placeholder="e.g. 1500"
-                placeholderTextColor="#475569"
+                placeholderTextColor="#7A8592"
                 keyboardType="numeric"
               />
 
@@ -429,7 +430,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                     style={[s.vehPill, selectedVehicleId === v._id && s.vehPillActive]}
                     onPress={() => setSelectedVehicleId(v._id)}
                   >
-                    <Icon name="car" size={12} color={selectedVehicleId === v._id ? '#00D084' : '#64748B'} />
+                    <Icon name="car" size={12} color={selectedVehicleId === v._id ? '#1E8E5A' : '#7A8592'} />
                     <Text style={[s.vehPillText, selectedVehicleId === v._id && s.vehPillTextActive]}>
                       {v.registrationNumber} {v.model ? `• ${v.model}` : ''}
                     </Text>
@@ -446,7 +447,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                     value={liters}
                     onChangeText={setLiters}
                     placeholder="e.g. 35.5"
-                    placeholderTextColor="#475569"
+                    placeholderTextColor="#7A8592"
                     keyboardType="numeric"
                   />
                 </>
@@ -461,7 +462,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                     value={odometerKm}
                     onChangeText={setOdometerKm}
                     placeholder="e.g. 45200"
-                    placeholderTextColor="#475569"
+                    placeholderTextColor="#7A8592"
                     keyboardType="numeric"
                   />
                 </View>
@@ -472,7 +473,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                     value={receiptNumber}
                     onChangeText={setReceiptNumber}
                     placeholder="e.g. INV-9812"
-                    placeholderTextColor="#475569"
+                    placeholderTextColor="#7A8592"
                   />
                 </View>
               </View>
@@ -484,7 +485,7 @@ export function FleetExpensesModal({ visible, onClose, onExpenseUpdated }: Props
                 value={notes}
                 onChangeText={setNotes}
                 placeholder="e.g. Full tank diesel at Shell MG Road"
-                placeholderTextColor="#475569"
+                placeholderTextColor="#7A8592"
                 multiline
               />
 
@@ -563,7 +564,7 @@ const s = StyleSheet.create<{
 }>({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(7, 16, 13, 0.85)',
+    backgroundColor: 'rgba(29, 35, 43, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -572,10 +573,10 @@ const s = StyleSheet.create<{
     width: '100%',
     maxWidth: 680,
     maxHeight: '92%',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(29, 35, 43, 0.10)',
     padding: 20,
   },
   headerRow: {
@@ -588,20 +589,20 @@ const s = StyleSheet.create<{
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.25)',
+    borderColor: 'rgba(255, 194, 26, 0.40)',
   },
   title: {
-    color: '#FFFFFF',
+    color: '#1D232B',
     fontSize: 18,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
   },
   subtitle: {
-    color: '#64748B',
-    fontSize: 12,
+    color: '#7A8592',
+    fontSize: 12, fontFamily: fonts.w400,
     marginTop: 2,
   },
   closeBtn: {
@@ -614,32 +615,31 @@ const s = StyleSheet.create<{
   },
   metricBox: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   metricLabel: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
+    fontFamily: fonts.w600,
+    },
   metricValue: {
-    color: '#FFFFFF',
+    color: '#1D232B',
     fontSize: 14,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
     marginTop: 3,
   },
   tabsRow: {
     flexDirection: 'row',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 10,
     padding: 4,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   tab: {
     flex: 1,
@@ -651,75 +651,75 @@ const s = StyleSheet.create<{
     borderRadius: 8,
   },
   activeTab: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.3)',
+    borderColor: 'rgba(255, 194, 26, 0.48)',
   },
   tabText: {
-    color: '#64748B',
+    color: '#7A8592',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   activeTabText: {
-    color: '#00D084',
+    color: '#1E8E5A',
   },
   filterScroll: {
     flexGrow: 0,
     marginBottom: 12,
   },
   filterPill: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     marginRight: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   filterPillActive: {
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
-    borderColor: '#00D084',
+    backgroundColor: 'rgba(255, 194, 26, 0.24)',
+    borderColor: '#E0A800',
   },
   filterPillText: {
-    color: '#64748B',
+    color: '#7A8592',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   filterPillTextActive: {
-    color: '#00D084',
+    color: '#1E8E5A',
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(200, 55, 45, 0.12)',
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#EF4444',
+    borderColor: '#C8372D',
     marginBottom: 12,
   },
   errorText: {
-    color: '#FCA5A5',
+    color: '#C8372D',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fonts.w600,
     flex: 1,
   },
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#00D084',
+    borderColor: '#E0A800',
     marginBottom: 12,
   },
   successText: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
     flex: 1,
   },
   loadingContainer: {
@@ -728,8 +728,8 @@ const s = StyleSheet.create<{
     gap: 10,
   },
   loadingText: {
-    color: '#64748B',
-    fontSize: 13,
+    color: '#7A8592',
+    fontSize: 13, fontFamily: fonts.w400,
   },
   listScroll: {
     flex: 1,
@@ -737,12 +737,12 @@ const s = StyleSheet.create<{
   expenseCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
     gap: 12,
   },
   categoryIconWrap: {
@@ -758,14 +758,14 @@ const s = StyleSheet.create<{
     alignItems: 'center',
   },
   expenseCategoryName: {
-    color: '#F1F5F9',
+    color: '#1D232B',
     fontSize: 14,
-    fontWeight: '800',
+    fontFamily: fonts.w700,
   },
   expenseAmount: {
-    color: '#FFFFFF',
+    color: '#1D232B',
     fontSize: 15,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
   },
   expenseDetailsRow: {
     flexDirection: 'row',
@@ -778,29 +778,29 @@ const s = StyleSheet.create<{
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    backgroundColor: 'rgba(36, 87, 214, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   vehicleBadgeText: {
-    color: '#38BDF8',
+    color: '#2457D6',
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   detailMetaText: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 10,
-    fontWeight: '600',
+    fontFamily: fonts.w600,
   },
   expenseNotes: {
-    color: '#CBD5E1',
-    fontSize: 12,
+    color: '#3A4350',
+    fontSize: 12, fontFamily: fonts.w400,
     marginTop: 4,
   },
   expenseDate: {
-    color: '#64748B',
-    fontSize: 10,
+    color: '#7A8592',
+    fontSize: 10, fontFamily: fonts.w400,
     marginTop: 4,
   },
   deleteBtn: {
@@ -812,37 +812,37 @@ const s = StyleSheet.create<{
     justifyContent: 'center',
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: '#1D232B',
     fontSize: 16,
-    fontWeight: '800',
+    fontFamily: fonts.w700,
     marginTop: 10,
   },
   emptyDesc: {
-    color: '#64748B',
-    fontSize: 12,
+    color: '#7A8592',
+    fontSize: 12, fontFamily: fonts.w400,
     textAlign: 'center',
     marginTop: 4,
     maxWidth: 320,
   },
   emptyAddBtn: {
     marginTop: 16,
-    backgroundColor: '#00D084',
+    backgroundColor: '#FFC21A',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   emptyAddBtnText: {
-    color: '#07100D',
+    color: '#1D232B',
     fontSize: 12,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
   },
   formScroll: {
     flex: 1,
   },
   inputLabel: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
     marginBottom: 6,
     marginTop: 8,
   },
@@ -854,29 +854,29 @@ const s = StyleSheet.create<{
   },
   categoryCard: {
     width: '31%',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 10,
     padding: 10,
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   categoryCardLabel: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   textInput: {
-    backgroundColor: '#1E293B',
-    color: '#FFFFFF',
+    backgroundColor: '#E9EDF1',
+    color: '#1D232B',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fonts.w600,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(29, 35, 43, 0.10)',
     marginBottom: 4,
   },
   vehScroll: {
@@ -887,25 +887,25 @@ const s = StyleSheet.create<{
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     marginRight: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   vehPillActive: {
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
-    borderColor: '#00D084',
+    backgroundColor: 'rgba(255, 194, 26, 0.24)',
+    borderColor: '#E0A800',
   },
   vehPillText: {
-    color: '#64748B',
+    color: '#7A8592',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   vehPillTextActive: {
-    color: '#00D084',
+    color: '#1E8E5A',
   },
   dualRow: {
     flexDirection: 'row',

@@ -35,7 +35,7 @@ export function NativeMapView({ center, zoom, markers, route, interactive, style
             id="trip-route-line"
             type="line"
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': route.color || '#00D084', 'line-width': 5 }}
+            paint={{ 'line-color': route.color || '#1E8E5A', 'line-width': 5 }}
           />
         </GeoJSONSource>
       ) : null}
@@ -47,12 +47,12 @@ export function NativeMapView({ center, zoom, markers, route, interactive, style
               style={[
                 styles.markerBase,
                 isVehicle ? styles.vehicleMarker : styles.pointMarker,
-                { backgroundColor: marker.color || (isVehicle ? '#0F172A' : '#2563EB') },
+                { backgroundColor: marker.color || (isVehicle ? '#FFFFFF' : '#2457D6') },
                 marker.heading !== undefined && isVehicle && { transform: [{ rotate: `${marker.heading}deg` }] },
               ]}
             >
               {isVehicle ? (
-                <Icon name="navigate" size={16} color="#00D084" />
+                <Icon name="navigate" size={16} color="#1E8E5A" />
               ) : (
                 <View style={styles.centerDot} />
               )}
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFFFFF',
     elevation: 6,
-    shadowColor: '#000000',
+    shadowColor: '#D5DBE2',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 5,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.9)',
+    borderColor: 'rgba(29, 35, 43, 0.14)',
   },
   pointMarker: {
     width: 22,

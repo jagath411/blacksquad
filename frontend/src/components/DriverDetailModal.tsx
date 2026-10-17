@@ -13,6 +13,7 @@ import { AppButton } from './AppButton';
 import { Icon } from './ui/Icon';
 import type { FleetDriverSummary } from '../hooks/useFleet';
 import { ALL_INDIAN_BANKS } from '../utils/allIndianBanks';
+import { fonts } from '../theme/fonts';
 
 interface Props {
   visible: boolean;
@@ -56,8 +57,8 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
             <View style={styles.handle} />
             <View style={styles.headerRow}>
               <View style={styles.driverInfo}>
-                <View style={[styles.avatar, { backgroundColor: isOnline ? '#064E3B' : '#1E293B' }]}>
-                  <Icon name="person" size={20} color="#FFFFFF" />
+                <View style={[styles.avatar, { backgroundColor: isOnline ? '#E3F2EA' : '#E9EDF1' }]}>
+                  <Icon name="person" size={20} color="#1D232B" />
                 </View>
                 <View style={styles.driverTextGroup}>
                   <Text style={styles.driverName}>{driver.name || 'Driver Partner'}</Text>
@@ -65,13 +66,13 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
                     <View
                       style={[
                         styles.statusDot,
-                        { backgroundColor: isOnline ? '#00D084' : '#EF4444' },
+                        { backgroundColor: isOnline ? '#FFC21A' : '#C8372D' },
                       ]}
                     />
                     <Text
                       style={[
                         styles.statusText,
-                        { color: isOnline ? '#00D084' : '#EF4444' },
+                        { color: isOnline ? '#1E8E5A' : '#C8372D' },
                       ]}
                     >
                       {driver.state === 'On Trip'
@@ -84,7 +85,7 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
                 </View>
               </View>
               <Pressable style={styles.closeBtn} onPress={onClose}>
-                <Icon name="close" size={18} color="#94A3B8" />
+                <Icon name="close" size={18} color="#5B6573" />
               </Pressable>
             </View>
           </View>
@@ -93,18 +94,18 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
             {/* Quick Action Contact Bar */}
             <View style={styles.contactBar}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.contactLabel}>DIRECT CONTACT NUMBER</Text>
+                <Text style={styles.contactLabel}>Direct contact number</Text>
                 <Text style={styles.contactPhone}>{driver.phone || 'No phone on file'}</Text>
               </View>
               <Pressable style={styles.callFab} onPress={handleCallDriver}>
-                <Icon name="call" size={16} color="#07100D" />
+                <Icon name="call" size={16} color="#1D232B" />
                 <Text style={styles.callFabText}>Call Driver</Text>
               </Pressable>
             </View>
 
             {/* Vehicle & Telemetry Card */}
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>VEHICLE & FLEET TELEMETRY</Text>
+              <Text style={styles.cardHeader}>Vehicle & fleet telemetry</Text>
               <View style={styles.row}>
                 <Text style={styles.label}>Assigned Vehicle</Text>
                 <Text style={styles.valueHighlight}>{driver.vehicle || 'Fleet Pool'}</Text>
@@ -129,18 +130,18 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
 
             {/* Bank Card */}
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>BANKING & PAYOUT SETTLEMENT</Text>
+              <Text style={styles.cardHeader}>Banking & payout settlement</Text>
 
               {payoutSuccess && (
                 <View style={styles.successBox}>
-                  <Icon name="checkmark-circle" size={16} color="#34D399" />
+                  <Icon name="checkmark-circle" size={16} color="#1E8E5A" />
                   <Text style={styles.successText}>₹4,500.00 settled instantly via NEFT/IMPS</Text>
                 </View>
               )}
 
               <View style={styles.bankHeaderBadgeRow}>
                 <View style={styles.bankLogoBadge}>
-                  <Icon name="business" size={18} color="#00D084" />
+                  <Icon name="business" size={18} color="#1E8E5A" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.bankNameTitle}>
@@ -159,7 +160,7 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>IFSC Code</Text>
-                <Text style={styles.value}>HDFC0001234</Text>
+                <Text style={styles.value}>Hdfc0001234</Text>
               </View>
 
               <AppButton
@@ -180,29 +181,29 @@ export function DriverDetailModal({ visible, driver, onClose }: Props) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(7, 12, 24, 0.85)',
+    backgroundColor: 'rgba(29, 35, 43, 0.45)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '85%',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: 'rgba(29, 35, 43, 0.06)',
   },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(29, 35, 43, 0.14)',
     alignSelf: 'center',
     marginBottom: 12,
   },
@@ -223,15 +224,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(29, 35, 43, 0.14)',
   },
   driverTextGroup: {
     gap: 2,
   },
   driverName: {
-    color: '#F8FAFC',
+    color: '#1D232B',
     fontSize: 16,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -245,13 +246,13 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -263,40 +264,38 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   card: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 14,
     padding: 14,
     gap: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
   },
   cardHeader: {
-    color: '#38BDF8',
+    color: '#2457D6',
     fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1,
+    fontFamily: fonts.w700,
     marginBottom: 2,
   },
   contactBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.3)',
+    borderColor: 'rgba(255, 194, 26, 0.48)',
   },
   contactLabel: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
+    fontFamily: fonts.w700,
+    },
   contactPhone: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 15,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
     marginTop: 2,
     letterSpacing: 0.5,
   },
@@ -304,19 +303,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#00D084',
+    backgroundColor: '#FFC21A',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
   },
   callFabText: {
-    color: '#07100D',
+    color: '#1D232B',
     fontSize: 12,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
   },
   valueHighlight: {
-    color: '#38BDF8',
-    fontWeight: '800',
+    color: '#2457D6',
+    fontFamily: fonts.w700,
     fontSize: 12,
   },
   row: {
@@ -325,12 +324,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    color: '#94A3B8',
-    fontSize: 12,
+    color: '#5B6573',
+    fontSize: 12, fontFamily: fonts.w400,
   },
   value: {
-    color: '#F8FAFC',
-    fontWeight: '800',
+    color: '#1D232B',
+    fontFamily: fonts.w700,
     fontSize: 12,
   },
   payoutBtn: {
@@ -340,37 +339,37 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   emptyBankText: {
-    color: '#F8FAFC',
-    fontWeight: '700',
+    color: '#1D232B',
+    fontFamily: fonts.w600,
     fontSize: 12,
   },
   emptyBankSub: {
-    color: '#94A3B8',
-    fontSize: 11,
+    color: '#5B6573',
+    fontSize: 11, fontFamily: fonts.w400,
     marginTop: 2,
   },
   successBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
-    borderColor: '#00D084',
+    backgroundColor: 'rgba(255, 194, 26, 0.24)',
+    borderColor: '#E0A800',
     borderWidth: 1,
     padding: 10,
     borderRadius: 8,
   },
   successText: {
-    color: '#34D399',
-    fontWeight: '700',
+    color: '#1E8E5A',
+    fontFamily: fonts.w600,
     fontSize: 12,
   },
   bankHeaderBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
     padding: 10,
     gap: 10,
   },
@@ -378,24 +377,24 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E9EDF1',
     alignItems: 'center',
     justifyContent: 'center',
   },
   bankNameTitle: {
-    color: '#F8FAFC',
-    fontWeight: '800',
+    color: '#1D232B',
+    fontFamily: fonts.w700,
     fontSize: 13,
   },
   bankBranchText: {
-    color: '#94A3B8',
-    fontSize: 11,
+    color: '#5B6573',
+    fontSize: 11, fontFamily: fonts.w400,
   },
   activePayoutTag: {
-    color: '#00D084',
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    color: '#1E8E5A',
+    backgroundColor: 'rgba(255, 194, 26, 0.24)',
     fontSize: 9,
-    fontWeight: '900',
+    fontFamily: fonts.w700,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,

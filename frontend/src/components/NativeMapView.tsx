@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { MapMarker, RoutePolyline } from './MapView';
+import { fonts } from '../theme/fonts';
 
 interface Props {
   center: { latitude: number; longitude: number };
@@ -20,7 +21,7 @@ export function NativeMapView({ center, markers, style }: Props) {
         </View>
         <View style={styles.markerRow}>
           {markers.map((m) => (
-            <View key={m.id} style={[styles.markerChip, { borderColor: m.color || '#10B981' }]}>
+            <View key={m.id} style={[styles.markerChip, { borderColor: m.color || '#1E8E5A' }]}>
               <Text style={styles.markerChipText}>{m.isVehicle ? '🚗' : '👤'} {m.title || m.id}</Text>
             </View>
           ))}
@@ -34,7 +35,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#07100D',
+    backgroundColor: '#F3F5F7',
     borderRadius: 16,
     overflow: 'hidden',
     justifyContent: 'center',
@@ -45,8 +46,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   centerBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: '#10B981',
+    backgroundColor: 'rgba(30, 142, 90, 0.15)',
+    borderColor: '#1E8E5A',
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -54,9 +55,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   centerText: {
-    color: '#10B981',
+    color: '#1E8E5A',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   markerRow: {
     flexDirection: 'row',
@@ -65,15 +66,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   markerChip: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   markerChipText: {
-    color: '#F8FAFC',
+    color: '#1D232B',
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: fonts.w600,
   },
 });

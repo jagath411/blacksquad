@@ -15,6 +15,7 @@ import { Icon } from './ui/Icon';
 import { darkColors, radius, spacing } from '../theme';
 import type { BookingData, UserRole } from '../types';
 import { getBookingHistory } from '../services/bookingService';
+import { fonts } from '../theme/fonts';
 
 interface Props {
   visible: boolean;
@@ -24,10 +25,10 @@ interface Props {
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'TRIP_COMPLETED': return '#22C55E';
-    case 'CANCELLED': return '#EF4444';
-    case 'TRIP_STARTED': return '#3B82F6';
-    default: return '#94A3B8';
+    case 'TRIP_COMPLETED': return '#1E8E5A';
+    case 'CANCELLED': return '#C8372D';
+    case 'TRIP_STARTED': return '#2457D6';
+    default: return '#5B6573';
   }
 }
 
@@ -129,11 +130,11 @@ export function TripHistoryModal({ visible, role, onClose }: Props) {
         {/* Header */}
         <View style={s.header}>
           <View style={s.headerLeft}>
-            <Icon name="time" size={20} color="#94A3B8" />
+            <Icon name="time" size={20} color="#5B6573" />
             <Text style={s.headerTitle}>Trip History</Text>
           </View>
           <Pressable style={s.closeBtn} onPress={onClose}>
-            <Icon name="close" size={20} color="#94A3B8" />
+            <Icon name="close" size={20} color="#5B6573" />
           </Pressable>
         </View>
 
@@ -167,12 +168,12 @@ export function TripHistoryModal({ visible, role, onClose }: Props) {
         {/* Body */}
         {loading ? (
           <View style={s.center}>
-            <ActivityIndicator size="large" color="#6366F1" />
+            <ActivityIndicator size="large" color="#1D232B" />
             <Text style={s.loadingText}>Loading your trips...</Text>
           </View>
         ) : error ? (
           <View style={s.center}>
-            <Icon name="alert-circle" size={32} color="#EF4444" />
+            <Icon name="alert-circle" size={32} color="#C8372D" />
             <Text style={s.errorText}>{error}</Text>
             <Pressable style={s.retryBtn} onPress={() => fetchHistory()}>
               <Text style={s.retryText}>Retry</Text>
@@ -180,7 +181,7 @@ export function TripHistoryModal({ visible, role, onClose }: Props) {
           </View>
         ) : trips.length === 0 ? (
           <View style={s.center}>
-            <Icon name="car" size={48} color="#334155" />
+            <Icon name="car" size={48} color="#5B6573" />
             <Text style={s.emptyTitle}>No trips yet</Text>
             <Text style={s.emptyMsg}>
               {role === 'CUSTOMER'
@@ -196,7 +197,7 @@ export function TripHistoryModal({ visible, role, onClose }: Props) {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor="#6366F1"
+                tintColor="#1D232B"
               />
             }
           >
@@ -229,7 +230,7 @@ export function TripHistoryModal({ visible, role, onClose }: Props) {
 
                   {/* Meta row */}
                   <View style={s.metaRow}>
-                    <Icon name="calendar" size={12} color="#475569" />
+                    <Icon name="calendar" size={12} color="#7A8592" />
                     <Text style={s.metaText}>{formatDate(trip.createdAt)}</Text>
                     {trip.serviceTier && (
                       <>
@@ -242,7 +243,7 @@ export function TripHistoryModal({ visible, role, onClose }: Props) {
                   {/* Driver / Customer info */}
                   {role === 'CUSTOMER' && trip.driverId && (
                     <View style={s.personRow}>
-                      <Icon name="person" size={12} color="#475569" />
+                      <Icon name="person" size={12} color="#7A8592" />
                       <Text style={s.personText}>
                         {getDriverName(trip)}
                         {vehicle ? `  ·  ${vehicle}` : ''}
@@ -251,7 +252,7 @@ export function TripHistoryModal({ visible, role, onClose }: Props) {
                   )}
                   {role === 'DRIVER' && (
                     <View style={s.personRow}>
-                      <Icon name="person" size={12} color="#475569" />
+                      <Icon name="person" size={12} color="#7A8592" />
                       <Text style={s.personText}>{getCustomerName(trip)}</Text>
                       {role === 'DRIVER' && trip.status === 'TRIP_COMPLETED' && (
                         <Text style={s.earnedBadge}>
@@ -315,7 +316,7 @@ interface Styles {
 const s = StyleSheet.create<Styles>({
   root: {
     flex: 1,
-    backgroundColor: '#0D1A14',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -325,7 +326,7 @@ const s = StyleSheet.create<Styles>({
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: 'rgba(29, 35, 43, 0.06)',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -334,14 +335,14 @@ const s = StyleSheet.create<Styles>({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#F1F5F9',
+    fontFamily: fonts.w600,
+    color: '#1D232B',
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(29, 35, 43, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -351,7 +352,7 @@ const s = StyleSheet.create<Styles>({
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(29, 35, 43, 0.04)',
     borderRadius: radius.lg,
     padding: spacing.md,
   },
@@ -362,17 +363,17 @@ const s = StyleSheet.create<Styles>({
   },
   statValue: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#F1F5F9',
+    fontFamily: fonts.w700,
+    color: '#1D232B',
   },
   statLabel: {
-    fontSize: 11,
-    color: '#64748B',
+    fontSize: 11, fontFamily: fonts.w400,
+    color: '#7A8592',
   },
   statDivider: {
     width: 1,
     height: 28,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(29, 35, 43, 0.08)',
   },
   center: {
     flex: 1,
@@ -382,12 +383,12 @@ const s = StyleSheet.create<Styles>({
     padding: spacing.xl,
   },
   loadingText: {
-    color: '#64748B',
-    fontSize: 14,
+    color: '#7A8592',
+    fontSize: 14, fontFamily: fonts.w400,
   },
   errorText: {
-    color: '#EF4444',
-    fontSize: 14,
+    color: '#C8372D',
+    fontSize: 14, fontFamily: fonts.w400,
     textAlign: 'center',
   },
   retryBtn: {
@@ -397,18 +398,18 @@ const s = StyleSheet.create<Styles>({
     borderRadius: radius.md,
   },
   retryText: {
-    color: '#6366F1',
-    fontWeight: '700',
+    color: '#1D232B',
+    fontFamily: fonts.w600,
     fontSize: 14,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#475569',
+    fontFamily: fonts.w600,
+    color: '#7A8592',
   },
   emptyMsg: {
-    fontSize: 13,
-    color: '#334155',
+    fontSize: 13, fontFamily: fonts.w400,
+    color: '#5B6573',
     textAlign: 'center',
     lineHeight: 19,
   },
@@ -421,11 +422,11 @@ const s = StyleSheet.create<Styles>({
     paddingBottom: 40,
   },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(29, 35, 43, 0.04)',
     borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(29, 35, 43, 0.06)',
     gap: 10,
   },
   cardTop: {
@@ -449,12 +450,12 @@ const s = StyleSheet.create<Styles>({
   },
   badgeText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   fare: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#F1F5F9',
+    fontFamily: fonts.w700,
+    color: '#1D232B',
   },
   routeRow: {
     flexDirection: 'row',
@@ -469,27 +470,27 @@ const s = StyleSheet.create<Styles>({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#1E8E5A',
   },
   routeLine: {
     width: 2,
     flex: 1,
     minHeight: 14,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(29, 35, 43, 0.10)',
   },
   dotRed: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#EF4444',
+    backgroundColor: '#C8372D',
   },
   routeAddrs: {
     flex: 1,
     gap: 6,
   },
   routeAddr: {
-    fontSize: 13,
-    color: '#CBD5E1',
+    fontSize: 13, fontFamily: fonts.w400,
+    color: '#3A4350',
     lineHeight: 18,
   },
   metaRow: {
@@ -498,12 +499,12 @@ const s = StyleSheet.create<Styles>({
     gap: 5,
   },
   metaText: {
-    fontSize: 11,
-    color: '#475569',
+    fontSize: 11, fontFamily: fonts.w400,
+    color: '#7A8592',
   },
   metaDot: {
-    color: '#334155',
-    fontSize: 11,
+    color: '#5B6573',
+    fontSize: 11, fontFamily: fonts.w400,
   },
   personRow: {
     flexDirection: 'row',
@@ -511,13 +512,13 @@ const s = StyleSheet.create<Styles>({
     gap: 5,
   },
   personText: {
-    fontSize: 12,
-    color: '#475569',
+    fontSize: 12, fontFamily: fonts.w400,
+    color: '#7A8592',
     flex: 1,
   },
   earnedBadge: {
     fontSize: 11,
-    color: '#22C55E',
-    fontWeight: '700',
+    color: '#1E8E5A',
+    fontFamily: fonts.w600,
   },
 });

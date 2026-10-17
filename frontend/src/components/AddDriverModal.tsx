@@ -18,6 +18,7 @@ import { Input } from './ui/Input';
 import { darkColors, radius, spacing } from '../theme';
 import { onboardDriver, type OnboardDriverPayload } from '../services/driverService';
 import { formatUnifiedError } from '../utils/errorHandler';
+import { fonts } from '../theme/fonts';
 
 interface Props {
   visible: boolean;
@@ -129,7 +130,7 @@ export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotifica
         <View style={s.header}>
           <View style={s.headerLeft}>
             <View style={s.headerIconBox}>
-              <Icon name="person-add" size={20} color="#00D084" />
+              <Icon name="person-add" size={20} color="#1E8E5A" />
             </View>
             <View>
               <Text style={s.headerTitle}>Add Fleet Driver</Text>
@@ -137,7 +138,7 @@ export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotifica
             </View>
           </View>
           <Pressable style={s.closeBtn} onPress={handleClose}>
-            <Icon name="close" size={20} color="#94A3B8" />
+            <Icon name="close" size={20} color="#5B6573" />
           </Pressable>
         </View>
 
@@ -149,17 +150,17 @@ export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotifica
           {successInfo ? (
             <View style={s.successCard}>
               <View style={s.successIconWrap}>
-                <Icon name="checkmark-circle" size={44} color="#00D084" />
+                <Icon name="checkmark-circle" size={44} color="#1E8E5A" />
               </View>
               <Text style={s.successHeading}>Driver Onboarded!</Text>
               <Text style={s.successBody}>
-                <Text style={{ fontWeight: '700', color: '#F1F5F9' }}>{successInfo.driverName}</Text> is
+                <Text style={{ fontFamily: fonts.w600, color: '#1D232B' }}>{successInfo.driverName}</Text> is
                 now active in your fleet.
               </Text>
 
               <View style={s.smsNoticeBox}>
                 <View style={s.smsNoticeHeader}>
-                  <Icon name="chatbubble" size={16} color="#38BDF8" />
+                  <Icon name="chatbubble" size={16} color="#2457D6" />
                   <Text style={s.smsNoticeTitle}>SMS Invite Dispatched</Text>
                 </View>
                 <Text style={s.smsNoticePhone}>To: {successInfo.phone}</Text>
@@ -183,7 +184,7 @@ export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotifica
             </View>
           ) : (
             <View style={s.form}>
-              <Text style={s.sectionHeader}>PERSONAL & CONTACT DETAILS</Text>
+              <Text style={s.sectionHeader}>Personal & contact details</Text>
 
               <Input
                 label="Full Name *"
@@ -223,7 +224,7 @@ export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotifica
                 tone="dark"
               />
 
-              <Text style={[s.sectionHeader, { marginTop: 12 }]}>DRIVER LICENSE & CREDENTIALS</Text>
+              <Text style={[s.sectionHeader, { marginTop: 12 }]}>Driver license & credentials</Text>
 
               <Input
                 label="Driving License Number"
@@ -237,7 +238,7 @@ export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotifica
                 tone="dark"
               />
 
-              <Text style={[s.sectionHeader, { marginTop: 12 }]}>VEHICLE ASSIGNMENT (OPTIONAL)</Text>
+              <Text style={[s.sectionHeader, { marginTop: 12 }]}>Vehicle assignment (optional)</Text>
 
               <Input
                 label="Vehicle Registration Number"
@@ -276,7 +277,7 @@ export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotifica
                       <Icon
                         name={type === 'SEDAN' ? 'car' : type === 'SUV' ? 'car-sport' : type === 'VAN' ? 'bus' : 'cube'}
                         size={14}
-                        color={active ? '#00D084' : '#94A3B8'}
+                        color={active ? '#1E8E5A' : '#5B6573'}
                       />
                       <Text style={[s.typePillText, active && s.typePillTextActive]}>{type}</Text>
                     </Pressable>
@@ -286,7 +287,7 @@ export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotifica
 
               {!!errorMessage && (
                 <View style={s.errorBox}>
-                  <Icon name="alert-circle" size={16} color="#EF4444" />
+                  <Icon name="alert-circle" size={16} color="#C8372D" />
                   <Text style={s.errorText}>{errorMessage}</Text>
                 </View>
               )}
@@ -298,7 +299,7 @@ export function AddDriverModal({ visible, onClose, onDriverAdded, onShowNotifica
                   disabled={loading}
                   style={s.submitBtn}
                 />
-                {loading && <ActivityIndicator style={{ marginTop: 8 }} color="#00D084" />}
+                {loading && <ActivityIndicator style={{ marginTop: 8 }} color="#1E8E5A" />}
               </View>
             </View>
           )}
@@ -350,7 +351,7 @@ interface Styles {
 const s = StyleSheet.create<Styles>({
   root: {
     flex: 1,
-    backgroundColor: '#07100D',
+    backgroundColor: '#F3F5F7',
   },
   header: {
     flexDirection: 'row',
@@ -360,8 +361,8 @@ const s = StyleSheet.create<Styles>({
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: '#0D1A14',
+    borderBottomColor: 'rgba(29, 35, 43, 0.06)',
+    backgroundColor: '#FFFFFF',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -372,27 +373,27 @@ const s = StyleSheet.create<Styles>({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    backgroundColor: 'rgba(255, 194, 26, 0.24)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.3)',
+    borderColor: 'rgba(255, 194, 26, 0.48)',
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#F1F5F9',
+    fontFamily: fonts.w700,
+    color: '#1D232B',
   },
   headerSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
+    fontSize: 11, fontFamily: fonts.w400,
+    color: '#7A8592',
     marginTop: 2,
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(29, 35, 43, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -408,15 +409,14 @@ const s = StyleSheet.create<Styles>({
   },
   sectionHeader: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#00D084',
-    letterSpacing: 1.2,
+    fontFamily: fonts.w700,
+    color: '#1E8E5A',
     marginBottom: 4,
   },
   fieldLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#94A3B8',
+    fontFamily: fonts.w600,
+    color: '#5B6573',
     marginBottom: 6,
   },
   typesRow: {
@@ -429,39 +429,39 @@ const s = StyleSheet.create<Styles>({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(29, 35, 43, 0.08)',
   },
   typePillActive: {
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
-    borderColor: '#00D084',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
+    borderColor: '#E0A800',
   },
   typePillText: {
-    color: '#94A3B8',
+    color: '#5B6573',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.w600,
   },
   typePillTextActive: {
-    color: '#00D084',
+    color: '#1E8E5A',
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(200, 55, 45, 0.12)',
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: 'rgba(200, 55, 45, 0.30)',
   },
   errorText: {
     flex: 1,
-    color: '#F87171',
-    fontSize: 13,
+    color: '#C8372D',
+    fontSize: 13, fontFamily: fonts.w400,
     lineHeight: 18,
   },
   actionRow: {
@@ -473,35 +473,35 @@ const s = StyleSheet.create<Styles>({
   successCard: {
     alignItems: 'center',
     padding: spacing.lg,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(29, 35, 43, 0.03)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.2)',
+    borderColor: 'rgba(255, 194, 26, 0.32)',
     gap: 12,
   },
   successIconWrap: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   successHeading: {
     fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontFamily: fonts.w700,
+    color: '#1D232B',
   },
   successBody: {
-    fontSize: 14,
-    color: '#94A3B8',
+    fontSize: 14, fontFamily: fonts.w400,
+    color: '#5B6573',
     textAlign: 'center',
   },
   smsNoticeBox: {
     width: '100%',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    backgroundColor: 'rgba(36, 87, 214, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderColor: 'rgba(36, 87, 214, 0.30)',
     borderRadius: 12,
     padding: 14,
     gap: 6,
@@ -514,39 +514,38 @@ const s = StyleSheet.create<Styles>({
   },
   smsNoticeTitle: {
     fontSize: 13,
-    fontWeight: '800',
-    color: '#38BDF8',
+    fontFamily: fonts.w700,
+    color: '#2457D6',
   },
   smsNoticePhone: {
     fontSize: 13,
-    color: '#E2E8F0',
-    fontWeight: '600',
+    color: '#3A4350',
+    fontFamily: fonts.w600,
   },
   otpBox: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     padding: 10,
     borderRadius: 8,
     marginTop: 4,
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.4)',
+    borderColor: 'rgba(255, 194, 26, 0.60)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   otpBoxLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 12, fontFamily: fonts.w400,
+    color: '#5B6573',
   },
   otpCodeText: {
     fontSize: 18,
-    fontWeight: '900',
-    color: '#00D084',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    letterSpacing: 3,
-  },
+    fontFamily: fonts.figuresBold,
+    color: '#1E8E5A',
+    
+    },
   smsNoticeFooter: {
-    fontSize: 11,
-    color: '#94A3B8',
+    fontSize: 11, fontFamily: fonts.w400,
+    color: '#5B6573',
     lineHeight: 16,
     marginTop: 4,
   },
@@ -555,7 +554,7 @@ const s = StyleSheet.create<Styles>({
     padding: 8,
   },
   doneBtnText: {
-    color: '#64748B',
-    fontSize: 13,
+    color: '#7A8592',
+    fontSize: 13, fontFamily: fonts.w400,
   },
 });

@@ -3,12 +3,26 @@ import { clearAllStorage, getRefreshToken, saveSession } from './tokenStore';
 import { disconnectFleetSocket } from './socket';
 import type { UserRole } from '../types';
 
+export interface SavedPlace {
+  label: string;
+  address: string;
+  /** [longitude, latitude] */
+  coordinates: [number, number];
+}
+
+export interface EmergencyContact {
+  name?: string;
+  phoneNumber: string;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
   email: string;
   phoneNumber?: string;
   role: UserRole;
+  savedPlaces?: SavedPlace[];
+  emergencyContact?: EmergencyContact | null;
 }
 
 interface LoginResponse { success: boolean; accessToken: string; refreshToken: string; user: UserProfile }
@@ -34,7 +48,12 @@ export async function getCurrentUser(): Promise<UserProfile> {
   return response.user;
 }
 
-export async function updateUserProfile(data: { name?: string; phoneNumber?: string }): Promise<UserProfile> {
+export async function updateUserProfile(data: {
+  name?: string;
+  phoneNumber?: string;
+  savedPlaces?: SavedPlace[];
+  emergencyContact?: EmergencyContact | null;
+}): Promise<UserProfile> {
   const response = await apiRequest<{ success: boolean; user: UserProfile }>('/auth/me', {
     method: 'PATCH',
     body: JSON.stringify(data),

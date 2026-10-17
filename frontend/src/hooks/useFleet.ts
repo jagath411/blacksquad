@@ -141,7 +141,7 @@ export function useFleet() {
         ? 'Online'
         : 'Offline';
 
-      const color = isOnTrip ? '#38BDF8' : isOnline ? '#00D084' : '#64748B';
+      const color = isOnTrip ? '#2457D6' : isOnline ? '#1E8E5A' : '#7A8592';
 
       const lat = live?.latitude ?? d.currentLocation?.coordinates?.[1] ?? null;
       const lng = live?.longitude ?? d.currentLocation?.coordinates?.[0] ?? null;

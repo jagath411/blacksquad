@@ -16,6 +16,7 @@ import { Icon } from '../components/ui/Icon';
 import { apiRequest } from '../services/api/client';
 import type { RootStackParamList } from '../types';
 import { formatUnifiedError } from '../utils/errorHandler';
+import { fonts } from '../theme/fonts';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ForgotPassword'>;
 
@@ -63,12 +64,12 @@ export function ForgotPasswordScreen({ navigation }: Props) {
     <Screen tone="dark">
       {/* Header */}
       <Pressable style={s.back} onPress={() => navigation.goBack()}>
-        <Icon name="arrow-back" size={20} color="#94A3B8" />
+        <Icon name="arrow-back" size={20} color="#5B6573" />
         <Text style={s.backText}>Back to Login</Text>
       </Pressable>
 
       <View style={s.iconWrap}>
-        <Icon name="lock-closed" size={38} color="#00D084" />
+        <Icon name="lock-closed" size={38} color="#1E8E5A" />
       </View>
       <Text style={s.title}>Forgot Password?</Text>
       <Text style={s.subtitle}>
@@ -93,7 +94,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
 
           {!!errorMsg && (
             <View style={s.errorBox}>
-              <Icon name="alert-circle" size={16} color="#EF4444" />
+              <Icon name="alert-circle" size={16} color="#C8372D" />
               <Text style={s.errorText}>{errorMsg}</Text>
             </View>
           )}
@@ -104,11 +105,11 @@ export function ForgotPasswordScreen({ navigation }: Props) {
             disabled={loading}
             style={s.btn}
           />
-          {loading && <ActivityIndicator style={{ marginTop: 8 }} color="#00D084" />}
+          {loading && <ActivityIndicator style={{ marginTop: 8 }} color="#1E8E5A" />}
         </View>
       ) : (
         <View style={s.successBox}>
-          <Icon name="checkmark-circle" size={40} color="#00D084" />
+          <Icon name="checkmark-circle" size={40} color="#1E8E5A" />
           <Text style={s.successTitle}>Check Your Email</Text>
           <Text style={s.successMsg}>
             A password reset link has been sent to{' '}
@@ -180,31 +181,31 @@ const s = StyleSheet.create<Styles>({
     marginBottom: 28,
   },
   backText: {
-    color: '#94A3B8',
-    fontSize: 14,
+    color: '#5B6573',
+    fontSize: 14, fontFamily: fonts.w400,
   },
   iconWrap: {
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: 'rgba(0, 208, 132, 0.12)',
+    backgroundColor: 'rgba(255, 194, 26, 0.19)',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 208, 132, 0.25)',
+    borderColor: 'rgba(255, 194, 26, 0.40)',
   },
   title: {
     fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontFamily: fonts.w700,
+    color: '#1D232B',
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 13,
-    color: '#94A3B8',
+    fontSize: 13, fontFamily: fonts.w400,
+    color: '#5B6573',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -217,16 +218,16 @@ const s = StyleSheet.create<Styles>({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(200, 55, 45, 0.12)',
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: 'rgba(200, 55, 45, 0.30)',
   },
   errorText: {
     flex: 1,
-    color: '#F87171',
-    fontSize: 13,
+    color: '#C8372D',
+    fontSize: 13, fontFamily: fonts.w400,
     lineHeight: 18,
   },
   btn: {
@@ -239,18 +240,18 @@ const s = StyleSheet.create<Styles>({
   },
   successTitle: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontFamily: fonts.w700,
+    color: '#1D232B',
   },
   successMsg: {
-    fontSize: 13,
-    color: '#94A3B8',
+    fontSize: 13, fontFamily: fonts.w400,
+    color: '#5B6573',
     textAlign: 'center',
     lineHeight: 20,
   },
   emailHighlight: {
-    color: '#00D084',
-    fontWeight: '700',
+    color: '#1E8E5A',
+    fontFamily: fonts.w600,
   },
   devBox: {
     width: '100%',
@@ -264,14 +265,14 @@ const s = StyleSheet.create<Styles>({
   },
   devTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#FACC15',
+    fontFamily: fonts.w600,
+    color: '#B7791F',
   },
   devToken: {
     fontSize: 11,
-    color: '#FEF08A',
+    color: '#1D232B',
     fontFamily: 'monospace',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(29, 35, 43, 0.45)',
     padding: 8,
     borderRadius: 6,
   },
@@ -283,16 +284,16 @@ const s = StyleSheet.create<Styles>({
     padding: 6,
   },
   resendText: {
-    color: '#00D084',
+    color: '#1E8E5A',
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: fonts.w600,
   },
   backToLoginBtn: {
     marginTop: 4,
     padding: 6,
   },
   backToLoginText: {
-    color: '#64748B',
-    fontSize: 13,
+    color: '#7A8592',
+    fontSize: 13, fontFamily: fonts.w400,
   },
 });
