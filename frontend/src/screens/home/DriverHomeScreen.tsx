@@ -17,7 +17,8 @@ import type { BookingData, BookingStatus } from '../../types';
 import { callNumber, confirmAction } from '../../utils/dialogs';
 import { formatUnifiedError } from '../../utils/errorHandler';
 import { toKmh } from '../../utils/geo';
-import { MapHeader, RecenterButton, TripPill } from './MapChrome';
+import { CountdownBar, MapHeader, RecenterButton, TripPill, TripSteps } from './MapChrome';
+import { haptic } from '../../utils/haptics';
 import { s } from './homeStyles';
 import { buildTripMap } from './tripMap';
 
@@ -115,6 +116,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     if (!socket) return;
     const offNew = onNewBookingRequest(socket, (request) => {
+      haptic.warning();
       setOffer(request);
       setOfferSeconds(OFFER_SECONDS);
     });
@@ -179,6 +181,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
         await updateDriverProfile({ availabilityStatus: 'AVAILABLE' });
         if (socket) setDriverDutyStatus(socket, 'AVAILABLE');
         await startTracking();
+        haptic.success();
         setIsOnline(true);
         notify('You are online', 'Your location is shared while you are online.', 'success');
       }
@@ -193,6 +196,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
     setBusy(true);
     try {
       const booking = await acceptBooking(bookingId);
+      haptic.success();
       followBooking(booking);
       setOffer(null);
       notify('Ride accepted', 'Head to the pickup point and ask the rider for their PIN.', 'success');
@@ -209,10 +213,12 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
     setBusy(true);
     try {
       const updated = await updateBookingStatus(activeBooking._id, status, options);
+      if (status === 'TRIP_COMPLETED' || status === 'TRIP_STARTED') haptic.success();
       if (status === 'TRIP_COMPLETED' || status === 'CANCELLED') endTrip(status, updated);
       else setActiveBooking(updated);
       return true;
     } catch (cause) {
+      haptic.error();
       showError(cause);
       return false;
     } finally {
@@ -271,6 +277,7 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
               </View>
               <Text style={s.incomingTimerText}>{offerSeconds}s</Text>
             </View>
+            <CountdownBar secondsLeft={offerSeconds} totalSeconds={OFFER_SECONDS} />
             <Text style={s.incomingFare}>₹{offer.fare}</Text>
             <Text style={s.incomingTier}>
               {offer.distanceKm ? `${offer.distanceKm} km trip` : offer.serviceTier}
@@ -317,6 +324,8 @@ export function DriverHomeScreen({ onLogout }: { onLogout: () => void }) {
                 </Pressable>
               ) : null}
             </View>
+
+            <TripSteps status={activeBooking.status} />
 
             <View style={s.tripLocations}>
               <View style={s.locRow}>

@@ -45,6 +45,28 @@ interface MapViewProps {
   style?: StyleProp<ViewStyle>;
 }
 
+// GPS updates arrive every few seconds; gliding between them reads as movement instead of jumps.
+const GLIDE_MS = 900;
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function glideMarker(marker: any, to: [number, number]) {
+  const from = marker.getLngLat();
+  if (!from || prefersReducedMotion() || (from.lng === to[0] && from.lat === to[1])) {
+    marker.setLngLat(to);
+    return;
+  }
+  cancelAnimationFrame(marker.__glide ?? 0);
+  const start = performance.now();
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / GLIDE_MS);
+    const ease = 1 - (1 - t) * (1 - t);
+    marker.setLngLat([from.lng + (to[0] - from.lng) * ease, from.lat + (to[1] - from.lat) * ease]);
+    if (t < 1) marker.__glide = requestAnimationFrame(step);
+  };
+  marker.__glide = requestAnimationFrame(step);
+}
+
 export function MapView({
   center = { latitude: 12.9716, longitude: 77.5946 },
   zoom = 13,
@@ -206,7 +228,7 @@ export function MapView({
     markers.forEach((marker) => {
       const current = existing.get(marker.id);
       if (current) {
-        current.setLngLat([marker.longitude, marker.latitude]);
+        glideMarker(current, [marker.longitude, marker.latitude]);
         if (marker.heading !== undefined) {
           current.setRotation(marker.heading);
         }
@@ -233,7 +255,7 @@ export function MapView({
       });
 
       if (isVehicle) {
-        element.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172F8A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>`;
+        element.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>`;
       } else {
         element.innerHTML = `<div style="width:6px;height:6px;border-radius:3px;background:#fff"></div>`;
       }

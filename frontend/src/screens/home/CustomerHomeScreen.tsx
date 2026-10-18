@@ -10,12 +10,14 @@ import { useActiveTrip, type TripEvent } from '../../hooks/useActiveTrip';
 import { useDeviceLocation } from '../../hooks/useDeviceLocation';
 import { useRoadRoute } from '../../hooks/useRoadRoute';
 import { getCurrentUser, type SavedPlace } from '../../services/authService';
-import { createBooking, getFareQuotes, rateBooking, updateBookingStatus, type FareQuote } from '../../services/bookingService';
-import { geocodeAddress } from '../../services/geocodingService';
+import { createBooking, getBookingHistory, getFareQuotes, rateBooking, updateBookingStatus, type FareQuote } from '../../services/bookingService';
+import { geocodeAddress, type PlaceSuggestion } from '../../services/geocodingService';
+import { usePlaceSuggestions } from '../../hooks/usePlaceSuggestions';
 import type { BookingData } from '../../types';
 import { callNumber, confirmAction } from '../../utils/dialogs';
 import { formatUnifiedError } from '../../utils/errorHandler';
-import { MapHeader, NumberPlate, RecenterButton, TripPill } from './MapChrome';
+import { MapHeader, NumberPlate, RecenterButton, TripPill, TripSteps } from './MapChrome';
+import { haptic } from '../../utils/haptics';
 import { s } from './homeStyles';
 import { buildTripMap, driverPosition } from './tripMap';
 
@@ -35,6 +37,13 @@ interface PlannedTrip {
 
 const CURRENT_LOCATION = 'Current location';
 
+/** A place the rider picked from a list, so its exact coordinates are known without another lookup. */
+interface PickedPlace {
+  address: string;
+  coordinates: [number, number];
+  label?: string;
+}
+
 export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
   const [notification, setNotification] = useState<NotificationItem | null>(null);
   const notify = (title: string, body: string, type: NotificationItem['type'] = 'info') =>
@@ -46,7 +55,10 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
   const [pickupText, setPickupText] = useState(CURRENT_LOCATION);
   const [destinationText, setDestinationText] = useState('');
   const [plan, setPlan] = useState<PlannedTrip | null>(null);
-  const [pickedDrop, setPickedDrop] = useState<SavedPlace | null>(null);
+  const [pickedDrop, setPickedDrop] = useState<PickedPlace | null>(null);
+  const [pickedPickup, setPickedPickup] = useState<PickedPlace | null>(null);
+  const [focusedField, setFocusedField] = useState<'pickup' | 'drop' | null>(null);
+  const [recentPlaces, setRecentPlaces] = useState<PickedPlace[]>([]);
   const [selectedTier, setSelectedTier] = useState('uberx');
   const [quoting, setQuoting] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -59,12 +71,15 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
 
   const onTripEvent = useCallback((event: TripEvent) => {
     if (event.type === 'STATUS') {
+      if (event.status === 'DRIVER_ACCEPTED') haptic.success();
+      if (event.status === 'DRIVER_ARRIVING') haptic.warning();
       if (event.status === 'DRIVER_ACCEPTED') notify('Driver on the way', 'Your driver accepted the ride.', 'success');
       if (event.status === 'DRIVER_ARRIVING') notify('Driver has arrived', 'Meet your driver at the pickup point.', 'success');
       if (event.status === 'TRIP_STARTED') notify('Trip started', 'Have a safe journey.', 'success');
       return;
     }
     if (event.status === 'TRIP_COMPLETED') {
+      haptic.success();
       notify('Trip completed', event.booking ? `Fare: ₹${event.booking.fare}` : 'You have arrived.', 'success');
       if (event.booking) setRatingBooking(event.booking);
     } else if (event.status === 'CANCELLED') {
@@ -86,6 +101,22 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
         setContact(u.emergencyContact ?? null);
       })
       .catch(() => undefined);
+    if (formOpen) {
+      // Recent destinations: the last three distinct drop-offs from trip history.
+      getBookingHistory()
+        .then((trips) => {
+          const seen = new Set<string>();
+          const recent: PickedPlace[] = [];
+          for (const trip of trips) {
+            if (seen.has(trip.dropAddress) || !trip.dropLocation?.coordinates) continue;
+            seen.add(trip.dropAddress);
+            recent.push({ address: trip.dropAddress, coordinates: trip.dropLocation.coordinates });
+            if (recent.length === 3) break;
+          }
+          setRecentPlaces(recent);
+        })
+        .catch(() => undefined);
+    }
   }, [formOpen, activeBookingId]);
 
   const driver = driverPosition(activeBooking, driverLiveLoc);
@@ -97,9 +128,37 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
 
   const resetPlan = () => setPlan(null);
 
+  const suggestionQuery =
+    focusedField === 'pickup' ? (pickupText === CURRENT_LOCATION ? '' : pickupText) : focusedField === 'drop' ? destinationText : '';
+  // Without GPS, rank results around the area the map is showing.
+  const { suggestions, loading: searching } = usePlaceSuggestions(suggestionQuery, location ?? camera.center);
+
+  /** Fills a field from the list. Picking the destination fetches prices straight away. */
+  const choosePlace = (place: PickedPlace | 'current') => {
+    resetPlan();
+    if (focusedField === 'pickup') {
+      if (place === 'current') {
+        setPickupText(CURRENT_LOCATION);
+        setPickedPickup(null);
+      } else {
+        setPickupText(place.address);
+        setPickedPickup(place);
+      }
+      setFocusedField('drop');
+      return;
+    }
+    if (place === 'current') return;
+    setDestinationText(place.address);
+    setPickedDrop(place);
+    setFocusedField(null);
+    void handleGetPrices({ drop: place });
+  };
+
   /** Turns the typed addresses into coordinates and fetches prices. Nothing is guessed. */
-  const handleGetPrices = async () => {
-    const destinationQuery = destinationText.trim();
+  const handleGetPrices = async (override?: { drop?: PickedPlace; pickup?: PickedPlace }) => {
+    const chosenDrop = override?.drop ?? pickedDrop;
+    const chosenPickup = override?.pickup ?? pickedPickup;
+    const destinationQuery = (override?.drop?.address ?? destinationText).trim();
     if (!destinationQuery) {
       notify('Where to?', 'Enter a destination to see prices.', 'warning');
       return;
@@ -108,8 +167,11 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
     try {
       let pickupCoordinates: [number, number];
       let pickupAddress: string;
-      const pickupQuery = pickupText.trim();
-      if (!pickupQuery || pickupQuery === CURRENT_LOCATION) {
+      const pickupQuery = (override?.pickup?.address ?? pickupText).trim();
+      if (chosenPickup && chosenPickup.address === pickupQuery) {
+        pickupCoordinates = chosenPickup.coordinates;
+        pickupAddress = chosenPickup.address;
+      } else if (!pickupQuery || pickupQuery === CURRENT_LOCATION) {
         const here = location ?? (await locate(false));
         if (!here) {
           notify('Location needed', 'Turn on location, or type your pickup address.', 'warning');
@@ -128,8 +190,8 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
       }
 
       const drop =
-        pickedDrop && pickedDrop.address === destinationQuery
-          ? { longitude: pickedDrop.coordinates[0], latitude: pickedDrop.coordinates[1] }
+        chosenDrop && chosenDrop.address === destinationQuery
+          ? { longitude: chosenDrop.coordinates[0], latitude: chosenDrop.coordinates[1] }
           : await geocodeAddress(destinationQuery, location);
       if (!drop) {
         notify('Destination not found', `We couldn't find "${destinationQuery}". Try a fuller address.`, 'warning');
@@ -157,6 +219,7 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
         dropCoordinates: plan.dropCoordinates,
         serviceTier: selectedTier,
       });
+      haptic.press();
       followBooking(booking);
       setFormOpen(false);
       setPlan(null);
@@ -261,19 +324,13 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
             </View>
           ) : null}
 
-          <View style={s.tripStatusBox}>
-            <View style={s.statusStepRow}>
-              <View style={[s.statusDot, { backgroundColor: isSearching ? '#D5DBE2' : '#1D232B' }]} />
-              <View style={[s.statusLine, { backgroundColor: activeBooking.status === 'TRIP_STARTED' ? '#1D232B' : '#D5DBE2' }]} />
-              <View style={[s.statusDot, { backgroundColor: activeBooking.status === 'TRIP_STARTED' ? '#1D232B' : '#D5DBE2' }]} />
-            </View>
-            <View style={s.statusLabelsRow}>
-              <Text style={s.stepLabel}>
-                {isSearching ? 'Searching' : activeBooking.status === 'DRIVER_ARRIVING' ? 'At pickup' : 'Driver assigned'}
-              </Text>
-              <Text style={s.stepLabel}>{activeBooking.status === 'TRIP_STARTED' ? 'On the way' : 'Drop-off'}</Text>
-            </View>
-          </View>
+          {isSearching ? (
+            <Text style={[s.tierDesc, { marginBottom: 16 }]}>
+              We&apos;re asking drivers near you. This usually takes under a minute.
+            </Text>
+          ) : (
+            <TripSteps status={activeBooking.status} />
+          )}
 
           <View style={s.sheetActions}>
             {driverUser?.phoneNumber ? (
@@ -322,8 +379,11 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
                     value={pickupText}
                     onChangeText={(text) => {
                       setPickupText(text);
+                      setPickedPickup(null);
                       resetPlan();
                     }}
+                    onFocus={() => setFocusedField('pickup')}
+                    selectTextOnFocus
                     placeholder="Pickup location"
                     placeholderTextColor="#7A8592"
                   />
@@ -336,8 +396,10 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
                     value={destinationText}
                     onChangeText={(text) => {
                       setDestinationText(text);
+                      setPickedDrop(null);
                       resetPlan();
                     }}
+                    onFocus={() => setFocusedField('drop')}
                     onSubmitEditing={() => void handleGetPrices()}
                     placeholder="Enter destination"
                     placeholderTextColor="#7A8592"
@@ -346,31 +408,61 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
                 </View>
               </View>
 
-              {savedPlaces.length > 0 && !plan ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingTop: 12, alignItems: 'center' }}>
-                  {savedPlaces.map((place) => (
-                    <Pressable
-                      key={`${place.label}-${place.address}`}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Go to ${place.label}`}
-                      onPress={() => {
-                        setPickedDrop(place);
-                        setDestinationText(place.address);
-                        resetPlan();
-                      }}
-                      style={s.placeChip}
-                    >
-                      <Icon name={place.label.toLowerCase() === 'home' ? 'home' : place.label.toLowerCase() === 'work' ? 'briefcase' : 'location'} size={16} color="#1D232B" />
-                      <Text style={s.placeChipText}>{place.label}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
+              {focusedField && !plan ? (
+                <View style={s.suggestionList} accessibilityRole="list">
+                  {suggestionQuery.trim().length >= 3 ? (
+                    <>
+                      {suggestions.map((place) => (
+                        <SuggestionRow
+                          key={`${place.coordinates.join(',')}-${place.title}`}
+                          icon="location-outline"
+                          title={place.title}
+                          subtitle={place.subtitle}
+                          onPress={() => choosePlace(toPicked(place))}
+                        />
+                      ))}
+                      {searching ? <ActivityIndicator color="#1F3FB8" style={{ paddingVertical: 14 }} /> : null}
+                      {!searching && suggestions.length === 0 ? (
+                        <Text style={s.suggestionEmpty}>No matches yet. Try adding the area or city.</Text>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      {focusedField === 'pickup' ? (
+                        <SuggestionRow icon="navigate" title="Current location" subtitle="Use where you are now" onPress={() => choosePlace('current')} />
+                      ) : null}
+                      {savedPlaces.map((place) => (
+                        <SuggestionRow
+                          key={`saved-${place.label}-${place.address}`}
+                          icon={place.label.toLowerCase() === 'home' ? 'home' : place.label.toLowerCase() === 'work' ? 'briefcase' : 'bookmark'}
+                          title={place.label}
+                          subtitle={place.address}
+                          onPress={() => choosePlace(place)}
+                        />
+                      ))}
+                      {recentPlaces.map((place) => (
+                        <SuggestionRow
+                          key={`recent-${place.address}`}
+                          icon="time-outline"
+                          title={place.address.split(',')[0] ?? place.address}
+                          subtitle={place.address}
+                          onPress={() => choosePlace(place)}
+                        />
+                      ))}
+                      {savedPlaces.length === 0 && recentPlaces.length === 0 && focusedField === 'drop' ? (
+                        <Text style={s.suggestionEmpty}>Start typing a place, street or landmark.</Text>
+                      ) : null}
+                    </>
+                  )}
+                </View>
               ) : null}
 
               {locationDenied && pickupText === CURRENT_LOCATION ? (
                 <Text style={[s.tierDesc, { marginTop: 10, color: '#B7791F' }]}>Location is off. Turn it on or type your pickup address.</Text>
               ) : null}
 
+              {focusedField && !plan ? null : (
+              <>
               <Text style={s.tiersHeading}>{plan ? `Prices for ${plan.quotes[0]?.distanceKm ?? ''} km` : 'Ride options'}</Text>
               <View style={s.tiersList}>
                 {(plan?.quotes ?? Object.keys(TIER_DETAILS).map((tier) => ({ tier, name: '', fare: 0, distanceKm: 0 }))).map(
@@ -401,11 +493,17 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
 
               <View style={s.bookBtnContainer}>
                 {plan ? (
-                  <AppButton label="Confirm & request ride" loading={requesting} onPress={() => void handleRequestRide()} />
+                  <AppButton
+                    label={`Request ${TIER_DETAILS[selectedTier]?.name ?? 'ride'} · ₹${plan.quotes.find((q) => q.tier === selectedTier)?.fare ?? ''}`}
+                    loading={requesting}
+                    onPress={() => void handleRequestRide()}
+                  />
                 ) : (
                   <AppButton label="See prices" loading={quoting} onPress={() => void handleGetPrices()} />
                 )}
               </View>
+              </>
+              )}
             </ScrollView>
           )}
         </View>
@@ -437,5 +535,32 @@ export function CustomerHomeScreen({ onLogout }: { onLogout: () => void }) {
       <ProfileModal visible={profileVisible} onClose={() => setProfileVisible(false)} onLogout={onLogout} role="CUSTOMER" />
       <TripHistoryModal visible={historyVisible} role="CUSTOMER" onClose={() => setHistoryVisible(false)} />
     </View>
+  );
+}
+
+const toPicked = (place: PlaceSuggestion): PickedPlace => ({ address: place.address, coordinates: place.coordinates });
+
+function SuggestionRow({ icon, title, subtitle, onPress }: { icon: string; title: string; subtitle?: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+      onPress={onPress}
+      style={({ pressed }) => [s.suggestionRow, pressed && { backgroundColor: '#EEF2FD' }]}
+    >
+      <View style={s.suggestionIcon}>
+        <Icon name={icon} size={18} color="#1D232B" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.suggestionTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text style={s.suggestionSubtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
   );
 }

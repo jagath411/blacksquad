@@ -3,6 +3,12 @@ import { fonts } from '../../theme/fonts';
 
 /** Styles shared by the customer, driver and owner home screens. */
 export const s = StyleSheet.create<{
+  suggestionList: ViewStyle;
+  suggestionRow: ViewStyle;
+  suggestionIcon: ViewStyle;
+  suggestionTitle: TextStyle;
+  suggestionSubtitle: TextStyle;
+  suggestionEmpty: TextStyle;
   placeChip: ViewStyle;
   placeChipText: TextStyle;
   container: ViewStyle;
@@ -159,6 +165,12 @@ export const s = StyleSheet.create<{
   emptyFleetAddBtn: ViewStyle;
   emptyFleetAddBtnText: TextStyle;
 }>({
+  suggestionList: { marginTop: 10 },
+  suggestionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 6, borderRadius: 12 },
+  suggestionIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#E9EDF1', alignItems: 'center', justifyContent: 'center' },
+  suggestionTitle: { color: '#1D232B', fontSize: 17, fontFamily: fonts.w600 },
+  suggestionSubtitle: { color: '#5B6573', fontSize: 14, fontFamily: fonts.w400, marginTop: 1 },
+  suggestionEmpty: { color: '#5B6573', fontSize: 15, fontFamily: fonts.w400, paddingVertical: 12, paddingHorizontal: 6 },
   placeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D5DBE2' },
   placeChipText: { color: '#1D232B', fontSize: 15, fontFamily: fonts.w600 },
   container: {
